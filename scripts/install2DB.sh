@@ -21,7 +21,7 @@ do
   esac
 done
 
-function install_timescale_centos(){
+function install_timescale_centos {
 # install timescaledb in centos 
   yum install https://download.postgresql.org/pub/repos/yum/reporpms/EL-$(rpm -E %{centos})-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 if [ ! -f "/etc/yum.repos.d/timescale_timescaledb.repo"  ] ;then
@@ -45,13 +45,13 @@ fi
   yum install timescaledb-2-postgresql-14 -y
 }
 
-function install_influx_centos(){
+function install_influx_centos {
   rpm -e influxdb
   wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm
   sudo yum localinstall influxdb-1.8.10.x86_64.rpm
 }
 
-function install_timescale_ubuntu(){
+function install_timescale_ubuntu {
   apt install gnupg postgresql-common apt-transport-https lsb-release wget
   /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
   curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | sudo apt-key add -
@@ -61,7 +61,7 @@ function install_timescale_ubuntu(){
   apt install timescaledb-2-postgresql-14
 }
 
-function install_influxdb_ubuntu(){
+function install_influxdb_ubuntu {
   dpkg -r influxdb
   wget https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb
   sudo dpkg -i influxdb_1.8.10_amd64.deb
@@ -70,10 +70,10 @@ function install_influxdb_ubuntu(){
 
 # install influxdb and timescaledb
 # maybe will add function of uninstalling timescaledb（cause i don't know how to uninstall timescale ）
-if [ osType="centos" ];then
+if [ "${osType}" = "centos" ];then
   install_timescale_centos
   install_influx_centos
-elif [ osType="ubuntu" ];then
+elif [ "${osType}" = "ubuntu" ];then
   install_timescale_ubuntu
   install_influxdb_ubuntu
 else
