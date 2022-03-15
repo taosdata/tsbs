@@ -30,6 +30,8 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	viper.SetTypeByDefaultValue(true)
 	opts.User = viper.GetString("user")
 	opts.Pass = viper.GetString("pass")
+	opts.Host = viper.GetString("host")
+	opts.Port = viper.GetInt("port")
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }
@@ -37,7 +39,7 @@ func main() {
 	opts, loader, loaderConf := initProgramOptions()
 	benchmark, err := tdengine.NewBenchmark(loaderConf.DBName, opts, &source.DataSourceConfig{
 		Type: source.FileDataSourceType,
-		File: &source.FileDataSourceConfig{Location: "iot.data"},
+		File: &source.FileDataSourceConfig{Location: loaderConf.FileName},
 	})
 	if err != nil {
 		panic(err)

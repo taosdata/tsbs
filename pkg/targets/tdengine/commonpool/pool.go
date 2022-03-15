@@ -10,13 +10,15 @@ import (
 )
 
 type ConnectorPool struct {
+	host     string
 	user     string
 	password string
+	port     int
 	pool     pool.Pool
 }
 
-func NewConnectorPool(user, password string) (*ConnectorPool, error) {
-	a := &ConnectorPool{user: user, password: password}
+func NewConnectorPool(user, password, host string, port int) (*ConnectorPool, error) {
+	a := &ConnectorPool{user: user, password: password, host: host, port: port}
 	poolConfig := &pool.Config{
 		InitialCap:  1,
 		MaxCap:      10000,
@@ -36,7 +38,7 @@ func NewConnectorPool(user, password string) (*ConnectorPool, error) {
 func (a *ConnectorPool) factory() (interface{}, error) {
 	thread.Lock()
 	defer thread.Unlock()
-	return wrapper.TaosConnect("", a.user, a.password, "", 0)
+	return wrapper.TaosConnect(a.host, a.user, a.password, "", a.port)
 }
 
 func (a *ConnectorPool) close(v interface{}) error {
@@ -84,12 +86,12 @@ func (c *Conn) Put() error {
 	return c.pool.Put(c.TaosConnection)
 }
 
-func GetConnection(user, password string) (*Conn, error) {
+func GetConnection(user, password, host string, port int) (*Conn, error) {
 	p, exist := connectionMap.Load(user)
 	if exist {
 		connectionPool := p.(*ConnectorPool)
 		if !connectionPool.verifyPassword(password) {
-			newPool, err := NewConnectorPool(user, password)
+			newPool, err := NewConnectorPool(user, password, host, port)
 			if err != nil {
 				return nil, err
 			}
@@ -114,7 +116,7 @@ func GetConnection(user, password string) (*Conn, error) {
 			}, nil
 		}
 	} else {
-		newPool, err := NewConnectorPool(user, password)
+		newPool, err := NewConnectorPool(user, password, host, port)
 		if err != nil {
 			return nil, err
 		}

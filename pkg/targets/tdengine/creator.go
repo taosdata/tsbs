@@ -24,7 +24,7 @@ type dbCreator struct {
 
 func (d *dbCreator) Init() {
 	async.Init()
-	db, err := commonpool.GetConnection(d.opts.User, d.opts.Pass)
+	db, err := commonpool.GetConnection(d.opts.User, d.opts.Pass, d.opts.Host, d.opts.Port)
 	if err != nil {
 		panic("TDengine can not get connection")
 	}

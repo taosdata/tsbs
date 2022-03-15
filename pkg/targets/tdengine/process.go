@@ -30,7 +30,7 @@ func (p *processor) Init(_ int, doLoad, _ bool) {
 		return
 	}
 	var err error
-	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass)
+	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass, p.opts.Host, p.opts.Port)
 	if err != nil {
 		panic(err)
 	}
