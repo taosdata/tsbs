@@ -37,58 +37,88 @@ if [ ! -f "/etc/yum.repos.d/timescale_timescaledb.repo"  ] ;then
   sslcacert=/etc/pki/tls/certs/ca-bundle.crt
   metadata_expire=300
 EOL
-    yum update -y 
+  yum update -y 
 fi
 
   yum remove timescaledb-2-postgresql-14 -y
   yum remove postgresql-14 -y
   yum install timescaledb-2-postgresql-14 -y
+
+  # configure postgresql 
+  sudo /usr/pgsql-14/bin/postgresql-14-setup initdb
+  sudo systemctl enable postgresql-14
+  sudo systemctl start postgresql-14
+
+  # reset default password:password 
+  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
+  echo "shared_preload_libraries = 'timescaledb'" >> /var/lib/pgsql/14/data/postgresql.conf  
+  systemctl restart  postgresql-14
+  PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 }
 
 function install_influx_centos {
   rpm -e influxdb
+  cd /usr/local/
   wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm
-  sudo yum localinstall influxdb-1.8.10.x86_64.rpm
+  sudo yum  -y localinstall influxdb-1.8.10.x86_64.rpm
+  nohup influxd & 
 }
 
 function install_timescale_ubuntu {
-  apt install gnupg postgresql-common apt-transport-https lsb-release wget
-  /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+  apt install -y  gnupg postgresql-common apt-transport-https lsb-release wget 
+  /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y 
   curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | sudo apt-key add -
   sh -c "echo 'deb https://packagecloud.io/timescale/timescaledb/ubuntu/ $(lsb_release -c -s) main' > /etc/apt/sources.list.d/timescaledb.list"
   wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | apt-key add -
-  apt update
-  apt install timescaledb-2-postgresql-14
+  apt update -y 
+  apt install timescaledb-2-postgresql-14 -y 
+
+  # reset default password:password 
+  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
+  echo "shared_preload_libraries = 'timescaledb'" >> /etc/postgresql/14/main/postgresql.conf 
+  service postgresql restart
+  PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
 }
 
 function install_influxdb_ubuntu {
   dpkg -r influxdb
+  apt  install curl
+  cd /usr/local/
   wget https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb
   sudo dpkg -i influxdb_1.8.10_amd64.deb
+  nohup influxd & 
 }
 
 
 # install influxdb and timescaledb
 # maybe will add function of uninstalling timescaledb（cause i don't know how to uninstall timescale ）
-if [ "${osType}" = "centos" ];then
-  install_timescale_centos
-  install_influx_centos
-elif [ "${osType}" = "ubuntu" ];then
-  install_timescale_ubuntu
-  install_influxdb_ubuntu
+# if [ "${osType}" = "centos" ];then
+#   install_timescale_centos
+#   install_influx_centos
+# elif [ "${osType}" = "ubuntu" ];then
+#   install_timescale_ubuntu
+#   install_influxdb_ubuntu
+# else
+#   echo "osType can't be supported"
+# fi
+
+
+# install go env
+go env
+if [ $? -ne 0 ];then
+    echo "install go "
+    cd /usr/local/
+    wget https://studygolang.com/dl/golang/go1.16.9.linux-amd64.tar.gz
+    tar -zxvf  go1.16.9.linux-amd64.tar.gz
+    echo -e  '# GO_HOME\nexport GO_HOME=/usr/local/go\nexport PATH=$GO_HOME/bin:$PATH\nexport PATH=$PATH:$(go env GOPATH)/bin\nexport GOPATH=$(go env GOPATH)' \>> ~/.bashrc
+    source ~/.bashrc
+    go env -w GOPROXY=https://goproxy.cn,direct
+    export GO111MODULE=on
 else
-  echo "osType can't be supported"
+    echo "go has been installed"
 fi
 
-
-# configure postgresql 
-sudo /usr/pgsql-14/bin/postgresql-14-setup initdb
-sudo systemctl enable postgresql-14
-sudo systemctl start postgresql-14
-
-
-# reset default password:password 
-su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
-echo "shared_preload_libraries = 'timescaledb'" >> /var/lib/pgsql/14/data/postgresql.conf  
-systemctl restart  postgresql-14
-PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+# compile tsbs 
+go get github.com/timescale/tsbs
+cd ${OGPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
