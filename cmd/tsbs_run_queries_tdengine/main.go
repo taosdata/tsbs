@@ -16,6 +16,8 @@ import (
 var (
 	user   string
 	pass   string
+	host   string
+	port   int
 	runner *query.BenchmarkRunner
 )
 
@@ -23,8 +25,10 @@ func init() {
 	var config query.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
-	pflag.String("user", "postgres", "User to connect to TDengine as")
-	pflag.String("pass", "", "Password for the user connecting to TDengine")
+	pflag.String("user", "root", "User to connect to TDengine")
+	pflag.String("pass", "taosadata", "Password for the user connecting to TDengine")
+	pflag.String("host", "", "TDengine host")
+	pflag.Int("host", 6030, "TDengine Port")
 	pflag.Parse()
 	err := utils.SetupConfigFile()
 
@@ -36,6 +40,8 @@ func init() {
 	}
 	user = viper.GetString("user")
 	pass = viper.GetString("pass")
+	host = viper.GetString("host")
+	port = viper.GetInt("port")
 	runner = query.NewBenchmarkRunner(config)
 }
 func main() {
@@ -54,7 +60,7 @@ type processor struct {
 
 func (p *processor) Init(workerNum int) {
 	async.Init()
-	db, err := commonpool.GetConnection(user, pass)
+	db, err := commonpool.GetConnection(user, pass, host, port)
 	if err != nil {
 		panic(err)
 	}
