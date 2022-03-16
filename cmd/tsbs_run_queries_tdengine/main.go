@@ -26,9 +26,9 @@ func init() {
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("user", "root", "User to connect to TDengine")
-	pflag.String("pass", "taosadata", "Password for the user connecting to TDengine")
+	pflag.String("pass", "taosdata", "Password for the user connecting to TDengine")
 	pflag.String("host", "", "TDengine host")
-	pflag.Int("host", 6030, "TDengine Port")
+	pflag.Int("port", 6030, "TDengine Port")
 	pflag.Parse()
 	err := utils.SetupConfigFile()
 
