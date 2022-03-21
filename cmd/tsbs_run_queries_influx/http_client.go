@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 var bytesSlash = []byte("/") // heap optimization

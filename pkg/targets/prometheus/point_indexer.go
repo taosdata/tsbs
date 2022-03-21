@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/timescale/promscale/pkg/prompb"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
 	"go.uber.org/atomic"
 )
 

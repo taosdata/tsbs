@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/timescale/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data"
 )
 
 type Serializer struct {

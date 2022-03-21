@@ -7,10 +7,10 @@ import (
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/query"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/async"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/commonpool"
+	"github.com/taosdata/tsbs/internal/utils"
+	"github.com/taosdata/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
 )
 
 var (

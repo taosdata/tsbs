@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
 )
 
 func TestEventsBatch(t *testing.T) {

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
 )
 
 func TestDBCreatorReadDataHeader(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/silenceper/pool"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/thread"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/thread"
 )
 
 type ConnectorPool struct {

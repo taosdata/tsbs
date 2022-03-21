@@ -1,9 +1,9 @@
 package devops
 
 import (
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/common"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 // HighCPU produces a QueryFiller for the devops high-cpu cases

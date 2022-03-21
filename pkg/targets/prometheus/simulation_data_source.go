@@ -4,10 +4,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/timescale/promscale/pkg/prompb"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
 )
 
 func newSimulationDataSource(sim common.Simulator, useCurrentTime bool) targets.DataSource {

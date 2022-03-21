@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gocql/gocql"
-	"github.com/timescale/tsbs/load"
-	"github.com/timescale/tsbs/pkg/data/source"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/load"
+	"github.com/taosdata/tsbs/pkg/data/source"
+	"github.com/taosdata/tsbs/pkg/targets"
 	"log"
 )
 

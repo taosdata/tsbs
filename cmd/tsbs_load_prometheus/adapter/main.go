@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/timescale/tsbs/cmd/tsbs_load_prometheus/adapter/noop"
+	"github.com/taosdata/tsbs/cmd/tsbs_load_prometheus/adapter/noop"
 )
 
 var port int

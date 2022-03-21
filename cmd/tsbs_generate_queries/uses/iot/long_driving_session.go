@@ -1,9 +1,9 @@
 package iot
 
 import (
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/common"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 // TrucksWithLongDrivingSession contains info for filling in trucks with longer driving sessions queries.

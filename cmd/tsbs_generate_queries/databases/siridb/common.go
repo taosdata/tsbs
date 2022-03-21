@@ -3,9 +3,9 @@ package siridb
 import (
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 // BaseGenerator contains settings specific for SiriDB

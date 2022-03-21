@@ -1,9 +1,9 @@
 package tdengine
 
 import (
-	"github.com/timescale/tsbs/internal/inputs"
-	"github.com/timescale/tsbs/pkg/data/source"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/internal/inputs"
+	"github.com/taosdata/tsbs/pkg/data/source"
+	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {

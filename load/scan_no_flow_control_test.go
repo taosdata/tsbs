@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 func TestScanWithoutFlowControl(t *testing.T) {

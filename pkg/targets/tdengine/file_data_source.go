@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/timescale/tsbs/load"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/load"
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 func newFileDataSource(fileName string) targets.DataSource {

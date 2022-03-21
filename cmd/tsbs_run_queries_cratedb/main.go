@@ -13,8 +13,8 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/internal/utils"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 var (

@@ -3,8 +3,8 @@ package common
 import (
 	"fmt"
 	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/taosdata/tsbs/internal/utils"
+	"github.com/taosdata/tsbs/pkg/targets/constants"
 	"strings"
 	"time"
 )

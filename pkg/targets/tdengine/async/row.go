@@ -9,7 +9,7 @@ import (
 
 	tErrors "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/thread"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/thread"
 )
 
 var FetchRowError = errors.New("fetch row error")
