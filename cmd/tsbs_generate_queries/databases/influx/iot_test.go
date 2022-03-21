@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 const (

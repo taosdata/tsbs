@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/taosdata/tsbs/pkg/data"
 	"github.com/timescale/promscale/pkg/prompb"
-	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestRandomPointIndexer(t *testing.T) {

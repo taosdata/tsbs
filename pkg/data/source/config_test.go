@@ -2,8 +2,8 @@ package source
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/targets/constants"
 	"testing"
 	"time"
 )

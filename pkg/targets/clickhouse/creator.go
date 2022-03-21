@@ -6,8 +6,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/kshvakov/clickhouse"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
+	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 // loader.DBCreator interface implementation

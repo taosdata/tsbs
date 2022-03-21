@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/SiriDB/go-siridb-connector"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/transceptor-technology/go-qpack"
 )
 

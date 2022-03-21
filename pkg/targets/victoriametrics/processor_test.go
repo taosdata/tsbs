@@ -3,7 +3,7 @@ package victoriametrics
 import (
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data"
 	"net/http"
 	"net/http/httptest"
 	"sync"

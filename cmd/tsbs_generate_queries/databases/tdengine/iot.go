@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 // IoT produces TDengine-specific queries for all the iot query types.

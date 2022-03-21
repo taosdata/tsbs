@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/taosdata/tsbs/pkg/query"
 )
 
 // TODO: Remove the need for this by continuing to bubble up errors

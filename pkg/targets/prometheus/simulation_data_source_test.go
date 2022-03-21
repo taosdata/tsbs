@@ -1,8 +1,8 @@
 package prometheus
 
 import (
+	"github.com/taosdata/tsbs/pkg/data"
 	"github.com/timescale/promscale/pkg/prompb"
-	"github.com/timescale/tsbs/pkg/data"
 	"reflect"
 	"testing"
 	"time"

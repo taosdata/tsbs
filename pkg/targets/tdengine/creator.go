@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/async"
-	"github.com/timescale/tsbs/pkg/targets/tdengine/commonpool"
+	"github.com/taosdata/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
 )
 
 var fatal = log.Fatalf
