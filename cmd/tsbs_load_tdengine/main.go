@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"runtime/pprof"
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
@@ -36,6 +39,14 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	return &opts, loader, &loaderConf
 }
 func main() {
+	f, err := os.Create("./cpu.prof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	defer pprof.StopCPUProfile()
 	opts, loader, loaderConf := initProgramOptions()
 	benchmark, err := tdengine.NewBenchmark(loaderConf.DBName, opts, &source.DataSourceConfig{
 		Type: source.FileDataSourceType,

@@ -2,7 +2,9 @@ package tdengine
 
 import (
 	"bytes"
+	"container/list"
 	"fmt"
+	"strings"
 
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
@@ -11,76 +13,206 @@ import (
 
 func newSimulationDataSource(sim common.Simulator) targets.DataSource {
 	return &simulationDataSource{
-		simulator: sim,
-		headers:   sim.Headers(),
-		buf:       &bytes.Buffer{},
-		tmpBuf:    &bytes.Buffer{},
+		simulator:  sim,
+		headers:    sim.Headers(),
+		tmpBuf:     &bytes.Buffer{},
+		superTable: map[string]*Table{},
+		tableMap:   map[string]struct{}{},
+		tmpData:    list.New(),
 	}
 }
 
 type simulationDataSource struct {
-	simulator common.Simulator
-	headers   *common.GeneratedDataHeaders
-	buf       *bytes.Buffer
-	tmpBuf    *bytes.Buffer
+	simulator  common.Simulator
+	headers    *common.GeneratedDataHeaders
+	tmpBuf     *bytes.Buffer
+	superTable map[string]*Table
+	tableMap   map[string]struct{}
+	tmpData    *list.List
 }
 
-func (d *simulationDataSource) Headers() *common.GeneratedDataHeaders {
+func (s *simulationDataSource) Headers() *common.GeneratedDataHeaders {
 	return nil
 }
 
-func (d *simulationDataSource) NextItem() data.LoadedPoint {
-	if d.headers == nil {
-		fatal("headers not read before starting to read points")
-		return data.LoadedPoint{}
+func (s *simulationDataSource) NextItem() data.LoadedPoint {
+	if s.tmpData.Len() > 0 {
+		f := s.tmpData.Front()
+		p := f.Value.(data.LoadedPoint)
+		s.tmpData.Remove(f)
+		return p
 	}
-	newSimulatorPoint := data.NewPoint()
 	var write bool
-	for !d.simulator.Finished() {
-		write = d.simulator.Next(newSimulatorPoint)
+	p := data.NewPoint()
+	for !s.simulator.Finished() {
+		write = s.simulator.Next(p)
 		if write {
 			break
 		}
-		newSimulatorPoint.Reset()
+		p.Reset()
 	}
-	if d.simulator.Finished() || !write {
+	if s.simulator.Finished() || !write {
 		return data.LoadedPoint{}
 	}
-	newLoadPoint := &insertData{}
-	tagValues := newSimulatorPoint.TagValues()
-	tagKeys := newSimulatorPoint.TagKeys()
-	measurement := newSimulatorPoint.MeasurementName()
-	d.tmpBuf.Write(measurement)
-	for i, v := range tagValues {
-		d.tmpBuf.WriteByte(',')
-		d.tmpBuf.Write(tagKeys[i])
-		d.tmpBuf.WriteByte('=')
-		FastFormat(d.tmpBuf, v)
-		if i > 0 {
-			d.buf.WriteByte(',')
+
+	haveOthers := false
+	var fieldKeys []string
+	var fieldValues []string
+	var fieldTypes []string
+	var tagValues []string
+	var tagKeys []string
+	tKeys := p.TagKeys()
+	tValues := p.TagValues()
+	fKeys := p.FieldKeys()
+	fValues := p.FieldValues()
+	superTable := string(p.MeasurementName())
+	for i, value := range fValues {
+		fType := FastFormat(s.tmpBuf, value)
+		if value != nil {
+			fieldKeys = append(fieldKeys, string(fKeys[i]))
+			fieldTypes = append(fieldTypes, fType)
 		}
-		d.buf.Write(tagKeys[i])
-		d.buf.WriteByte('=')
-		FastFormat(d.buf, v)
-	}
-	subTable := calculateTable(d.tmpBuf.Bytes())
-	newLoadPoint.tbName = subTable
-	d.tmpBuf.Reset()
-	newLoadPoint.tags = d.buf.String()
-	d.buf.Reset()
-	fmt.Fprintf(d.buf, "ts=%d", newSimulatorPoint.Timestamp().UTC().UnixNano())
-	fieldValues := newSimulatorPoint.FieldValues()
-	fieldKeys := newSimulatorPoint.FieldKeys()
-	for i, v := range fieldValues {
-		d.buf.WriteByte(',')
-		d.buf.Write(fieldKeys[i])
-		d.buf.WriteByte('=')
-		FastFormat(d.buf, v)
+		fieldValues = append(fieldValues, s.tmpBuf.String())
+		s.tmpBuf.Reset()
 	}
 
-	newLoadPoint.fields = d.buf.String()
-	return data.NewLoadedPoint(&point{
-		hypertable: string(measurement),
-		row:        newLoadPoint,
+	for i, value := range tValues {
+		if value == nil {
+			stable, exist := s.superTable[superTable]
+			if exist {
+				_, exist = stable.columns[string(tKeys[i])]
+				if exist {
+					FastFormat(s.tmpBuf, tKeys[i])
+					fieldValues = append(fieldValues, s.tmpBuf.String())
+					s.tmpBuf.Reset()
+				}
+			} else {
+				//todo 可能类型错误
+				tagKeys = append(tagKeys, string(tKeys[i]))
+				FastFormat(s.tmpBuf, value)
+				tagValues = append(tagValues, s.tmpBuf.String())
+				s.tmpBuf.Reset()
+			}
+			continue
+		}
+		switch value.(type) {
+		case string:
+			tagKeys = append(tagKeys, string(tKeys[i]))
+			FastFormat(s.tmpBuf, value)
+			tagValues = append(tagValues, s.tmpBuf.String())
+			s.tmpBuf.Reset()
+		default:
+			fType := FastFormat(s.tmpBuf, tKeys[i])
+			fieldKeys = append(fieldKeys, string(tKeys[i]))
+			fieldTypes = append(fieldTypes, fType)
+			fieldValues = append(fieldValues, s.tmpBuf.String())
+			s.tmpBuf.Reset()
+		}
+	}
+	s.tmpBuf.WriteString(superTable)
+	for i, v := range tagValues {
+		s.tmpBuf.WriteByte(',')
+		s.tmpBuf.Write(tKeys[i])
+		s.tmpBuf.WriteByte('=')
+		s.tmpBuf.WriteString(v)
+	}
+	subTable := calculateTable(s.tmpBuf.Bytes())
+	s.tmpBuf.Reset()
+	stable, exist := s.superTable[superTable]
+	var returnData data.LoadedPoint
+	if !exist {
+		for i := 0; i < len(fieldTypes); i++ {
+			s.tmpBuf.WriteByte(',')
+			s.tmpBuf.WriteString(fieldKeys[i])
+			s.tmpBuf.WriteByte(' ')
+			s.tmpBuf.WriteString(fieldTypes[i])
+		}
+		returnData = data.NewLoadedPoint(&point{
+			sqlType:    CreateSTable,
+			superTable: superTable,
+			subTable:   subTable,
+			fieldCount: 0,
+			sql:        fmt.Sprintf("create table %s (ts timestamp%s) tags (%s binary(30))", superTable, s.tmpBuf.String(), strings.Join(tagKeys, " binary(30),")),
+		})
+		haveOthers = true
+		table := &Table{
+			columns: map[string]struct{}{},
+			tags:    map[string]struct{}{},
+		}
+		for _, key := range fieldKeys {
+			table.columns[key] = nothing
+		}
+		for _, key := range tagKeys {
+			table.tags[key] = nothing
+		}
+		s.superTable[superTable] = table
+	} else {
+		for _, key := range fieldKeys {
+			if _, exist = stable.columns[key]; !exist {
+				dp := data.NewLoadedPoint(&point{
+					sqlType:    Modify,
+					superTable: superTable,
+					subTable:   subTable,
+					fieldCount: 0,
+					sql:        fmt.Sprintf("alter table %s add COLUMN %s double", superTable, key),
+				})
+				if haveOthers {
+					s.tmpData.PushBack(dp)
+				} else {
+					returnData = dp
+					haveOthers = true
+				}
+				stable.columns[key] = nothing
+			}
+		}
+		for _, key := range tagKeys {
+			if _, exist = stable.tags[key]; !exist {
+				dp := data.NewLoadedPoint(&point{
+					sqlType:    Modify,
+					superTable: superTable,
+					subTable:   subTable,
+					fieldCount: 0,
+					sql:        fmt.Sprintf("alter table %s add TAG %s binary(30)", superTable, key),
+				})
+				if haveOthers {
+					s.tmpData.PushBack(dp)
+				} else {
+					returnData = dp
+					haveOthers = true
+				}
+				stable.tags[key] = nothing
+			}
+		}
+	}
+	_, exist = s.tableMap[subTable]
+	if !exist {
+		dp := data.NewLoadedPoint(&point{
+			sqlType:    CreateSubTable,
+			superTable: superTable,
+			subTable:   subTable,
+			fieldCount: 0,
+			sql:        fmt.Sprintf("create table %s using %s (%s) tags (%s)", subTable, superTable, strings.Join(tagKeys, ","), strings.Join(tagValues, ",")),
+		})
+		if haveOthers {
+			s.tmpData.PushBack(dp)
+		} else {
+			returnData = dp
+			haveOthers = true
+		}
+		s.tableMap[subTable] = nothing
+	}
+	dp := data.NewLoadedPoint(&point{
+		sqlType:    Insert,
+		superTable: superTable,
+		subTable:   subTable,
+		fieldCount: len(fieldValues),
+		sql:        fmt.Sprintf("(%d,%s)", p.TimestampInUnixMs(), strings.Join(fieldValues, ",")),
 	})
+	if haveOthers {
+		s.tmpData.PushBack(dp)
+	} else {
+		returnData = dp
+		haveOthers = true
+	}
+	return returnData
 }

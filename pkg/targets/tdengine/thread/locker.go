@@ -1,8 +1,6 @@
 package thread
 
-import (
-	"runtime"
-)
+import "runtime"
 
 type Locker struct {
 	c chan struct{}

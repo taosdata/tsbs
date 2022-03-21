@@ -1,34 +1,48 @@
 package tdengine
 
 import (
+	"bytes"
+	"context"
 	"fmt"
-	"strings"
+	"io/ioutil"
+	"sync"
 
-	tErrors "github.com/taosdata/driver-go/v2/errors"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/tdengine/async"
 	"github.com/timescale/tsbs/pkg/targets/tdengine/commonpool"
 )
 
-type insertData struct {
-	tbName string
-	tags   string
-	fields string
+type syncCSI struct {
+	m sync.Map //table:ctx
 }
+
+const Size1M = 1 * 1024 * 1024
+
+type Ctx struct {
+	c      context.Context
+	cancel context.CancelFunc
+}
+
+var globalSCI = &syncCSI{}
+
 type processor struct {
 	opts   *LoadingOptions
 	dbName string
+	sci    *syncCSI
 	_db    *commonpool.Conn
+	wg     *sync.WaitGroup
+	buf    *bytes.Buffer
 }
 
 func newProcessor(opts *LoadingOptions, dbName string) *processor {
-	return &processor{opts: opts, dbName: dbName}
+	return &processor{opts: opts, dbName: dbName, sci: globalSCI, wg: &sync.WaitGroup{}, buf: &bytes.Buffer{}}
 }
 
 func (p *processor) Init(_ int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
+	p.buf.Grow(Size1M)
 	var err error
 	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass, p.opts.Host, p.opts.Port)
 	if err != nil {
@@ -42,95 +56,160 @@ func (p *processor) Init(_ int, doLoad, _ bool) {
 
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
 	batches := b.(*hypertableArr)
-	rowCnt := 0
-	metricCnt := uint64(0)
-	for hypertable, rows := range batches.m {
-		rowCnt += len(rows)
-		if doLoad {
-			metricCnt += p.processCSI(hypertable, rows)
+	rowCnt := uint64(0)
+	metricCnt := batches.totalMetric
+	if !doLoad {
+		for _, sqls := range batches.m {
+			rowCnt += uint64(len(sqls))
+		}
+		return metricCnt, rowCnt
+	}
+	//p.wg.Add(len(batches.createSql))
+	//for _, row := range batches.createSql {
+	//	row := row
+	//	go func() {
+	//		defer p.wg.Done()
+	//		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+	//		if err != nil {
+	//			fmt.Println(row.sql)
+	//			panic(err)
+	//		}
+	//	}()
+	//}
+	//p.wg.Wait()
+	for _, row := range batches.createSql {
+		switch row.sqlType {
+		case CreateSTable:
+			c, cancel := context.WithCancel(context.Background())
+			ctx := &Ctx{
+				c:      c,
+				cancel: cancel,
+			}
+			actual, _ := p.sci.m.LoadOrStore(row.superTable, ctx)
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+			if err != nil {
+				fmt.Println(row.sql)
+				panic(err)
+			}
+			GlobalTable.Store(row.subTable, nothing)
+			actual.(*Ctx).cancel()
+		case CreateSubTable:
+			c, cancel := context.WithCancel(context.Background())
+			ctx := &Ctx{
+				c:      c,
+				cancel: cancel,
+			}
+			actual, _ := p.sci.m.LoadOrStore(row.subTable, ctx)
+
+			//check super table created
+			_, ok := GlobalTable.Load(row.superTable)
+			if !ok {
+				v, ok := p.sci.m.Load(row.superTable)
+				if ok {
+					<-v.(*Ctx).c.Done()
+					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+					if err != nil {
+						fmt.Println(row.sql)
+						panic(err)
+					}
+					GlobalTable.Store(row.subTable, nothing)
+					actual.(*Ctx).cancel()
+					continue
+				}
+				// wait for super table created
+				superTableC, superTableCancel := context.WithCancel(context.Background())
+				superTableCtx := &Ctx{
+					c:      superTableC,
+					cancel: superTableCancel,
+				}
+				superTableActual, _ := p.sci.m.LoadOrStore(row.superTable, superTableCtx)
+				<-superTableActual.(*Ctx).c.Done()
+			}
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+			if err != nil {
+				fmt.Println(row.sql)
+				panic(err)
+			}
+			GlobalTable.Store(row.subTable, nothing)
+			actual.(*Ctx).cancel()
+		default:
+			panic("impossible")
 		}
 	}
-	batches.m = map[string][]*insertData{}
-	batches.cnt = 0
-	return metricCnt, uint64(rowCnt)
+	p.wg.Add(len(batches.m))
+	for tableName := range batches.m {
+		tableName := tableName
+		go func() {
+			defer p.wg.Done()
+			_, ok := GlobalTable.Load(tableName)
+			if ok {
+				return
+			}
+			v, ok := p.sci.m.Load(tableName)
+			if ok {
+				<-v.(*Ctx).c.Done()
+				return
+			}
+			c, cancel := context.WithCancel(context.Background())
+			ctx := &Ctx{
+				c:      c,
+				cancel: cancel,
+			}
+			actual, _ := p.sci.m.LoadOrStore(tableName, ctx)
+			<-actual.(*Ctx).c.Done()
+			return
+		}()
+	}
+	p.wg.Wait()
+	p.buf.WriteString("insert into ")
+	for tableName, sqls := range batches.m {
+		rowCnt += uint64(len(sqls))
+		if p.buf.Len()+len(sqls[0])+len(tableName)+7 > Size1M {
+			sql := p.buf.String()
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+			if err != nil {
+				ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
+				fmt.Println(sql)
+				panic(err)
+			}
+			p.buf.Reset()
+			p.buf.WriteString("insert into ")
+		}
+		p.buf.WriteString(tableName)
+		p.buf.WriteString(" values")
+		for i := 0; i < len(sqls); i++ {
+			if p.buf.Len()+len(sqls[i]) > Size1M {
+				sql := p.buf.String()
+				err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+				if err != nil {
+					ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
+					fmt.Println(sql)
+					panic(err)
+				}
+				p.buf.Reset()
+				p.buf.WriteString("insert into ")
+				p.buf.WriteString(tableName)
+				p.buf.WriteString(" values")
+			}
+			p.buf.WriteString(sqls[i])
+		}
+	}
+	if p.buf.Len() > 0 {
+		sql := p.buf.String()
+		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+		if err != nil {
+			fmt.Println(sql)
+			panic(err)
+		}
+		p.buf.Reset()
+	}
+
+	batches.Reset()
+	return metricCnt, rowCnt
 }
 
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
 		p._db.Put()
-	}
-}
-
-func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
-	numMetrics := uint64(0)
-	for _, row := range rows {
-		metrics := strings.Split(row.fields, ",")
-		numMetrics += uint64(len(metrics) - 1)
-
-		var fieldKeys []string
-		var fieldValues []string
-		for _, pair := range metrics {
-			field := strings.Split(pair, "=")
-			switch aType(field[1]) {
-			case Null:
-				continue
-			default:
-				fieldKeys = append(fieldKeys, field[0])
-				fieldValues = append(fieldValues, field[1])
-			}
-		}
-		tagPairs := strings.Split(row.tags, ",")
-		var tagValues []string
-		var tagKeys []string
-		for _, pair := range tagPairs {
-			tag := strings.Split(pair, "=")
-			switch aType(tag[1]) {
-			case Null:
-				continue
-			case StringType:
-				tagKeys = append(tagKeys, tag[0])
-				tagValues = append(tagValues, tag[1])
-			case NumberType:
-				fieldKeys = append(fieldKeys, tag[0])
-				fieldValues = append(fieldValues, tag[1])
-			}
-		}
-		//insert into %s using %s (%s) tags (%s) (%s) values (%s)
-		sql := fmt.Sprintf("insert into %s using %s (%s) tags (%s) (%s) values (%s)", row.tbName, hypertable, strings.Join(tagKeys, ","), strings.Join(tagValues, ","), strings.Join(fieldKeys, ","), strings.Join(fieldValues, ","))
-		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
-		if err != nil {
-			e := err.(*tErrors.TaosError)
-			switch e.Code {
-			case tErrors.MND_INVALID_TABLE_NAME:
-				createTableSql := fmt.Sprintf("create table %s (ts timestamp,%s double) tags (%s binary(128))", hypertable, strings.Join(fieldKeys[1:], " double,"), strings.Join(tagKeys, " binary(128),"))
-				_ = async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, createTableSql)
-			case tErrors.TSC_INVALID_OPERATION:
-				//todo
-			}
-			err = async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
-			if err != nil {
-				fmt.Println(sql)
-				panic(err)
-			}
-		}
-
-	}
-	return numMetrics
-}
-
-const (
-	StringType = iota + 1
-	NumberType
-	Null
-)
-
-func aType(v string) int {
-	switch v[0] {
-	case '\'':
-		return StringType
-	case 'n':
-		return Null
-	default:
-		return NumberType
 	}
 }

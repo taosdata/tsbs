@@ -42,7 +42,7 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 	if maxPartitions > 1 {
-		return &hostnameIndexer{partitions: maxPartitions}
+		return &indexer{partitions: maxPartitions, tmp: map[string]uint{}}
 	}
 	return &targets.ConstantIndexer{}
 }

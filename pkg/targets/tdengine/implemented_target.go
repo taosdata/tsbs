@@ -1,6 +1,8 @@
 package tdengine
 
 import (
+	"bytes"
+
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/data/serialize"
@@ -28,7 +30,11 @@ func (t *tdengineTarget) TargetName() string {
 }
 
 func (t *tdengineTarget) Serializer() serialize.PointSerializer {
-	return &Serializer{}
+	return &Serializer{
+		tableMap:   map[string]struct{}{},
+		superTable: map[string]*Table{},
+		tmpBuf:     &bytes.Buffer{},
+	}
 }
 
 func (t *tdengineTarget) Benchmark(targetDB string, dataSourceConfig *source.DataSourceConfig, v *viper.Viper,
