@@ -103,6 +103,15 @@ if [[ -z "$EXE_FILE_NAME_RUN_INF" ]]; then
 fi
 
 
+
+EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
+if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
+    echo "tsbs_run_queries_influx not available. It is not specified explicitly and not found in \$PATH"
+    exit 1
+fi
+
+
+
 # Queryresult Path
 BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES:-"/tmp/bulk_result_query"}
 # Ensure DATA DIR available
@@ -116,13 +125,15 @@ DATABASE_HOST=${DATABASE_HOST:-localhost}
 DATABASE_PORT=${DATABASE_PORT:-5432}
 DATABASE_PWD=${DATABASE_PWD:-password}
 DATABASE_INF_PORT=${DATABASE_INF_PORT:-8086}
-
+DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
+DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
+NUM_WORKER=${NUM_WORKER:-"16"} 
 
 # How many queries would be run
 MAX_QUERIES=${MAX_QUERIES:-"0"}
 
 # How many concurrent worker would run queries - match num of cores, or default to 4
-NUM_WORKER=${NUM_WORKER:-$(grep -c ^processor /proc/cpuinfo 2> /dev/null || echo 4)}
+# NUM_WORKER=${NUM_WORKER:-$(grep -c ^processor /proc/cpuinfo 2> /dev/null || echo 4)}
 
 # modify data type
 EXTENSION="${DATA_FILE_NAME##*.}"
@@ -161,6 +172,23 @@ elif [  ${FORMAT} == "influx" ]; then
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
             --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} \
+        | tee ${OUT_FULL_FILE_NAME}
+        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep wall |awk '{print $4}'| sed "s/sec//g"`
+        qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
+        echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+elif [  ${FORMAT} == "TDengine" ]; then
+    RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
+    OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
+    echo " cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TD} --db-name ${DATABASE_NAME} --host ${DATABASE_HOST}  --pass ${DATABASE_TAOS_PWD} --port ${DATABASE_TAOS_PORT} --max-queries ${MAX_QUERIES}  --workers ${NUM_WORKER} | tee ${OUT_FULL_FILE_NAME}"
+    cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
+        | ${GUNZIP} \
+        | ${EXE_FILE_NAME_RUN_TD} \
+            --db-name ${DATABASE_NAME} \
+            --host ${DATABASE_HOST} \
+            --pass ${DATABASE_TAOS_PWD} \
+            --port ${DATABASE_TAOS_PORT} \
+            --max-queries ${MAX_QUERIES} \
+            --workers ${NUM_WORKER} \
         | tee ${OUT_FULL_FILE_NAME}
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep wall |awk '{print $4}'| sed "s/sec//g"`
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `

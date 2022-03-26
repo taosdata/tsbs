@@ -121,4 +121,4 @@ fi
 
 # compile tsbs 
 go get github.com/timescale/tsbs
-cd ${OGPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
+cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make

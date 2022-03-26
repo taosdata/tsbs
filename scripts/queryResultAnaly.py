@@ -42,15 +42,17 @@ with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
         wcltime.append(float(row[6]))
         qps.append(float(row[7]))
 
-xticks = np.arange(0,len(set(querytype))*4,4)
-print(xticks)
+xticks = np.arange(0,len(set(querytype))*8,8)
+# print(xticks)
+print(inputfile)
 datacount=wc_count(inputfile)
+print(datacount)
 sortlist=list(set(databasetype))
 typeCount=len(sortlist)
-bar_width = 1
+bar_width = 2.5
 # timescaledb_x=xticks
 # influx_x=timescaledb_x+bar_width
-fig=figure(figsize=(12, 10), dpi=300,layout='constrained')    
+fig=figure(figsize=(16, 12), dpi=300,layout='constrained')    
 ax=plt.subplot(1,1,1)
 # generate data
 for j  in range(typeCount):
@@ -60,6 +62,9 @@ for j  in range(typeCount):
     influx_querytype=[]
     influx_wcltime=[]
     influx_qps=[]
+    tdengine_querytype=[]
+    tdengine_wcltime=[]
+    tdengine_qps=[]    
     for i in range(datacount):
         if(databasetype[i]=="timescaledb"):
             timescdb_querytype.append(querytype[i])
@@ -69,50 +74,41 @@ for j  in range(typeCount):
             influx_querytype.append(querytype[i])
             influx_wcltime.append(wcltime[i])
             influx_qps.append(qps[i])
-    print(tuple(timescdb_querytype))        
-ax.bar(xticks, timescdb_wcltime, width=bar_width, label="timescaledb")
-ax.bar(xticks+bar_width, influx_wcltime, width=bar_width, label="influx")   
-for a,b in zip(xticks,timescdb_wcltime):   #柱子上的数字显示
-    plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-for a,b in zip(xticks+bar_width,influx_wcltime):   #柱子上的数字显示
-    plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
+        elif(databasetype[i]=="TDengine"):
+            tdengine_querytype.append(querytype[i])
+            tdengine_wcltime.append(wcltime[i])
+            tdengine_qps.append(qps[i])
+    # print(tuple(timescdb_querytype))   
+
+if( "timescaledb" in sortlist ):
+    ax.bar(xticks+bar_width*2, timescdb_wcltime, width=bar_width, label="timescaledb")
+    for a,b in zip(xticks+bar_width*2,timescdb_wcltime):   #柱子上的数字显示
+        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(tuple(timescdb_querytype))
+if( "influx" in sortlist ):
+    print(xticks+bar_width,influx_wcltime)
+    ax.bar(xticks+bar_width, influx_wcltime, width=bar_width, label="influx")   
+    for a,b in zip(xticks+bar_width,influx_wcltime):   #柱子上的数字显示
+        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(tuple(influx_querytype))
+if( "TDengine" in  sortlist ):
+    ax.bar(xticks, tdengine_wcltime, width=bar_width, label="tdengine")   
+    for a,b in zip(xticks,tdengine_wcltime):   #柱子上的数字显示
+        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(tuple(tdengine_querytype))
 
 # ax.set_xlabel("%s" % xLableName)  # add x lable
 ax.set_ylabel("spendtime:s")  # add y lable
-ax.set_title("QueryComparisons:%s-speed"% xLableName)  # Add a title to the axes.
+ax.set_title("QueryComparisons query response Time in different %s"% xLableName)  # Add a title to the axes.
 print(tuple(influx_querytype),xticks)
 ax.legend() 
-ax.set_xticks(xticks)
-ax.set_xticklabels(tuple(influx_querytype))
+
 # ax.set_xticklabels(rotation=70)
 plt.xticks(rotation=45)
 plt.savefig('%s'% pngName)
 plt.close()  
-
-        # elif(databasetype[i]=="TDengine"):
-             
-# for j  in range(typeCount):
-#     newxpoints="newxpoint"+str(j)
-#     newspeed_points="newspeed_points"+str(j)
-#     newtime_points="newtime_points"+str(j)
-#     newxpoints=[]
-#     newspeed_points=[]
-#     newtime_points=[]
-#     lab=sortlist[j]
-#     for i in range(datacount):
-#         if(fig_names[i]==sortlist[j]):
-#             newxpoints.append(xpoints[i])
-#             newspeed_points.append(speed_points[i])
-#             newtime_points.append(time_points[i])
-#     ax1.bar(newxpoints,newspeed_points,marker = 'o',label="%s" % lab ) 
-#     ax1.set_xlabel("%s" % xLableName)  # add x lable
-#     ax1.set_ylabel("speed:rows/s)")  # add y lable
-#     ax1.set_title("LoadComparisons:%s-speed"% xLableName)  # Add a title to the axes.
-#     ax1.legend(loc='best')  # display  lable and title
-#     ax2.plot(newxpoints,newtime_points,marker = 'o',label="%s" % lab ) 
-#     ax2.set_xlabel("%s" % xLableName)  # add y lable 
-#     ax2.set_ylabel("spendtime:s)")  # add y lable
-#     ax2.set_title("LoadComparisons:%s-spendtime"% xLableName)  # Add a title to the axes.
-#     ax2.legend(loc='best')  # display 
 
 

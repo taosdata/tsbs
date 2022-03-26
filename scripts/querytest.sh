@@ -30,8 +30,10 @@ FORMATS=${FORMATS:-"timescaledb influx"}
 SCALE=${SCALE:-"100"}
 SEED=${SEED:-"123"}
 NUM_WORKER_LOAD=${NUM_WORKER_LOAD:-"24"} 
-BATCH_SIZE=${BATCH_SIZE:-"10000"} 
+BATCH_SIZE=${BATCH_SIZE:-"100000"} 
 
+#reset loading data
+RESTLOAD=${RESTLOAD:-"true"}
 
 # All available for generation query types (sorted alphabetically)
 QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
@@ -54,16 +56,24 @@ single-groupby-5-8-1"}
 QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
 last-loc \
 low-fuel \
-high-load \
-stationary-trucks \
-long-driving-sessions \
-long-daily-sessions	\
-avg-vs-projected-fuel-consumption \
 avg-daily-driving-duration \
-avg-daily-driving-session \
-avg-load \
-daily-activity \
-breakdown-frequency"}
+avg-vs-projected-fuel-consumption \
+daily-activity "}    
+
+
+# QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
+# last-loc \
+# low-fuel \
+# high-load \           tdengine does not support 
+# stationary-trucks \   tdengine does not support 
+# long-driving-sessions \  tdengine does not support 
+# long-daily-sessions	\  tdengine does not support 
+# avg-vs-projected-fuel-consumption \ tdengine does not support 
+# avg-daily-driving-duration \
+# avg-daily-driving-session \  tdengine does not support 
+# avg-load \                     tdengine does not support 
+# daily-activity \
+# breakdown-frequency"}      tdengine does not support 
 
 
 # Number of queries to generate
@@ -84,8 +94,10 @@ NUM_WORKERS=${NUM_WORKERS:-"24"}
 # testcase : 
 for FORMAT in ${FORMATS}; do
     for USE_CASE in ${USE_CASES}; do
-        echo "" DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER_LOAD}  BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh
-        DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh       
+        if [ ${RESTLOAD} == "true" ] ;then
+            echo " DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER_LOAD}  BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} ./full_cycle_minitest_loading.sh "
+            DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} ./full_cycle_minitest_loading.sh       
+        fi
         if [ ${USE_CASE} != "iot" ] ;then
             for QUERY_TYPE in ${QUERY_TYPES_ALL}; do
                 for NUM_WORKER in ${NUM_WORKERS}; do

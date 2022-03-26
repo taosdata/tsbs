@@ -33,28 +33,22 @@ else:
     pngName="test_load.png"
 
 print("open %s" % inputfile )
-if (sys.argv[2]=="NUM_WORKER"):
-    with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
-        spamreader = csv.reader(csvfile) 
-        for row in spamreader:
+with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
+    spamreader = csv.reader(csvfile) 
+    for row in spamreader:
+        if (sys.argv[2]=="NUM_WORKER"):
             fig_name=row[0] + "_" + row[1] + "_" + row[2] + "_" + row[3]
             fig_names.append(fig_name)
             xpoints.append(int(row[4]))
             speed_points.append(float(row[5]))
             time_points.append(float(row[6]))
-elif (sys.argv[2]=="BATCH_SIZE"):
-    with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
-        spamreader = csv.reader(csvfile) 
-        for row in spamreader:
+        elif (sys.argv[2]=="BATCH_SIZE"):
             fig_name=row[0] + "_" + row[1] + "_" + row[2] + "_" + row[4]
             fig_names.append(fig_name)
             xpoints.append(int(row[3]))
             speed_points.append(float(row[5]))
             time_points.append(float(row[6]))   
-elif (sys.argv[2]=="SCALE"):
-    with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
-        spamreader = csv.reader(csvfile) 
-        for row in spamreader:
+        elif (sys.argv[2]=="SCALE"):
             fig_name=row[0] + "_" + row[1] + "_" + row[3] + "_" + row[4]
             fig_names.append(fig_name)
             xpoints.append(int(row[2]))
@@ -62,20 +56,18 @@ elif (sys.argv[2]=="SCALE"):
             time_points.append(float(row[6]))     
 
 
-
-
 datacount=wc_count(inputfile)
 sortlist=list(set(fig_names))
 typeCount=len(sortlist)
 # fig=figure(num=None, figsize=(40, 7), dpi=300,layout='constrained')    
-fig=figure(figsize=(12, 10), dpi=300,layout='constrained')    
+fig=figure(figsize=(14, 12), dpi=300,layout='constrained')    
 ax1=fig.add_subplot(1, 2, 1)    
 ax2=fig.add_subplot(1, 2, 2)    
 
 for j  in range(typeCount):
-    newxpoints="newxpoint"+str(j)
-    newspeed_points="newspeed_points"+str(j)
-    newtime_points="newtime_points"+str(j)
+    # newxpoints="newxpoint"+str(j)
+    # newspeed_points="newspeed_points"+str(j)
+    # newtime_points="newtime_points"+str(j)
     newxpoints=[]
     newspeed_points=[]
     newtime_points=[]
@@ -87,14 +79,18 @@ for j  in range(typeCount):
             newtime_points.append(time_points[i])
     ax1.plot(newxpoints,newspeed_points,marker = 'o',label="%s" % lab ) 
     ax1.set_xlabel("%s" % xLableName)  # 添加横轴标签
-    ax1.set_ylabel("speed:rows/s")  # 添加纵轴标签
-    ax1.set_title("LoadComparisons:%s-speed"% xLableName)  # Add a title to the axes.
+    ax1.set_ylabel("Ingest Rate:rows/s")  # 添加纵轴标签
+    ax1.set_title("Load Comparisons:%s-speed"% xLableName)  # Add a title to the axes.
     ax1.legend(loc='best')  # 展示图例
+    for a, b in zip(newxpoints, newspeed_points):
+        ax1.text(a, b, '%.1f'%b, ha='center', va='bottom')
     ax2.plot(newxpoints,newtime_points,marker = 'o',label="%s" % lab ) 
     ax2.set_xlabel("%s" % xLableName)  # 添加横轴标签
     ax2.set_ylabel("spendtime:s")  # 添加纵轴标签
-    ax2.set_title("LoadComparisons:%s-spendtime"% xLableName)  # Add a title to the axes.
+    ax2.set_title("Load Comparisons:%s-spendtime"% xLableName)  # Add a title to the axes.
     ax2.legend(loc='best')  # 展示图例
+    for a, b in zip(newxpoints, newtime_points):
+        ax2.text(a, b, '%.2f'%b, ha='center', va='bottom')
 
 plt.savefig('%s'% pngName)
 plt.close()  

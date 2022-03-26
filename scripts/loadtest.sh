@@ -6,7 +6,7 @@ BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
 
 # Space-separated list of target DB formats to generate
-FORMATS=${FORMATS:-"timescaledb influx"}
+FORMATS=${FORMATS:-"timescaledb influx TDengine"}
 
 # Number of hosts to generate data about
 SCALES=${SCALES:-"100"}
@@ -36,12 +36,16 @@ DATABASE_PWD=${DATABASE_PWD:-password}
 NUM_WORKERS=${NUM_WORKERS:-"24"} 
 BATCH_SIZES=${BATCH_SIZES:-"10000"} 
 
-rm -rf ${BULK_DATA_DIR}/*
+worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
+batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
+scalelen=`echo  ${SCALES}| awk  '{print NF}' `
+
+
+# rm -rf ${BULK_DATA_DIR}/*
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 
-
-for FORMAT in ${FORMATS}; do
-    for USE_CASE in ${USE_CASES}; do
+for USE_CASE in ${USE_CASES}; do
+    for FORMAT in ${FORMATS}; do
         for SCALE in ${SCALES};do 
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
@@ -63,4 +67,20 @@ for FORMAT in ${FORMATS}; do
         done
     done
 done
+
+# generate png report
+# loadResultAnaly.py has three parameter,
+# 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
+if [ ${worklen} != 1 ];then 
+    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png"
+    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png
+elif [ ${batchlen} != 1 ];then 
+    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png"
+    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png
+elif [ ${scalelen} != 1 ];then 
+    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png"
+    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png  
+fi  
+
+
 
