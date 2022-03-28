@@ -1,7 +1,9 @@
-package tdengine
+package tdenginesml
 
 import (
-	"github.com/taosdata/tsbs/internal/inputs"
+	"bufio"
+
+	"github.com/taosdata/tsbs/load"
 	"github.com/taosdata/tsbs/pkg/data/source"
 	"github.com/taosdata/tsbs/pkg/targets"
 )
@@ -9,14 +11,10 @@ import (
 func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
 	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
-		ds = newFileDataSource(dataSourceConfig.File.Location)
+		br := load.GetBufferedReader(dataSourceConfig.File.Location)
+		ds = &fileDataSource{scanner: bufio.NewScanner(br)}
 	} else {
-		dataGenerator := &inputs.DataGenerator{}
-		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
-		if err != nil {
-			return nil, err
-		}
-		ds = newSimulationDataSource(simulator)
+		panic("not implement")
 	}
 
 	return &benchmark{
@@ -27,9 +25,9 @@ func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.
 }
 
 type benchmark struct {
+	dbName string
 	opts   *LoadingOptions
 	ds     targets.DataSource
-	dbName string
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
@@ -40,10 +38,7 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if maxPartitions > 1 {
-		return &indexer{partitions: maxPartitions, tmp: map[string]uint{}}
-	}
+func (b *benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
 	return &targets.ConstantIndexer{}
 }
 
@@ -52,5 +47,8 @@ func (b *benchmark) GetProcessor() targets.Processor {
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{opts: b.opts, ds: b.ds}
+	return &dbCreator{
+		opts: b.opts,
+		ds:   b.ds,
+	}
 }

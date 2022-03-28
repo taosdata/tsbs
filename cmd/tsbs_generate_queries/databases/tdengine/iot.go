@@ -17,6 +17,7 @@ type IoT struct {
 //last-loc
 //single-last-loc
 //low-fuel
+//avg-vs-projected-fuel-consumption
 //avg-daily-driving-duration
 //daily-activity
 
@@ -128,9 +129,9 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 //}
 
 //AvgLoad finds the average load per truck model per fleet.
-func (i *IoT) AvgLoad(qi query.Query) {
-	fmt.Sprintf("select avg(ml) as mean_load_percentage from (select current_load/load_capacity as ml ,name,fleet,model from diagnostics) group by fleet,model")
-}
+//func (i *IoT) AvgLoad(qi query.Query) {
+//	fmt.Sprintf("select avg(ml) as mean_load_percentage from (select current_load/load_capacity as ml ,name,fleet,model from diagnostics) group by fleet,model")
+//}
 
 // DailyTruckActivity returns the number of hours trucks has been active (not out-of-commission) per day per fleet per model.
 func (i *IoT) DailyTruckActivity(qi query.Query) {

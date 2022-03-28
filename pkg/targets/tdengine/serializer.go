@@ -108,7 +108,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			if exist {
 				_, exist = stable.columns[string(tKeys[i])]
 				if exist {
-					FastFormat(s.tmpBuf, tKeys[i])
+					FastFormat(s.tmpBuf, value)
 					fieldValues = append(fieldValues, s.tmpBuf.String())
 					s.tmpBuf.Reset()
 				}
@@ -128,7 +128,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			tagValues = append(tagValues, s.tmpBuf.String())
 			s.tmpBuf.Reset()
 		default:
-			fType := FastFormat(s.tmpBuf, tKeys[i])
+			fType := FastFormat(s.tmpBuf, value)
 			fieldKeys = append(fieldKeys, string(tKeys[i]))
 			fieldTypes = append(fieldTypes, fType)
 			fieldValues = append(fieldValues, s.tmpBuf.String())
