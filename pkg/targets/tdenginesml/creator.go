@@ -1,15 +1,12 @@
-package tdengine
+package tdenginesml
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
 )
-
-var fatal = log.Fatalf
 
 type dbCreator struct {
 	opts *LoadingOptions

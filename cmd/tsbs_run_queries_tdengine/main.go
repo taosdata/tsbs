@@ -74,7 +74,6 @@ func (p *processor) Init(workerNum int) {
 		debug:         runner.DebugLevel() > 0,
 		printResponse: runner.DoPrintResponses(),
 	}
-	fmt.Println(p.opts)
 }
 
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {

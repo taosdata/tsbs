@@ -17,6 +17,7 @@ type IoT struct {
 //last-loc
 //single-last-loc
 //low-fuel
+//avg-vs-projected-fuel-consumption
 //avg-daily-driving-duration
 //daily-activity
 
@@ -84,7 +85,7 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 //todo
 //func (i *IoT) StationaryTrucks(qi query.Query) {
 //interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-//sql := fmt.Sprintf("select name,driver from (select avg(velocity) as a from readings where ts > %d and ts <= %d and feet = '%s' interval(10m) group by name,driver,feet limit 1) where a < 1 group by name", interval.StartUnixNano(), interval.EndUnixNano(), i.GetRandomFleet())
+//sql := fmt.Sprintf("select name,driver from (select avg(velocity) as a from readings where ts > %d and ts <= %d and feet = '%s' interval(10m) group by name,driver,feet limit 1) where a < 1 group by name", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
 //humanLabel := "TDengine stationary trucks"
 //humanDesc := fmt.Sprintf("%s: with low avg velocity in last 10 minutes", humanLabel)
 //
@@ -114,7 +115,7 @@ func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
 
 // AvgDailyDrivingDuration finds the average driving duration per driver.
 func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
-	sql := fmt.Sprintf("select count(mv)/6 as hours_driven from (select avg(velocity) as mv from readings where ts > %d and ts < %d interval(10m) group by fleet,name,driver) interval(1d)", i.Interval.StartUnixNano(), i.Interval.EndUnixNano())
+	sql := fmt.Sprintf("select count(mv)/6 as hours_driven from (select avg(velocity) as mv from readings where ts > %d and ts < %d interval(10m) group by fleet,name,driver) interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 
 	humanLabel := "TDengine average driver driving duration per day"
 	humanDesc := humanLabel
@@ -128,13 +129,13 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 //}
 
 //AvgLoad finds the average load per truck model per fleet.
-func (i *IoT) AvgLoad(qi query.Query) {
-	fmt.Sprintf("select avg(ml) as mean_load_percentage from (select current_load/load_capacity as ml ,name,fleet,model from diagnostics) group by fleet,model")
-}
+//func (i *IoT) AvgLoad(qi query.Query) {
+//	fmt.Sprintf("select avg(ml) as mean_load_percentage from (select current_load/load_capacity as ml ,name,fleet,model from diagnostics) group by fleet,model")
+//}
 
 // DailyTruckActivity returns the number of hours trucks has been active (not out-of-commission) per day per fleet per model.
 func (i *IoT) DailyTruckActivity(qi query.Query) {
-	sql := fmt.Sprintf("select count(ms)/144 from (select avg(status) as ms from diagnostics where ts >= %d and ts < %d interval(10m) group by model,fleet) where ms < 1", i.Interval.StartUnixNano(), i.Interval.EndUnixNano())
+	sql := fmt.Sprintf("select count(ms)/144 from (select avg(status) as ms from diagnostics where ts >= %d and ts < %d interval(10m) group by model,fleet) where ms < 1", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 	humanLabel := "TDengine daily truck activity per fleet per model"
 	humanDesc := humanLabel
 
