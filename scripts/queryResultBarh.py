@@ -22,7 +22,6 @@ querytype=[]
 wcltime=[]
 qps=[]
 scaleNum=[]
-
 if( len(sys.argv)>2 ):
     xLableName=sys.argv[2]
 else:
@@ -45,15 +44,14 @@ with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
         scaleNum.append(row[3])
 
 scaleLable=list(set(scaleNum))[0]
-# print(set(querytype))
-xticks = np.arange(0,len(set(querytype))*8,8)
+print(scaleLable)
+xticks = np.arange(0,len(set(querytype))*6,6)
 # print(xticks)
-print(inputfile)
 datacount=wc_count(inputfile)
 print(datacount)
 sortlist=list(set(databasetype))
 typeCount=len(sortlist)
-bar_width = 2.5
+bar_width = 1.5
 # timescaledb_x=xticks
 # influx_x=timescaledb_x+bar_width
 fig=figure(figsize=(16, 12), dpi=300,layout='constrained')    
@@ -72,7 +70,7 @@ for j  in range(typeCount):
     for i in range(datacount):
         if(databasetype[i]=="timescaledb"):
             timescdb_querytype.append(querytype[i])
-            timescdb_wcltime.append(wcltime[i])
+            timescdb_wcltime.append(wcltime[i]*1)
             timescdb_qps.append(qps[i])
         elif(databasetype[i]=="influx"):
             influx_querytype.append(querytype[i])
@@ -84,35 +82,36 @@ for j  in range(typeCount):
             tdengine_qps.append(qps[i])
     # print(tuple(timescdb_querytype))   
 # print(timescdb_wcltime)
-if( "TDengine" in  sortlist ):
-    ax.bar(xticks, tdengine_wcltime, width=bar_width, label="tdengine")   
-    for a,b in zip(xticks,tdengine_wcltime):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(tdengine_querytype))
+
+if( "timescaledb" in sortlist ):
+    ax.barh(xticks+bar_width*2, timescdb_wcltime, height=bar_width, label="timescaledb")
+    for a,b in zip(xticks+bar_width*2,timescdb_wcltime):   #柱子上的数字显示
+        plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(timescdb_querytype))
 if( "influx" in sortlist ):
     print(xticks+bar_width,influx_wcltime)
-    ax.bar(xticks+bar_width, influx_wcltime, width=bar_width, label="influx")   
+    ax.barh(xticks+bar_width, influx_wcltime, height=bar_width, label="influx")   
     for a,b in zip(xticks+bar_width,influx_wcltime):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(influx_querytype))
-if( "timescaledb" in sortlist ):
-    ax.bar(xticks+bar_width*2, timescdb_wcltime, width=bar_width, label="timescaledb")
-    for a,b in zip(xticks+bar_width*2,timescdb_wcltime):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(timescdb_querytype))
+        plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(influx_querytype))
+if( "TDengine" in  sortlist ):
+    ax.barh(xticks, tdengine_wcltime, height=bar_width, label="tdengine")   
+    for a,b in zip(xticks,tdengine_wcltime):   #柱子上的数字显示
+        plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(tdengine_querytype))
 
-
+ax.invert_yaxis() 
 # ax.set_xlabel("%s" % xLableName)  # add x lable
-ax.set_ylabel("spendtime:ms")  # add y lable
+ax.set_xlabel("spendtime:ms")  # add y lable
 ax.set_title("QueryComparisons query response Time in different %s on %s device * 10 metrics" % (xLableName,scaleLable))  # Add a title to the axes.
 print(tuple(influx_querytype),xticks)
 ax.legend() 
 
 # ax.set_xticklabels(rotation=70)
-plt.xticks(rotation=45)
+# plt.xticks(rotation=45)
 plt.savefig('%s'% pngName)
 plt.close()  
 

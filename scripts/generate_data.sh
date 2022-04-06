@@ -39,10 +39,11 @@ chmod a+rwx ${BULK_DATA_DIR}
 pushd ${BULK_DATA_DIR}
 set -eo pipefail
 
+cd ${BULK_DATA_DIR}
 # Loop over all requested target formats and generate data
 for FORMAT in ${FORMATS}; do
     for USE_CASE in ${USE_CASES};do
-        DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}.dat.gz"
+        DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_scale${SCALE}_${TS_START}_${TS_END}_interval${LOG_INTERVAL}_${SEED}.dat.gz"
         if [ -f "${DATA_FILE_NAME}" ]; then
             echo "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
         else
@@ -65,16 +66,16 @@ for FORMAT in ${FORMATS}; do
             | gzip > ${DATA_FILE_NAME}
 
             trap - EXIT
-            # Make short symlink for convenience
-            SYMLINK_NAME="${FORMAT}-${USE_CASE}-data.gz"
+            # # Make short symlink for convenience
+            # SYMLINK_NAME="${FORMAT}-${USE_CASE}-data.gz"
 
-            rm -f ${SYMLINK_NAME} 2> /dev/null
-            ln -s ${DATA_FILE_NAME} ${SYMLINK_NAME}
+            # rm -f ${SYMLINK_NAME} 2> /dev/null
+            # ln -s ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
-            # Make files readable by everyone
-            chmod a+r ${DATA_FILE_NAME} ${SYMLINK_NAME}
+            # # Make files readable by everyone
+            # chmod a+r ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
-            ls -lh ${SYMLINK_NAME}
+            # ls -lh ${SYMLINK_NAME}
         fi
     done
 done

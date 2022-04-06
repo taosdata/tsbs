@@ -128,6 +128,7 @@ DATABASE_INF_PORT=${DATABASE_INF_PORT:-8086}
 DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
 DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
 NUM_WORKER=${NUM_WORKER:-"16"} 
+QUERY_DEBUG=${QUERY_DEBUG:-"false"} 
 
 # How many queries would be run
 MAX_QUERIES=${MAX_QUERIES:-"0"}
@@ -143,6 +144,15 @@ else
     GUNZIP="cat"
 fi
 
+echo ""
+if [ ${QUERY_DEBUG} == "true" ];then
+    debugflag=1
+    printResponse="true"
+else
+    debugflag=0
+    printResponse="false"
+fi
+echo "${debugflag} ${printResponse}"
 echo "Running ${DATA_FILE_NAME}"
 if [ "${FORMAT}" == "timescaledb" ]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
@@ -157,8 +167,10 @@ if [ "${FORMAT}" == "timescaledb" ]; then
             --db-name ${DATABASE_NAME} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
+            --debug=${debugflag}\
+            --print-responses=${printResponse}\
         | tee ${OUT_FULL_FILE_NAME}
-        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep wall |awk '{print $4}'| sed "s/sec//g"`
+        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g" `
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
 elif [  ${FORMAT} == "influx" ]; then
@@ -172,8 +184,10 @@ elif [  ${FORMAT} == "influx" ]; then
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
             --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} \
+            --debug=${debugflag}\
+            --print-responses=${printResponse}\
         | tee ${OUT_FULL_FILE_NAME}
-        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep wall |awk '{print $4}'| sed "s/sec//g"`
+        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g" `
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
 elif [  ${FORMAT} == "TDengine" ]; then
@@ -189,8 +203,10 @@ elif [  ${FORMAT} == "TDengine" ]; then
             --port ${DATABASE_TAOS_PORT} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
+            --debug=${debugflag}\
+            --print-responses=${printResponse}\
         | tee ${OUT_FULL_FILE_NAME}
-        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep wall |awk '{print $4}'| sed "s/sec//g"`
+        wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g"`
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
 else

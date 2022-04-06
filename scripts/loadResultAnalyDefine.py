@@ -61,8 +61,11 @@ sortlist=list(set(fig_names))
 typeCount=len(sortlist)
 # fig=figure(num=None, figsize=(40, 7), dpi=300,layout='constrained')    
 fig=figure(figsize=(14, 12), dpi=300,layout='constrained')    
-ax1=fig.add_subplot(1, 2, 1)    
-ax2=fig.add_subplot(1, 2, 2)    
+ax1=fig.add_subplot(1, 1, 1)    
+
+# show two chart，have ax1 and ax2 
+# ax1=fig.add_subplot(1, 2, 1)    
+# ax2=fig.add_subplot(1, 2, 2)    
 
 for j  in range(typeCount):
     # newxpoints="newxpoint"+str(j)
@@ -84,16 +87,23 @@ for j  in range(typeCount):
     ax1.legend(loc='best')  # 展示图例
     for a, b in zip(newxpoints, newspeed_points):
         ax1.text(a, b, '%.1f'%b, ha='center', va='bottom')
-    ax2.plot(newxpoints,newtime_points,marker = 'o',label="%s" % lab ) 
-    ax2.set_xlabel("%s" % xLableName)  # 添加横轴标签
-    ax2.set_ylabel("spendtime:s")  # 添加纵轴标签
-    ax2.set_title("Load Comparisons:%s-spendtime"% xLableName)  # Add a title to the axes.
-    ax2.legend(loc='best')  # 展示图例
-    for a, b in zip(newxpoints, newtime_points):
-        ax2.text(a, b, '%.2f'%b, ha='center', va='bottom')
+    
+    # second chart
+    # ax2.plot(newxpoints,newtime_points,marker = 'o',label="%s" % lab ) 
+    # ax2.set_xlabel("%s" % xLableName)  # 添加横轴标签
+    # ax2.set_ylabel("spendtime:s")  # 添加纵轴标签
+    # ax2.set_title("Load Comparisons:%s-spendtime"% xLableName)  # Add a title to the axes.
+    # ax2.legend(loc='best')  # 展示图例
+    # for a, b in zip(newxpoints, newtime_points):
+    #     ax2.text(a, b, '%.2f'%b, ha='center', va='bottom')
 
 plt.savefig('%s'% pngName)
 plt.close()  
+
+
+
+
+
 
 
 

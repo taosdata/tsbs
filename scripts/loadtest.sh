@@ -35,6 +35,7 @@ DATABASE_HOST=${DATABASE_HOST:-test217}
 DATABASE_PWD=${DATABASE_PWD:-password}
 NUM_WORKERS=${NUM_WORKERS:-"24"} 
 BATCH_SIZES=${BATCH_SIZES:-"10000"} 
+SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
 
 worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
 batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
@@ -47,19 +48,44 @@ rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 for USE_CASE in ${USE_CASES}; do
     for FORMAT in ${FORMATS}; do
         for SCALE in ${SCALES};do 
+            echo ${SCALE}
+            if [  ${SCALE} -eq 100 ];then
+                TS_END="2016-02-01T00:00:00Z"
+                CHUNK_TIME="62h"
+                echo "generate 1 month data"
+            elif [ ${SCALE} -eq 4000 ];then
+                TS_END="2016-01-05T00:00:00Z"
+                CHUNK_TIME="8h"
+                echo "generate 5 days data"
+            elif [ ${SCALE} -eq 100000 ] ;then
+                TS_END="2016-01-01T03:00:00Z"
+                CHUNK_TIME="15m"
+                echo "generate 3 hours data"
+            elif [ ${SCALE} -eq 1000000 ] ||  [ ${SCALE} -eq 10000000 ];then
+                TS_END="2016-01-01T00:03:00Z"
+                CHUNK_TIME="15s"
+                echo "generate 3 min data"
+            else
+                TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
+                echo "generate input data"
+                CHUNK_TIME="12h"
+            fi
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
-                    echo "" DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_loading.sh
+                    echo "DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_loading.sh " 
                    TS_START=${TS_START} \
                    TS_END=${TS_END} \
                    DATABASE_USER=${DATABASE_USER} \
                    DATABASE_HOST=${DATABASE_HOST} \
                    DATABASE_PWD=${DATABASE_PWD} \
+                   DATABASE_NAME=${DATABASE_NAME} \
                    SCALE=${SCALE} \
                    FORMAT=${FORMAT} \
                    USE_CASE=${USE_CASE} \
                    BATCH_SIZE=${BATCH_SIZE}  \
                    NUM_WORKER=${NUM_WORKER} \
+                   CHUNK_TIME=${CHUNK_TIME} \
+                   SERVER_PASSWORD=${SERVER_PASSWORD} \
                    BULK_DATA_DIR=${BULK_DATA_DIR} \
                    BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh
                 done
@@ -68,19 +94,19 @@ for USE_CASE in ${USE_CASES}; do
     done
 done
 
-# generate png report
-# loadResultAnaly.py has three parameter,
-# 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
-if [ ${worklen} != 1 ];then 
-    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png"
-    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png
-elif [ ${batchlen} != 1 ];then 
-    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png"
-    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png
-elif [ ${scalelen} != 1 ];then 
-    echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png"
-    python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png  
-fi  
+# # generate png report
+# # loadResultAnaly.py has three parameter,
+# # 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
+# if [ ${worklen} != 1 ];then 
+#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png"
+#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png
+# elif [ ${batchlen} != 1 ];then 
+#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png"
+#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png
+# elif [ ${scalelen} != 1 ];then 
+#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png"
+#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png  
+# fi  
 
 
 

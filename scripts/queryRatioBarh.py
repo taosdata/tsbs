@@ -44,8 +44,8 @@ if(numformate>1):
         for i in range(numgroup):  
             k=i+j*numgroup
             ratio=[]
-            tempdataTime=arr[k][6]/arr[i][6]   
-            tempdataQps=arr[i][7]/arr[k][7]   # QPS ratio .if you want to generate times, you should replace 7 with 6
+            tempdataTime=100*arr[k][6]/arr[i][6]   
+            tempdataQps=100*arr[i][7]/arr[k][7]   # QPS ratio .if you want to generate times, you should replace 7 with 6
             ratiodataTime=float('%.2f' % tempdataTime ) 
             ratiodataQps=float('%.2f' % tempdataQps ) 
             ratio.append(ratiodataTime)
@@ -54,6 +54,9 @@ if(numformate>1):
             ratio_arr.append(ratio)
 print(ratio_arr)
 
+scaleNum=arrt[3]
+scaleLable=list(set(scaleNum))[0]
+# print(scaleLable)
 
 new_arr=np.delete(arr,[range(numgroup)],axis=0)  #delete part of  TDengine  data
 result_arr=np.append(new_arr,ratio_arr,axis=1)   # add ninth column
@@ -116,31 +119,33 @@ for i in range(resultshape):
 # print(xinfluxtype)
 
 if( "timescaledb" in result_arrt ):
-    ax.bar(xticks, timescaledbRatio, width=bar_width, label="timescaledb")
+    ax.barh(xticks, timescaledbRatio, height=bar_width, label="timescaledb/TDengine")
     for a,b in zip(xticks,timescaledbRatio):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(xtimescaletype))
+        plt.text(b,a,'%.0f'%b+"%",ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(xtimescaletype))
 if( "influx" in result_arrt ):
-    ax.bar(xticks+bar_width, influxRatio, width=bar_width, label="influx")   
+    ax.barh(xticks+bar_width, influxRatio, height=bar_width, label="influx/TDengine")   
     for a,b in zip(xticks+bar_width,influxRatio):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(xinfluxtype))
+        plt.text(b,a,'%.0f'%b+"%",ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(xinfluxtype))
 if( "TDengine" in result_arrt ):
-    ax.bar(xticks+2*bar_width, tdengineRatio, width=bar_width, label="TDengine")
+    ax.barh(xticks+2*bar_width, tdengineRatio, height=bar_width, label="TDengine")
     for a,b in zip(xticks+bar_width,tdengineRatio):   #柱子上的数字显示
-        plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(tuple(xtdenginetype))
+        plt.text(b,a,'%.0f'%b+"%",ha='left',va='center',fontsize=8);
+    ax.set_yticks(xticks)
+    ax.set_yticklabels(tuple(xtdenginetype))
 
 
 
 
-
+ax.invert_yaxis() 
+ax.axvline(100, color='gray', linewidth=2)
 # ax.set_xlabel("%s" % xLableName)  # add x lable
-ax.set_ylabel("QPS ratios:s")  # add y lable
-ax.set_title("QueryComparisons :TDengine/otherDB QPS ratios in different %s "% xLableName)  # Add a title to the axes.
+# ax.set_ylabel("Query Type")  # add y lable
+ax.set_xlabel("spendtime : TDengine/otherDB %")   # add x lable
+ax.set_title("QueryComparisons query response Time in different %s on %s devices * 10 metrics" % (xLableName,scaleLable))  # Add a title to the axes.
 
 for i in range(resultshape):
     if(result_arr[i][0]=="timescaledb"):
@@ -153,9 +158,9 @@ for i in range(resultshape):
     
 # print(tuple(xtype),xticks)
 ax.legend() 
-ax.set_xticks(xticks)
-ax.set_xticklabels(tuple(xtype))
+ax.set_yticks(xticks)
+ax.set_yticklabels(tuple(xtype))
 # ax.set_xticklabels(rotation=70)
-plt.xticks(rotation=45)
+# plt.xticks(rotation=45)
 plt.savefig('%s'% pngName)
 plt.close() 

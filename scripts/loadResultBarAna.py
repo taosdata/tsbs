@@ -78,8 +78,8 @@ for j  in range(typeCount):
             tdengine_wcltime.append(wcltime[i])
             tdengine_qps.append(qps[i])
     print(tuple(timescdb_querytype))        
-ax.bar(xticks, timescdb_wcltime, width=bar_width, label="timescaledb")
-ax.bar(xticks+bar_width, influx_wcltime, width=bar_width, label="influx")   
+ax.barh(xticks, timescdb_wcltime, width=bar_width, label="timescaledb")
+ax.barh(xticks+bar_width, influx_wcltime, width=bar_width, label="influx")   
 ax.bar(xticks+bar_width*2, influx_wcltime, width=bar_width, label="TDengine")   
 
 for a,b in zip(xticks,timescdb_wcltime):   #柱子上的数字显示
