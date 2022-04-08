@@ -70,7 +70,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.MustRandWindow(time.Hour)
-	sql := fmt.Sprintf(`SELECT max(usage_user) FROM cpu WHERE ts < %d INTERVAL(1m) ORDER BY ts DESC LIMIT 5`,
+	sql := fmt.Sprintf(`SELECT max(usage_user) FROM cpu WHERE ts < %d INTERVAL(1m) LIMIT 5`,
 		interval.EndUnixMillis())
 
 	humanLabel := "TDengine max cpu over last 5 min-intervals (random end)"
@@ -85,7 +85,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 
 	selectClauses := d.getSelectClausesAggMetrics("avg", metrics)
-	sql := fmt.Sprintf("SELECT %s from cpu where ts >= %d and ts < %d interval(1h) group by hostname,ts order by ts", strings.Join(selectClauses, ", "), interval.StartUnixMillis(), interval.StartUnixMillis())
+	sql := fmt.Sprintf("SELECT %s from cpu where ts >= %d and ts < %d interval(1h) group by hostname order by ts", strings.Join(selectClauses, ", "), interval.StartUnixMillis(), interval.EndUnixMillis())
 
 	humanLabel := devops.GetDoubleGroupByLabel("TDengine", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -117,13 +117,13 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 }
 
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	sql := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and ts >= %d AND ts < %d %s`,
 		interval.StartUnixMillis(), interval.EndUnixMillis(), hostWhereClause)
