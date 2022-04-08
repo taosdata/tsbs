@@ -32,7 +32,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	sql := fmt.Sprintf("create database %s precision 'ms'", dbName)
+	sql := fmt.Sprintf("create database %s precision 'ms' cache 32 blocks 24", dbName)
 	return async.GlobalAsync.TaosExecWithoutResult(d.db.TaosConnection, sql)
 }
 
