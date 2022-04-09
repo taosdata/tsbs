@@ -35,7 +35,7 @@ BATCH_SIZE=${BATCH_SIZE:-"50000"}
 #reset loading data
 RESTLOAD=${RESTLOAD:-"true"}
 
-# # All available for generation query types (sorted alphabetically)
+# All available for generation query types (sorted alphabetically)
 # QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
 # single-groupby-1-1-1 \
 # single-groupby-1-1-12 \
@@ -53,11 +53,12 @@ RESTLOAD=${RESTLOAD:-"true"}
 # groupby-orderby-limit \
 # lastpoint "}
 
-QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"high-cpu-all \
-groupby-orderby-limit \
-high-cpu-1 \
-"}
+# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"high-cpu-all \
+# groupby-orderby-limit \
+# high-cpu-1 \
+# "}
 
+QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"high-cpu-all "}
 
 
 QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
@@ -108,19 +109,7 @@ for FORMAT in ${FORMATS}; do
                 echo ${SCALE}
                 CHUNK_TIME="12h"
                 echo " DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER_LOAD}  BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} ./full_cycle_minitest_loading.sh "
-                DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD} ./full_cycle_minitest_loading.sh  
-                if [ ${FORMAT}== "timescaledb" ];then
-                    PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" > tempCompress.txt
-                    tempCompressNum=`more tempCompress.txt |grep rows |awk -F ' ' '{print $1}'`
-                    echo "${tempCompressNum}"
-                    if [ "${tempCompressNum}" == "(0" ] ;then
-                        PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "ALTER TABLE cpu SET (timescaledb.compress, timescaledb.compress_orderby = 'time DESC,usage_user',  timescaledb.compress_segmentby = 'tags_id');"
-                        PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "SELECT add_compression_policy('cpu', INTERVAL '12 hours');"
-                    else
-                        echo "it has already been enabled native compression on TimescaleDB,"
-                    fi
-
-                fi
+                DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  /home/chr/tsbs/scripts/full_cycle_minitest_loading_query.sh
             else
                 echo "data has been loaded in all database"
             fi
@@ -130,6 +119,8 @@ for FORMAT in ${FORMATS}; do
             #     sleep 10
             #     taos -d benchmarkcpu -h test209 -s "show benchmarkcpu.vgroups;"
             # fi
+            echo `date +%Y_%m%d_%H%M%S`
+            sleep 60s
             if [ ${USE_CASE} != "iot" ] ;then
                 for QUERY_TYPE in ${QUERY_TYPES_ALL}; do
                     for NUM_WORKER in ${NUM_WORKERS}; do
