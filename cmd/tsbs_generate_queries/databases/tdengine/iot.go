@@ -39,7 +39,7 @@ func (i *IoT) getTruckWhereString(nTrucks int) string {
 
 // LastLocByTruck finds the truck location for nTrucks.
 func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
-	sql := fmt.Sprintf(`SELECT last(latitude),last(longitude) FROM readings WHERE %s GROUP BY name,driver`,
+	sql := fmt.Sprintf(`SELECT last(latitude),last(longitude) FROM readings WHERE %s GROUP BY name`,
 		i.getTruckWhereString(nTrucks))
 
 	humanLabel := "TDengine last location by specific truck"
@@ -50,7 +50,7 @@ func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
 
 // LastLocPerTruck finds all the truck locations along with truck and driver names.
 func (i *IoT) LastLocPerTruck(qi query.Query) {
-	sql := fmt.Sprintf(`SELECT last(*) FROM readings WHERE fleet='%s' GROUP BY name,driver`,
+	sql := fmt.Sprintf(`SELECT  last(latitude),last(longitude) FROM readings WHERE fleet='%s' GROUP BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine last location per truck"
