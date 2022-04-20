@@ -39,7 +39,7 @@ func (i *IoT) getTruckWhereString(nTrucks int) string {
 
 // LastLocByTruck finds the truck location for nTrucks.
 func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
-	sql := fmt.Sprintf(`SELECT last(latitude),last(longitude) FROM readings WHERE %s GROUP BY name`,
+	sql := fmt.Sprintf(`SELECT last_row(ts),last_row(latitude),last_row(longitude) FROM readings WHERE %s GROUP BY name`,
 		i.getTruckWhereString(nTrucks))
 
 	humanLabel := "TDengine last location by specific truck"
@@ -50,7 +50,7 @@ func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
 
 // LastLocPerTruck finds all the truck locations along with truck and driver names.
 func (i *IoT) LastLocPerTruck(qi query.Query) {
-	sql := fmt.Sprintf(`SELECT  last(latitude),last(longitude) FROM readings WHERE fleet='%s' GROUP BY name,driver`,
+	sql := fmt.Sprintf(`SELECT  last_row(ts),last_row(latitude),last_row(longitude) FROM readings WHERE fleet='%s' AND name is not null GROUP BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine last location per truck"
@@ -61,7 +61,7 @@ func (i *IoT) LastLocPerTruck(qi query.Query) {
 
 // TrucksWithLowFuel finds all trucks with low fuel (less than 10%).
 func (i *IoT) TrucksWithLowFuel(qi query.Query) {
-	sql := fmt.Sprintf(`SELECT last_row(fuel_state),driver FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' GROUP BY name`,
+	sql := fmt.Sprintf(`SELECT last_row(fuel_state),driver FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' and name IS NOT NULL GROUP BY name`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with low fuel"

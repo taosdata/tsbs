@@ -117,9 +117,9 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 			(SELECT fuel_state 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
+			AND d.fuel_state < 0.1 
 			ORDER BY time DESC LIMIT 1) d ON true 
 		WHERE t.%s IS NOT NULL
-		AND d.fuel_state < 0.1 
 		AND t.%s = '%s'`,
 		i.withAlias(name),
 		i.withAlias(driver),
