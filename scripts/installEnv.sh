@@ -229,11 +229,11 @@ echo "============= install go and set go env ============="
 goenv=`go env`
 if [[ -z ${goenv} ]];then
     echo "install go "
-    # cd /usr/local/
-    # if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.deb"  ] ;then
-    #     wget https://studygolang.com/dl/golang/go1.16.9.linux-amd64.tar.gz
-    # fi 
-    # tar -zxvf  go1.16.9.linux-amd64.tar.gz
+    cd /usr/local/
+    if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.deb"  ] ;then
+        wget https://studygolang.com/dl/golang/go1.16.9.linux-amd64.tar.gz
+    fi 
+    tar -zxvf  go1.16.9.linux-amd64.tar.gz
     echo "add go to PATH"
     GO_HOME=/usr/local/go
     goPar=`grep -w "GO_HOME=/usr/local/go"  /root/.bashrc`
