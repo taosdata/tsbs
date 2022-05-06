@@ -66,13 +66,14 @@ for USE_CASE in ${USE_CASES}; do
                 CHUNK_TIME="15s"
                 echo "generate 3 min data"
             else
-                TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
+                TS_END="2016-01-02T00:00:00Z"
                 echo "generate input data"
                 CHUNK_TIME="12h"
             fi
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
-                    echo "DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE} NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_loading.sh " 
+                    echo `date +%Y_%m%d_%H%M%S`
+                    echo " TS_START=${TS_START}  TS_END=${TS_END}   DATABASE_USER=${DATABASE_USER} DATABASE_HOST=${DATABASE_HOST}  DATABASE_PWD=${DATABASE_PWD} DATABASE_NAME=${DATABASE_NAME} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh " 
                    TS_START=${TS_START} \
                    TS_END=${TS_END} \
                    DATABASE_USER=${DATABASE_USER} \
@@ -88,6 +89,7 @@ for USE_CASE in ${USE_CASES}; do
                    SERVER_PASSWORD=${SERVER_PASSWORD} \
                    BULK_DATA_DIR=${BULK_DATA_DIR} \
                    BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh
+                   sleep 60s
                 done
             done
         done
