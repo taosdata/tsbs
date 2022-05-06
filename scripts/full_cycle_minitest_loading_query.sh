@@ -137,7 +137,9 @@ eeooff
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
             echo ${tempCompressNum}
             echo ${disk_usage_after}
-            if [ "${tempCompressNum}" == "(8" ];then
+            timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
+            timesHours=$((${timesdiffSec}/60/60/12))
+            if [ "${tempCompressNum}" == "(${timesHours}" ];then
                 break
             fi
         done

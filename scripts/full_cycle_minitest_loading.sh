@@ -106,6 +106,7 @@ eeooff
 if [ "${FORMAT}" == "timescaledb" ];then
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " `
+    echo $disk_usage_before
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
@@ -130,9 +131,11 @@ if [ "${FORMAT}" == "timescaledb" ];then
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
+            timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
+            timesHours=$((${timesdiffSec}/60/60/12))
             echo ${tempCompressNum}
             echo ${disk_usage_after}
-            if [ "${tempCompressNum}" == "(12" ];then
+            if [ "${tempCompressNum}" == "(${timesHours}" ];then
                 break
             fi
         done

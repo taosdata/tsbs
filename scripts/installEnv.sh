@@ -6,14 +6,17 @@ osType=ubuntu   # -o [centos | ubuntu]
 installGoEnv=false
 installDB=false
 installTsbs=false
-server=test209
+serverHost=test209
 serverPass="taosdata!"
 
-while getopts "ho:g:d:t:" arg
+while getopts "ho:g:d:t:s:" arg
 do
   case $arg in
     o)
       osType=$(echo $OPTARG)
+      ;;
+    s)
+      serverHost=$(echo $OPTARG)
       ;;
     g)
       installGoEnv=$(echo $OPTARG)
@@ -26,6 +29,7 @@ do
       ;;
     h)
       echo "Usage: `basename $0` -o osType [centos | ubuntu]
+                              -s server ip
                               -g installGoEnv [true | false]
                               -d installDB [true | false]           
                               -t installTsbs [true | false]
@@ -186,7 +190,6 @@ function install_timescale_ubuntu {
 function install_influxdb_ubuntu {
   echo "=============reinstall influx in ubuntu ============="
   dpkg -r influxdb
-  apt install wget
   cd ${installPath}
   if [ ! -f "influxdb_1.8.10_amd64.deb" ] ;then
      wget https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb
@@ -208,7 +211,7 @@ systemctl restart influxd
 function install_TDengine {
   echo "=============reinstall TDengine  in ubuntu ============="
   cd /usr/local/src
-  if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.deb"  ] ;then
+  if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.tar.gz"  ] ;then
     wget https://taosdata.com/assets-download/TDengine-server-2.4.0.14-Linux-x64.tar.gz 
   fi
   tar xvf TDengine-server-2.4.0.14-Linux-x64.tar.gz 
@@ -230,7 +233,14 @@ goenv=`go env`
 if [[ -z ${goenv} ]];then
     echo "install go "
     cd /usr/local/
-    if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.deb"  ] ;then
+    if [ "${osType}" == "centos" ];then
+      yum install -y  curl wget
+    elif [ "${osType}" == "ubuntu" ];then
+      apt install wget curl -y
+    else
+      echo "osType can't be supported"
+    fi    
+    if [ ! -f "go1.16.9.linux-amd64.tar.gz"  ] ;then
         wget https://studygolang.com/dl/golang/go1.16.9.linux-amd64.tar.gz
     fi 
     tar -zxvf  go1.16.9.linux-amd64.tar.gz
@@ -244,40 +254,55 @@ if [[ -z ${goenv} ]];then
         echo "GOHOME already been add to PATH of /root/.bashrc"    
     fi 
     source  /root/.bashrc
-    echo $PATH
 else
     echo "go has been installed"
 fi
 
 go env -w GOPROXY=https://goproxy.cn,direct
 export GO111MODULE=on
-echo `go env`
+
 echo ${GOPATH}
 if [[ -z "${GOPATH}" ]];then
     echo "add go path to PATH and set GOPATH"
     export GOPATH=$(go env GOPATH)
-    export PATH=$PATH:$(go env GOPATH)/bin
-    gopathPar=`grep -w "PATH=\$PATH:\$(go env GOPATH)/bin"  /root/.bashrc`
+    export PATH=$(go env GOPATH)/bin:$PATH
+    gopathPar=`grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc`
     if [[ -z ${goPar} ]];then
-      echo -e  '\nexport GOPATH=$(go env GOPATH)\nexport PATH=$PATH:$(go env GOPATH)/bin\n' >> ~/.bashrc
-      source  /root/.bashrc
+      echo -e  '\nexport GOPATH=$(go env GOPATH)\nexport PATH=$GOPATH/bin:$PATH\n' >> ~/.bashrc
     fi
+    source  /root/.bashrc
 else
     echo "GOPATH has been added"
 fi
+echo $PATH
+echo $(go env)
+
 }
 
 # compile tsbs 
 function install_tsbs {
   echo "install tsbs"
+  tail -10 /root/.bashrc
+  source  /root/.bashrc
+  goenv=${GOPATH}
+  if [[ -z ${goenv} ]];then
+      GO_HOME=/usr/local/go
+      export PATH=$GO_HOME/bin:$PATH
+      export GOPATH=$(go env GOPATH)
+      export PATH=$GOPATH/bin:$PATH
+  else
+      export PATH=$GOPATH/bin:$PATH
+      echo "go has been installed"
+  fi
+  go env -w GOPROXY=https://goproxy.cn,direct
+  export GO111MODULE=on
+  echo ${GOPATH}
+
   go get github.com/timescale/tsbs
   cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
 
   # clone taosdata repo and  compile
   cd ${installPath} 
-  # if [ ! -d ${installPath}/tsbs ];then
-  #     git clone git@github.com:taosdata/tsbs.git 
-  # fi
   if [ -d "${installPath}/tsbs" ];then 
     cd ${installPath}/tsbs/
     git checkout -f master && git pull origin master
@@ -308,12 +333,20 @@ fi
 # you need add trust link entry for your host in pg_hba.conf manually
 # eg : host    all     all             192.168.0.1/24               md5
 
+trustlinkPar=`grep -w "${serverHost}" /etc/postgresql/14/main/pg_hba.conf`
+if [ -z "${trustlinkPar}" ];then
+  echo -e  "host    all     all             ${serverHost}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+fi
+
 if [ "${installDB}" == "true" ];then
   if [ "${osType}" == "centos" ];then
+    yum install -y  curl wget
     yum install expect -y 
     install_timescale_centos
     install_influx_centos
   elif [ "${osType}" == "ubuntu" ];then
+    apt install wget -y
+    apt install curl -y
     install_timescale_ubuntu
     install_influxdb_ubuntu
   else
@@ -326,6 +359,5 @@ fi
 
 if [ "${installTsbs}" == "true" ];then
   install_tsbs
-else 
   echo "It doesn't install and update tsbs.If you want to install,please set installGo env true"
 fi 
