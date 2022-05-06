@@ -6,7 +6,8 @@ osType=ubuntu   # -o [centos | ubuntu]
 installGoEnv=false
 installDB=false
 installTsbs=false
-
+server=test209
+serverPass="taosdata!"
 
 while getopts "ho:g:d:t:" arg
 do
@@ -48,6 +49,20 @@ echo "installGoEnv: ${installGoEnv}"
 echo "installDB: ${installDB}"
 echo "installTsbs: ${installTsbs}"
 
+function cmdInstall {
+comd=$1
+if command -v ${comd} ;then
+    echo "${comd} is already installed" 
+else 
+    if command -v apt ;then
+        apt-get install ${comd}
+    elif command -v yum ;then
+        yum install ${comd}
+    else
+        echo "you should install ${comd} manually"
+    fi
+fi
+}
 
 function install_timescale_centos {
 # install timescaledb in centos 
@@ -265,7 +280,7 @@ function install_tsbs {
   # fi
   if [ -d "${installPath}/tsbs" ];then 
     cd ${installPath}/tsbs/
-    git pull origin master
+    git checkout -f master && git pull origin master
   else
     git clone git@github.com:taosdata/tsbs.git 
   fi
@@ -279,6 +294,8 @@ function install_tsbs {
   cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/ && go build  && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
 
 }
+
+cmdInstall sshpass
 
 if [ "${installGoEnv}" == "true" ];then
   install_go_env
