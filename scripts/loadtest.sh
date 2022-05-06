@@ -66,7 +66,7 @@ for USE_CASE in ${USE_CASES}; do
                 CHUNK_TIME="15s"
                 echo "generate 3 min data"
             else
-                TS_END="2016-01-02T00:00:00Z"
+                TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
                 echo "generate input data"
                 CHUNK_TIME="12h"
             fi
