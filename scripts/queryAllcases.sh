@@ -84,13 +84,15 @@ QUERY_DEBUG="false" RESTLOAD="true" QUERIES="1000" \
 SCALES=$5 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
 
 # generate png 
-python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh_100.png
-python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio_4000.png
+echo "python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png"
+echo "python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png"
 
+python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png
+python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png
 }
 
 
-# caseType [cputest | cpu-only | devops | iot ]
+# caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
     testcase ${serverHost} ${serverPass}  "2016-01-01T12:00:01Z" "2016-01-01T12:00:00Z"  "200" "cpu-only"
 elif [ ${caseType} == "cpu" ];then

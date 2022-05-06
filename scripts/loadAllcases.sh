@@ -83,7 +83,7 @@ python3 ${scriptDir}/loadRatioBarh.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv  
 
 }
 
-# caseType [cputest | cpu-only | devops | iot ]
+# caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
     testcase ${serverHost} ${serverPass}  "2016-01-01T12:00:00Z"  "200" "cpu-only"
 elif [ ${caseType} == "cpu" ];then
