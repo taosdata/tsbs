@@ -78,7 +78,7 @@ else
 fi
 
 
-cd ${installPath}/tsbs/scritps 
+cd ${installPath}/tsbs/scripts 
 ./installEnv.sh -g ${installGoEnv} -d ${installDB}  -o ubuntu
 source  /root/.bashrc
 ./installEnv.sh -t ${installTsbs} -o ubuntu
