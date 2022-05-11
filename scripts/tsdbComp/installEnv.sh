@@ -8,6 +8,7 @@ installDB=false
 installTsbs=false
 serverHost=test209
 serverPass="taosdata!"
+serverIP="192.168.0.104"
 
 while getopts "ho:g:d:t:s:" arg
 do
@@ -46,6 +47,20 @@ done
 
 
 installPath="/usr/local/src/"
+
+scriptDir=$(dirname $(readlink -f $0))
+
+cd ${scriptDir}
+source ./test.ini
+
+
+# function command_exist{
+# if [[ -z `$1 --help` ]];then
+#     installTsbs=true
+# else
+#     installTsbs=false
+# fi
+# }
 
 
 echo "install path: ${installPath}"
@@ -187,7 +202,7 @@ function install_timescale_ubuntu {
   PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 }
 
-function install_influxdb_ubuntu {
+function install_influx_ubuntu {
   echo "=============reinstall influx in ubuntu ============="
   dpkg -r influxdb
   cd ${installPath}
@@ -330,13 +345,8 @@ fi
 
 # install  influxdb and timescaledb 
 # maybe will add function of uninstalling timescaledb（cause i don't know how to uninstall timescale ）
-# you need add trust link entry for your host in pg_hba.conf manually
-# eg : host    all     all             192.168.0.1/24               md5
 
-trustlinkPar=`grep -w "${serverHost}" /etc/postgresql/14/main/pg_hba.conf`
-if [ -z "${trustlinkPar}" ];then
-  echo -e  "host    all     all             ${serverHost}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-fi
+
 
 if [ "${installDB}" == "true" ];then
   if [ "${osType}" == "centos" ];then
@@ -344,20 +354,49 @@ if [ "${installDB}" == "true" ];then
     yum install expect -y 
     install_timescale_centos
     install_influx_centos
+    # if [[ -z `influx --help` ]];then
+    #   install_influx_centos
+    # fi
   elif [ "${osType}" == "ubuntu" ];then
     apt install wget -y
     apt install curl -y
-    install_timescale_ubuntu
-    install_influxdb_ubuntu
+    install_timescale_ubuntu 
+    install_influx_ubuntu 
+    # if [[ -z `influx --help` ]];then
+    #   install_influx_ubuntu 
+    # fi
   else
     echo "osType can't be supported"
   fi
   install_TDengine
+
+  # if [[ -z `taosd --help` ]];then
+  #   install_TDengine
+  # fi
 else 
   echo "It doesn't install timescaleDB InfluxDB and TDengine.If you want to install,please set installGo env true"
 fi 
 
+# you need add trust link entry for your host in pg_hba.conf manually
+# eg : host    all     all             192.168.0.1/24               md5
+
+trustlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
+echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
+echo "${trustlinkPar}"
+if [ -z "${trustlinkPar}" ];then
+  echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+else
+  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+fi
+
+
+
 if [ "${installTsbs}" == "true" ];then
-  install_tsbs
-  echo "It doesn't install and update tsbs.If you want to install,please set installGo env true"
+  if [[ -z `tsbs_load_tdengine --help` ]];then
+      install_tsbs
+  else
+    echo "command of tsbs_load_tdengine has been found in system,so tsbs has been installed.If you want to update tdengine of tsbs ,please remove tsbs_load_tdengine from system"
+  fi
+else
+  echo "It wouldn't install and update tsbs.If you want to install,please set installTsbs true"
 fi 

@@ -47,6 +47,13 @@ mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
 
 set -eo pipefail
+
+function ceil(){
+  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
+  add=`awk -v num1=$floor -v num2=$1 'BEGIN{print(num1<num2)?"1":"0"}'`
+  echo `expr $floor  + $add`
+}
+
 # generate data
 INSERT_DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_scale${SCALE}_${TS_START}_${TS_END}_interval${LOG_INTERVAL}_${SEED}.dat.gz"
 if [ -f "${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}" ]; then
@@ -95,8 +102,6 @@ cd ${scriptDir}
 echo "---------------  Clean  -----------------"
 sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
 echo 1 > /proc/sys/vm/drop_caches
-systemctl restart influxd
-systemctl restart postgresql
 sleep 1
 exit
 eeooff
@@ -104,9 +109,15 @@ eeooff
 
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
+
+sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
+    systemctl restart postgresql
+    sleep 1
+    exit
+eeooff
+    sleep 1
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " `
-    echo $disk_usage_before
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
@@ -131,10 +142,11 @@ if [ "${FORMAT}" == "timescaledb" ];then
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
-            timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
-            timesHours=$((${timesdiffSec}/60/60/12))
             echo ${tempCompressNum}
             echo ${disk_usage_after}
+            timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
+            timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
+            timesHours=`ceil $timesHours`
             if [ "${tempCompressNum}" == "(${timesHours}" ];then
                 break
             fi
