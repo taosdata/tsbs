@@ -87,9 +87,9 @@ print(timescaledbMetrics)
 print(arrt)
 
 if( "timescaledb" in arrt ):
-    ax.barh(xticks+2*bar_width, influxMetrics, height=bar_width, label="influx")
+    ax.barh(xticks+2*bar_width, influxMetrics, height=bar_width, label="timescaledb")
 if( "influx" in arrt ):
-    ax.barh(xticks+bar_width, timescaledbMetrics, height=bar_width, label="timescaledb")   
+    ax.barh(xticks+bar_width, timescaledbMetrics, height=bar_width, label="influx")   
 if( "TDengine" in arrt ):
     ax.barh(xticks, tdengineMetrics, height=bar_width, label="TDengine")
 

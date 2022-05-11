@@ -56,18 +56,18 @@ done
 scriptDir=$(dirname $(readlink -f $0))
 
 cd ${scriptDir}
+source ./test.ini
 
-function testcase {
+function query_testcase {
 #  testcaset
 # need define data and result path
 echo "testcase scenarios $5"
-new=`date +%Y_%m%d_%H%M%S`
+load_executeTime=`date +%Y_%m%d_%H%M%S`
+load_dataDir="${loadDataRootDir}/load_data_${caseType}/" 
+load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
 
-BULK_DATA_DIR="/data2/bulk_data_cpu-only"
-BULK_DATA_DIR_RES_LOAD="/data2/bulk_result_load_${new}/"
-
-BULK_DATA_QUERY_DIR="/data2/bulk_data_query_cpu-only" 
-BULK_DATA_DIR_RUN_RES="/data2/bulk_result_query_cpu-only_${new}/" 
+query_dataDir="${queryDataRootDir}/query_data_${caseType}/" 
+query_resultDir="${queryRsultRootDir}/query_result_${caseType}_${load_executeTime}/" 
 
 # excute testcase
 # this two para can be set，the default is all query type。
@@ -75,36 +75,43 @@ BULK_DATA_DIR_RUN_RES="/data2/bulk_result_query_cpu-only_${new}/"
 # QUERY_TYPES_IOT_ALL="last-loc avg-load" \
 
 
-TS_START="2016-01-01T00:00:00Z" QUERY_TS_END=$3 LOAD_TS_END=$4 \
+TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
 DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
-BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD}   \
-BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR}  BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES} \
-NUM_WORKERS="12" USE_CASES=$6 FORMATS="TDengine influx timescaledb" \
-QUERY_DEBUG="false" RESTLOAD="true" QUERIES="1000" \
-SCALES=$5 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
+BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
+BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
+NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 \
+QUERY_DEBUG="false" RESTLOAD="true" QUERIES=${10} \
+SCALES=$6 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
 
 # generate png 
 echo "python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png"
 echo "python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png"
 
-python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png
-python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png
+python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png
+python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png
 }
 
+function cmd_excute {
+  echo "$1"
+  $1
+}
 
 # caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
-    testcase ${serverHost} ${serverPass}  "2016-01-01T12:00:01Z" "2016-01-01T12:00:00Z"  "200" "cpu-only"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "${query_formats}" "10" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "${query_formats}" "10"
 elif [ ${caseType} == "cpu" ];then
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "100"  "cpu-only"
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "4000"  "cpu-only"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}"
 elif [ ${caseType} == "devops" ];then
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "100"  "devops"
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "4000"  "devops"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}"
 elif [ ${caseType} == "iot" ];then
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "100"  "iot"
-    testcase ${serverHost} ${serverPass}  "2016-01-05T00:00:01Z" "2016-01-05T00:00:00Z"  "4000"  "iot"
-else 
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "iot" "${query_number_wokers}" "${query_formats}" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "iot" "${query_number_wokers}" "${query_formats}" "${query_times}"
+elif [ ${caseType} == "userdefined" ];then
+    query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" "${query_times}"
+else
     echo "please set correct testcase type"
 fi
 
