@@ -2,56 +2,98 @@
 
 set -e
 # set parameters by default value
-osType=ubuntu   # -o [centos | ubuntu]
+# [centos | ubuntu]
+osType=ubuntu      
+installPath="/usr/local/src/"
+
+# install env
 installGoEnv=false
 installDB=false
 installTsbs=false
-serverHost=test209
-serverPass="taosdata!"
-caseType=cputest
 
-while getopts "hs:p:o:g:d:c:t:" arg
-do
-  case $arg in
-    o)
-      osType=$(echo $OPTARG)
-      ;;
-    s)
-      serverHost=$(echo $OPTARG)
-      ;;
-    p)
-      serverPass=$(echo $OPTARG)
-      ;;
-    g)
-      installGoEnv=$(echo $OPTARG)
-      ;;
-    d)
-      installDB=$(echo $OPTARG)
-      ;;
-    t)
-      installTsbs=$(echo $OPTARG)
-      ;;
-    c)
-      caseType=$(echo $OPTARG)
-      ;; 
-    h)
-      echo "Usage: `basename $0` -o osType [centos | ubuntu]
-                              -s server host or ip
-                              -p server Password
-                              -g installGoEnv [true | false]
-                              -d installDB [true | false]           
-                              -t installTsbs [true | false]
-                              -c caseType [cputest | cpu| devops | iot ]
-                              -h get help         
-      osType's default values is  ubuntu,other is false"
-      exit 0
-      ;;
-    ?) #unknow option
-      echo "unkonw argument"
-      exit 1
-      ;;
-  esac
-done
+#client and server paras
+cientIP="192.168.0.203"
+clientHost="trd03"
+serverIP="192.168.0.204"
+serverHost="trd04"
+serverPass="taosdata!"
+
+#testcase type
+#[cputest | cpu| devops | iot ]
+caseType=cputest
+case="cpu-only"
+
+# data and result root path
+# datapath is bulk_data_rootDir/bulk_data_${caseType} 
+# executeTime=`date +%Y_%m%d_%H%M%S`
+# resultpath is bulk_data_resultrootdir/load_data_${caseType}_${executeTime}
+loadDataRootDir="/data2/"
+loadRsultRootDir="/data2/"
+queryDataRootDir="/data2/"
+queryRsultRootDir="/data2/"
+
+
+#load test parameters
+load_ts_start="2016-01-01T00:00:00Z"
+load_ts_end="2016-01-02T00:00:00Z"
+load_number_wokers="12"
+load_batchsizes="10000"
+load_scales="100 4000 100000 1000000 10000000"
+load_formats="TDengine influx timescaledb"
+load_test_scales="200"
+
+#query test parameters
+query_ts_start="2016-01-01T00:00:00Z"
+query_load_ts_end="2016-01-05T00:00:00Z"
+query_ts_end="2016-01-05T00:00:01Z"
+query_load_number_wokers="12"
+query_number_wokers="12"
+query_times="10000"
+query_scales="100 4000 100000 1000000 10000000"
+query_formats="TDengine influx timescaledb"
+
+# while getopts "hs:p:o:g:d:c:t:" arg
+# do
+#   case $arg in
+#     o)
+#       osType=$(echo $OPTARG)
+#       ;;
+#     s)
+#       serverHost=$(echo $OPTARG)
+#       ;;
+#     p)
+#       serverPass=$(echo $OPTARG)
+#       ;;
+#     g)
+#       installGoEnv=$(echo $OPTARG)
+#       ;;
+#     d)
+#       installDB=$(echo $OPTARG)
+#       ;;
+#     t)
+#       installTsbs=$(echo $OPTARG)
+#       ;;
+#     c)
+#       caseType=$(echo $OPTARG)
+#       ;; 
+#     h)
+#       echo "Usage: `basename $0` -o osType [centos | ubuntu]
+#                               -s server host or ip
+#                               -p server Password
+#                               -g installGoEnv [true | false]
+#                               -d installDB [true | false]           
+#                               -t installTsbs [true | false]
+#                               -c caseType [cputest | cpu| devops | iot ]
+#                               -h get help         
+#       osType's default values is  ubuntu,other is false"
+#       exit 0
+#       ;;
+#     ?) #unknow option
+#       echo "unkonw argument"
+#       exit 1
+#       ;;
+#   esac
+# done
 
 scriptDir=$(dirname $(readlink -f $0))
 
