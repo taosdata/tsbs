@@ -121,7 +121,7 @@ sshpass -p ${serverPass}  ssh root@$serverHost << eeooff
     exit
 eeooff
 
-GO_HOME=${installPath}go
+GO_HOME=${installPath}/go
 export PATH=$GO_HOME/bin:$PATH
 export GOPATH=$(go env GOPATH)
 export PATH=$GOPATH/bin:$PATH
