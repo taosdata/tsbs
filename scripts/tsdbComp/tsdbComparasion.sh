@@ -10,7 +10,7 @@ installTsbs=false
 #client and server paras
 cientIP="192.168.0.203"
 clientHost="trd03"
-serverIP="192.168.0.104"
+serverIP="192.168.0.204"
 serverHost="trd04"
 serverPass="taosdata!"
 
@@ -50,16 +50,7 @@ query_formats="TDengine influx timescaledb"
 
 scriptDir=$(dirname $(readlink -f $0))
 
-# start to test
-cd ${scriptDir}
-
-# define path and filename
-installPath="/usr/local/src/"
-envfile="installEnv.sh"
-cfgfile="test.ini"
-source ./${cfgfile}
-
-
+# Check if command exists
 function cmdInstall {
 comd=$1
 if command -v ${comd} ;then
@@ -75,42 +66,51 @@ else
 fi
 }
 
-# install  basic env, and you should have python3 and pip3 environment
 cmdInstall sshpass
-cmdInstall git
+
+# start to test
+cd ${scriptDir}
+
+# define path and filename
+installPath="/usr/local/src/"
+envfile="installEnv.sh"
+cfgfile="test.ini"
+
+# enable configure :test.ini
+source ./${cfgfile}
+
+echo "====now we start to test===="
+echo "start to install env in ${installPath}"
+mkdir -p ${installPath}
+# copy configure to installPath
+cp ${scriptDir}/${cfgfile} ${installPath}
+
+# install  basic env, and you should have python3 and pip3 environment
+echo "install basic env, and you should have python3 and pip3 environment"
+
 pip3 install matplotlib
 
 
-# pull tsbs rep and install env  if set installenv ture
-cd ${installPath}
+# install clinet env 
+echo "==========install client:${cientIP} environment and tsbs ========"
 
-
-if [ -d "${installPath}/tsbs" ];then 
-    cd ${installPath}/tsbs/
-    # git checkout -f master && git pull origin master
-else
-    git clone git@github.com:taosdata/tsbs.git 
-fi
-
-
-cd ${installPath}/tsbs/scripts/tsdbComp
 ./installEnv.sh 
-
-# ./installEnv.sh -g ${installGoEnv} -d ${installDB} -t ${installTsbs}  -o ${osType}
-# source  /root/.bashrc
-# ./installEnv.sh -t ${installTsbs} -o ${osType}
-
+./installTsbsCommand.sh
 sudo systemctl stop postgresql-14
 sudo systemctl stop influxd
 sudo systemctl stop taosd
 
-
 # configure sshd 
 sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
 service sshd restart
+
+echo "==========install server:${serverIP} environment========"
+
+sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
+    mkdir -p  ${installPath}
+eeooff
 sshpass -p  ${serverPass} scp ${envfile} root@$serverHost:${installPath}
 sshpass -p  ${serverPass} scp ${cfgfile} root@$serverHost:${installPath}
-   
 # install at server host 
 sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
     cd ${installPath}
@@ -121,20 +121,21 @@ sshpass -p ${serverPass}  ssh root@$serverHost << eeooff
     exit
 eeooff
 
-
-GO_HOME=/usr/local/go
+GO_HOME=${installPath}go
 export PATH=$GO_HOME/bin:$PATH
 export GOPATH=$(go env GOPATH)
 export PATH=$GOPATH/bin:$PATH
 
 # execute load tests
+echo "execute load tests"
 time=`date +%Y_%m%d_%H%M%S`
-cd ${installPath}/tsbs/scripts/tsdbComp
+cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
 ./loadAllcases.sh > testload${time}.log 
 
 # # execute query tests
+cd ${scriptDir}
 # time=`date +%Y_%m%d_%H%M%S`
 # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
