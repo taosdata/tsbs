@@ -103,7 +103,8 @@ if [[ -z ${goenv} ]];then
     goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
     export PATH=$GO_HOME/bin:$PATH
     if [[ -z ${goPar} ]];then
-        echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\nexport PATH=$GO_HOME/bin:$PATH\n" >> /root/.bashrc
+        echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\n" >> /root/.bashrc
+        echo -e  'export PATH=$GO_HOME/bin:$PATH\n' >> /root/.bashrc
     else 
         echo "GOHOME already been add to PATH of /root/.bashrc"    
     fi 
