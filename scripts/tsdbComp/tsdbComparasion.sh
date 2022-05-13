@@ -7,7 +7,9 @@ installGoEnv=false
 installDB=false
 installTsbs=false
 
-#server para
+#client and server paras
+cientIP="192.168.0.203"
+clientHost="trd03"
 serverIP="192.168.0.104"
 serverHost="trd04"
 serverPass="taosdata!"
