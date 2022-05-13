@@ -129,8 +129,8 @@ python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${
 
 # caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
-    echo "load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "${load_formats}" "
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
+    echo "load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb" "
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "cpu" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "devops" ];then
@@ -138,34 +138,8 @@ elif [ ${caseType} == "devops" ];then
 elif [ ${caseType} == "iot" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "iot" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "userdefined" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_test_scales}" "iot" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_scales}" "${case}" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
 else  
     echo "please set correct testcase type"
 fi
-
-
-
-
-
-# #  testcaset 3: iot
-# # need define data and result path
-# new=`date +%Y_%m%d_%H%M%S`
-# BULK_DATA_DIR="/data2/bulk_data_iot_0412" 
-# BULK_DATA_DIR_RES_LOAD="/data2/result_load_iot_${new}/" 
-
-# # excute testcase
-# TS_START="2016-01-01T00:00:00Z" TS_END="2016-01-03T00:00:00Z" \
-# DATABASE_HOST="${serverHost}" BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
-# BULK_DATA_DIR=${BULK_DATA_DIR} NUM_WORKERS="12" SERVER_PASSWORD="${serverPass}" \
-# USE_CASES="iot" FORMATS="TDengine influx timescaledb" BATCH_SIZES="10000" \
-# SCALES="40000" DATABASE_NAME="benchmarkiot" ./loadtest.sh 
-
-# #generate png report
-# # loadResultAnaly.py has three parameter,
-# # 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
-# echo "python3 ${scriptDir}/loadResultAnalyBarh.py  ${BULK_DATA_DIR_RES_LOAD}/load_input.csv  SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load.png"
-# python3 ${scriptDir}/loadResultAnalyBarh.py  ${BULK_DATA_DIR_RES_LOAD}/load_input.csv  SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load.png
-
-# echo "${scriptDir}/loadRatioBarh.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv  SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_ratio.png"
-# python3 ${scriptDir}/loadRatioBarh.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv  SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_ratio.png
 
