@@ -7,7 +7,9 @@ installGoEnv=false
 installDB=false
 installTsbs=false
 
-#server para
+#client and server paras
+cientIP="192.168.0.203"
+clientHost="trd03"
 serverIP="192.168.0.104"
 serverHost="trd04"
 serverPass="taosdata!"
@@ -15,6 +17,7 @@ serverPass="taosdata!"
 #testcase type
 #[cputest | cpu| devops | iot ]
 caseType=cputest
+case="cpu-only"
 
 # data and result root path
 # datapath is bulk_data_rootDir/bulk_data_${caseType} 
@@ -22,9 +25,13 @@ caseType=cputest
 # resultpath is bulk_data_resultrootdir/load_data_${caseType}_${executeTime}
 loadDataRootDir="/data2/"
 loadRsultRootDir="/data2/"
+queryDataRootDir="/data2/"
+queryRsultRootDir="/data2/"
 
 
 #load test parameters
+load_ts_start="2016-01-01T00:00:00Z"
+load_ts_end="2016-01-02T00:00:00Z"
 load_number_wokers="12"
 load_batchsizes="10000"
 load_scales="100 4000 100000 1000000 10000000"
@@ -32,6 +39,9 @@ load_formats="TDengine influx timescaledb"
 load_test_scales="200"
 
 #query test parameters
+query_ts_start="2016-01-01T00:00:00Z"
+query_load_ts_end="2016-01-05T00:00:00Z"
+query_ts_end="2016-01-05T00:00:01Z"
 query_load_number_wokers="12"
 query_number_wokers="12"
 query_times="10000"

@@ -85,21 +85,16 @@ python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${
 
 }
 
-function cmd_excute {
-  echo "$1"
-  $1
-}
-
 # caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
     echo "load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "${load_formats}" "
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
 elif [ ${caseType} == "cpu" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_test_scales}" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "devops" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_test_scales}" "devops" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000"  "devops" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "iot" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_test_scales}" "iot" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "iot" "${load_number_woker}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "userdefined" ];then
     load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_test_scales}" "iot" "${load_number_woker}" "${load_batchsizes}" "${load_formats}"
 else  
