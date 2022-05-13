@@ -116,23 +116,28 @@ echo "=============timescaledb in centos: start ============="
   sudo systemctl enable postgresql-14
   sudo systemctl start postgresql-14
 
-echo "=============timescaledb in centos: reset password to 'password' ============="
-
-  # reset default password:password 
-  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
-  sharePar=`grep "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
-  if [ -z "${sharePar}" ];then
+  echo "============timescaledb in centos: configure and start postgresql ============="
+  sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
+  sharePar2=`grep -w "#shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
+  if [[ -z "${sharePar1}" ]] || [[  -n  "${sharePar2}" ]];then
     echo "shared_preload_libraries = 'timescaledb'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "it has already been add to postgresql.conf"
+    echo "sharePar has already been add to postgresql.conf"
   fi
-  listenPar=`grep "listen_addresses = '\*'"  /etc/postgresql/14/main/postgresql.conf  `
-  if [ -z "${listenPar}" ];then
+
+  listenPar1=`grep -w "listen_addresses = '\*'"  /etc/postgresql/14/main/postgresql.conf `
+  listenPar2=`grep -w "#listen_addresses = '\*'"  /etc/postgresql/14/main/postgresql.conf `
+  if [[ -z "${listenPar1}" ]] || [[  -n "${listenPar2}" ]];then
     echo "listen_addresses = '*'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "it has already been add to postgresql.conf"    
-  fi
-  systemctl restart  postgresql-14
+    echo "listenPar has already been add to postgresql.conf"    
+  fi 
+  systemctl restart  postgresql 
+
+  echo "=============timescaledb in centos: reset password to 'password'  and add extension timescaledb for postgresql ============="
+  # reset default password:password 
+  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
+  systemctl restart  postgresql 
   PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 }
 
@@ -173,16 +178,7 @@ function install_timescale_ubuntu {
   apt install postgresql-14 -y
   apt install timescaledb-2-postgresql-14 -y 
 
-  echo "=============timescaledb in ubuntu: start ============="
-#   #configure postgresql 
-#   sudo /usr/pgsql-14/bin/postgresql-14-setup initdb
-#   sudo systemctl enable postgresql-14
-  sudo systemctl  restart postgresql
-
-  echo "=============timescaledb in ubuntu: configure and reset password to 'password' ============="
-  # reset default password:password 
-  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
-  
+  echo "============timescaledb in ubuntu: configure and start postgresql ============="
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   sharePar2=`grep -w "#shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   if [[ -z "${sharePar1}" ]] || [[  -n  "${sharePar2}" ]];then
@@ -198,6 +194,11 @@ function install_timescale_ubuntu {
   else 
     echo "listenPar has already been add to postgresql.conf"    
   fi 
+  systemctl restart  postgresql 
+
+  echo "=============timescaledb in ubuntu: reset password to 'password'  and add extension timescaledb for postgresql ============="
+  # reset default password:password 
+  su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
   systemctl restart  postgresql 
   PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 }
@@ -236,6 +237,14 @@ function install_TDengine {
   taosPar=`grep -w "tableIncStepPerVnode 100000" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
     echo -e  "tableIncStepPerVnode 100000\nminTablesPerVnode    100000 \nmaxSQLLength 1048576 \n#tscEnableRecordSql 1 \n#debugflag 135 \n#shortcutFlag 1 \n"  >> /etc/taos/taos.cfg
+  fi
+  fqdnCPar=`grep -w "${cientIP} ${clientHost}" /etc/hosts`
+  fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
+  if [ -z "${fqdnCPar}" ];then
+    echo -e  "\n${cientIP} ${clientHost} \n"  >> /etc/hosts
+  fi
+  if [ -z "${fqdnSPar}" ];then
+    echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
   fi
 }
 
