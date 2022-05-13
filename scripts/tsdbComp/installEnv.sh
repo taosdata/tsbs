@@ -12,7 +12,7 @@ installDB=false
 installTsbs=false
 
 #client and server paras
-cientIP="192.168.0.203"
+clientIP="192.168.0.203"
 clientHost="trd03"
 serverIP="192.168.0.204"
 serverHost="trd04"
@@ -232,10 +232,10 @@ function install_TDengine {
   if [ -z "${taosPar}" ];then
     echo -e  "tableIncStepPerVnode 100000\nminTablesPerVnode    100000 \nmaxSQLLength 1048576 \n#tscEnableRecordSql 1 \n#debugflag 135 \n#shortcutFlag 1 \n"  >> /etc/taos/taos.cfg
   fi
-  fqdnCPar=`grep -w "${cientIP} ${clientHost}" /etc/hosts`
+  fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
   fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
   if [ -z "${fqdnCPar}" ];then
-    echo -e  "\n${cientIP} ${clientHost} \n"  >> /etc/hosts
+    echo -e  "\n${clientIP} ${clientHost} \n"  >> /etc/hosts
   fi
   if [ -z "${fqdnSPar}" ];then
     echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
