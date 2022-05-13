@@ -99,11 +99,11 @@ if [[ -z ${goenv} ]];then
     fi 
     tar -zxvf  go1.16.9.linux-amd64.tar.gz
     echo "add go to PATH"
-    GO_HOME=${installPath}go
-    goPar=`grep -w "GO_HOME=${installPath}go"  /root/.bashrc`
+    GO_HOME=${installPath}/go
+    goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
     export PATH=$GO_HOME/bin:$PATH
     if [[ -z ${goPar} ]];then
-        echo -e  '\n# GO_HOME\nexport GO_HOME=${installPath}go\nexport PATH=$GO_HOME/bin:$PATH\n' >> /root/.bashrc
+        echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\nexport PATH=$GO_HOME/bin:$PATH\n" >> /root/.bashrc
     else 
         echo "GOHOME already been add to PATH of /root/.bashrc"    
     fi 
@@ -140,7 +140,7 @@ function install_tsbs {
   source  /root/.bashrc
   goenv=${GOPATH}
   if [[ -z ${goenv} ]];then
-      GO_HOME=${installPath}go
+      GO_HOME=${installPath}/go
       export PATH=$GO_HOME/bin:$PATH
       export GOPATH=$(go env GOPATH)
       export PATH=$GOPATH/bin:$PATH
