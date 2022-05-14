@@ -39,9 +39,9 @@ SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
 CASE_TYPE=${CASE_TYPE:-"cputest"} 
 
 
-worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
-batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
-scalelen=`echo  ${SCALES}| awk  '{print NF}' `
+# worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
+# batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
+# scalelen=`echo  ${SCALES}| awk  '{print NF}' `
 
 # rm -rf ${BULK_DATA_DIR}/*
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
@@ -49,7 +49,7 @@ rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 for USE_CASE in ${USE_CASES}; do
     for FORMAT in ${FORMATS}; do
         for SCALE in ${SCALES};do
-            if  [ ${CASE_TYPE} != "userdefined" ];then
+            if  [[ ${CASE_TYPE} != "userdefined" ]];then
                 echo ${SCALE}
                 if [  ${SCALE} -eq 100 ];then
                     TS_END="2016-02-01T00:00:00Z"
