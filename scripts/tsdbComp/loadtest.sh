@@ -36,40 +36,47 @@ DATABASE_PWD=${DATABASE_PWD:-password}
 NUM_WORKERS=${NUM_WORKERS:-"24"} 
 BATCH_SIZES=${BATCH_SIZES:-"10000"} 
 SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
+CASE_TYPE=${CASE_TYPE:-"cputest"} 
+
 
 worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
 batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
 scalelen=`echo  ${SCALES}| awk  '{print NF}' `
-
 
 # rm -rf ${BULK_DATA_DIR}/*
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 
 for USE_CASE in ${USE_CASES}; do
     for FORMAT in ${FORMATS}; do
-        for SCALE in ${SCALES};do 
-            echo ${SCALE}
-            if [  ${SCALE} -eq 100 ];then
-                TS_END="2016-02-01T00:00:00Z"
-                CHUNK_TIME="62h"
-                echo "generate 1 month data"
-            elif [ ${SCALE} -eq 4000 ];then
-                TS_END="2016-01-05T00:00:00Z"
-                CHUNK_TIME="8h"
-                echo "generate 5 days data"
-            elif [ ${SCALE} -eq 100000 ] ;then
-                TS_END="2016-01-01T03:00:00Z"
-                CHUNK_TIME="15m"
-                echo "generate 3 hours data"
-            elif [ ${SCALE} -eq 1000000 ] ||  [ ${SCALE} -eq 10000000 ];then
-                TS_END="2016-01-01T00:03:00Z"
-                CHUNK_TIME="15s"
-                echo "generate 3 min data"
+        for SCALE in ${SCALES};do
+            if  [ ${CASE_TYPE} != "userdefined" ];then
+                echo ${SCALE}
+                if [  ${SCALE} -eq 100 ];then
+                    TS_END="2016-02-01T00:00:00Z"
+                    CHUNK_TIME="62h"
+                    echo "generate 1 month data"
+                elif [ ${SCALE} -eq 4000 ];then
+                    TS_END="2016-01-05T00:00:00Z"
+                    CHUNK_TIME="8h"
+                    echo "generate 5 days data"
+                elif [ ${SCALE} -eq 100000 ] ;then
+                    TS_END="2016-01-01T03:00:00Z"
+                    CHUNK_TIME="15m"
+                    echo "generate 3 hours data"
+                elif [ ${SCALE} -eq 1000000 ] ||  [ ${SCALE} -eq 10000000 ];then
+                    TS_END="2016-01-01T00:03:00Z"
+                    CHUNK_TIME="15s"
+                    echo "generate 3 min data"
+                else
+                    TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
+                    echo "generate input data"
+                    CHUNK_TIME="12h"
+                fi
             else
                 TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
                 echo "generate input data"
                 CHUNK_TIME="12h"
-            fi
+            fi            
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
                     echo `date +%Y_%m%d_%H%M%S`
@@ -88,6 +95,7 @@ for USE_CASE in ${USE_CASES}; do
                    CHUNK_TIME=${CHUNK_TIME} \
                    SERVER_PASSWORD=${SERVER_PASSWORD} \
                    BULK_DATA_DIR=${BULK_DATA_DIR} \
+                   CASE_TYPE=${CASE_TYPE} \
                    BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh
                    sleep 60s
                 done

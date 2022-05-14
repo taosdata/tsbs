@@ -95,6 +95,8 @@ BATCH_SIZE=${BATCH_SIZE:-"10000"}
 CHUNK_TIME=${CHUNK_TIME:-"12h"}
 SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
 BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
+CASE_TYPE=${CASE_TYPE:-"cputest"} 
+
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
@@ -138,8 +140,12 @@ if [ "${FORMAT}" == "timescaledb" ];then
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
             timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
-            timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
-            timesHours=`ceil $timesHours`
+            if  [ ${CASE_TYPE} == "userdefined" ];then
+                timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
+                timesHours=`ceil $timesHours`
+            else
+                timesHours="12"
+            fi
             echo ${tempCompressNum}
             echo ${disk_usage_after}
             if [ "${tempCompressNum}" == "(${timesHours}" ];then
