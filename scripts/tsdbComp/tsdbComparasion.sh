@@ -70,7 +70,7 @@ cmdInstall sshpass
 
 # start to test
 cd ${scriptDir}
-
+mkdir -p log/
 # define path and filename
 installPath="/usr/local/src/"
 envfile="installEnv.sh"
@@ -132,12 +132,12 @@ time=`date +%Y_%m%d_%H%M%S`
 cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
-./loadAllcases.sh > testload${time}.log 
+./loadAllcases.sh > log/testload${time}.log 
 
 # # execute query tests
 cd ${scriptDir}
 # time=`date +%Y_%m%d_%H%M%S`
 # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
-./queryAllcases.sh  > testquery${time}.log
+./queryAllcases.sh  > log/testquery${time}.log
 

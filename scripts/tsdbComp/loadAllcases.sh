@@ -110,11 +110,14 @@ load_dataDir="${loadDataRootDir}/load_data_${caseType}/"
 load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
 
 # excute testcase
-TS_START=$3 TS_END=$4  \
-DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
+echo "TS_START="$3" TS_END="$4"  DATABASE_HOST="$1" SERVER_PASSWORD="$2" BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir}  NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} SCALES="$5" DATABASE_NAME="benchmark$caseType" ./loadtest.sh "
+
+TS_START="$3" TS_END="$4"  \
+DATABASE_HOST="$1" SERVER_PASSWORD="$2"  \
 BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir} \
-NUM_WORKERS=$7 USE_CASES=$6 FORMATS=$9 BATCH_SIZES=$8  CASE_TYPE=${caseType}\
-SCALES=$5 DATABASE_NAME="benchmark$caseType" ./loadtest.sh 
+NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} \
+SCALES="$5" DATABASE_NAME="benchmark$caseType" ./loadtest.sh 
+
 
 #generate png report
 # loadResultAnaly.py has three parameter,
