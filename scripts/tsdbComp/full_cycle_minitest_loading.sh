@@ -140,7 +140,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
             timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
-            if  [[ ${CASE_TYPE} == "userdefined" ]] && [[ ${CASE_TYPE} == "cputest" ]] ;then
+            if  [[ ${CASE_TYPE} == "userdefined" ]] || [[ ${CASE_TYPE} == "cputest" ]] ;then
                 timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
                 timesHours=`ceil $timesHours`
             else
