@@ -119,15 +119,16 @@ NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseTy
 SCALES="$5" DATABASE_NAME="benchmark$caseType" ./loadtest.sh 
 
 
-#generate png report
-# loadResultAnaly.py has three parameter,
-# 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
-echo "python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png"
-python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png
+if [ ${caseType} != "userdefined" ];then
+    #generate png report
+    # loadResultAnaly.py has three parameter,
+    # 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
+    echo "python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png"
+    python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png
 
-echo "${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png"
-python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png
-
+    echo "${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png"
+    python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png
+fi
 }
 
 # caseType [cputest | cpu| devops | iot ]
