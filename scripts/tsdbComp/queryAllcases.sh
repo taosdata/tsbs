@@ -125,12 +125,14 @@ NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 \
 QUERY_DEBUG="false" RESTLOAD="true" QUERIES=${10} \
 SCALES=$6 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
 
-# generate png 
-echo "python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png"
-echo "python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png"
+if [ ${caseType} != "userdefined" ];then
+    # generate png 
+    echo "python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barh.png"
+    echo "python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio.png"
 
-python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png
-python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png
+    python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png
+    python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png
+fi
 }
 
 # caseType [cputest | cpu| devops | iot ]
