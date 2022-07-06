@@ -2,13 +2,12 @@ package async
 
 import (
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"sync"
 	"unsafe"
 
-	tErrors "github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	tErrors "github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/thread"
 )
 
@@ -60,7 +59,7 @@ func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat wrap
 	execResult.Header = rowsHeader
 	precision := wrapper.TaosResultPrecision(res)
 	for {
-		result, err = a.TaosFetchRowsA(res, handler)
+		result, err = a.TaosFetchRawBlockA(res, handler)
 		if err != nil {
 			return nil, err
 		}
@@ -68,25 +67,9 @@ func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat wrap
 			return execResult, nil
 		} else {
 			res = result.Res
-			for i := 0; i < result.N; i++ {
-				var row unsafe.Pointer
-				thread.Lock()
-				row = wrapper.TaosFetchRow(res)
-				thread.Unlock()
-				lengths := wrapper.FetchLengths(res, len(rowsHeader.ColNames))
-				values := make([]driver.Value, len(rowsHeader.ColNames))
-				for j := range rowsHeader.ColTypes {
-					if row == nil {
-						return nil, FetchRowError
-					}
-					v := wrapper.FetchRow(row, j, rowsHeader.ColTypes[j], lengths[j], precision, timeFormat)
-					if vv, is := v.([]byte); is {
-						v = json.RawMessage(vv)
-					}
-					values[j] = v
-				}
-				execResult.Data = append(execResult.Data, values)
-			}
+			block := wrapper.TaosGetRawBlock(res)
+			values := wrapper.ReadBlock(block, result.N, rowsHeader.ColTypes, precision)
+			execResult.Data = append(execResult.Data, values...)
 		}
 	}
 }
@@ -99,9 +82,9 @@ func (a *Async) TaosQuery(taosConnect unsafe.Pointer, sql string, handler *Handl
 	return r, nil
 }
 
-func (a *Async) TaosFetchRowsA(res unsafe.Pointer, handler *Handler) (*Result, error) {
+func (a *Async) TaosFetchRawBlockA(res unsafe.Pointer, handler *Handler) (*Result, error) {
 	thread.Lock()
-	wrapper.TaosFetchRowsA(res, handler.Handler)
+	wrapper.TaosFetchRawBlockA(res, handler.Handler)
 	thread.Unlock()
 	r := <-handler.Caller.FetchResult
 	return r, nil

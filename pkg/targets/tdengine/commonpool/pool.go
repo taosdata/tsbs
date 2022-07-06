@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/silenceper/pool"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/thread"
 )
 

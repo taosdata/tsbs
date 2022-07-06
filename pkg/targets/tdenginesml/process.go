@@ -3,7 +3,7 @@ package tdenginesml
 import (
 	"bytes"
 
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
