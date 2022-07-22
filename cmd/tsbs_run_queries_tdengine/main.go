@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql/driver"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/blagojts/viper"
@@ -69,6 +70,14 @@ func (p *processor) Init(workerNum int) {
 	if err != nil {
 		panic(err)
 	}
+	err = async.GlobalAsync.TaosExecWithoutResult(db.TaosConnection, "drop table if exists random_measure2_1")
+	if err != nil {
+		panic(err)
+	}
+	err = async.GlobalAsync.TaosExecWithoutResult(db.TaosConnection, "create table random_measure2_1 (ts timestamp,ela float, name binary(40))")
+	if err != nil {
+		panic(err)
+	}
 	p.db = db
 	p.opts = &queryExecutorOptions{
 		debug:         runner.DebugLevel() > 0,
@@ -83,6 +92,24 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	qry := string(tq.SqlQuery)
 	if p.opts.debug {
 		fmt.Println(qry)
+	}
+	querys := strings.Split(qry, ";")
+	if len(querys) > 1 {
+		var preQuerys []string
+		for i := 0; i < len(querys); i++ {
+			if len(querys[i]) > 0 {
+				preQuerys = append(preQuerys, querys[i])
+			}
+		}
+		if len(preQuerys) > 1 {
+			for i := 0; i < len(preQuerys)-1; i++ {
+				err := async.GlobalAsync.TaosExecWithoutResult(p.db.TaosConnection, preQuerys[i])
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		qry = querys[len(preQuerys)-1]
 	}
 	data, err := async.GlobalAsync.TaosExec(p.db.TaosConnection, qry, func(ts int64, precision int) driver.Value {
 		return ts
