@@ -68,7 +68,7 @@ func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat wrap
 		} else {
 			res = result.Res
 			block := wrapper.TaosGetRawBlock(res)
-			values := wrapper.ReadBlock(block, result.N, rowsHeader.ColTypes, precision)
+			values := wrapper.ReadBlockWithTimeFormat(block, result.N, rowsHeader.ColTypes, precision, timeFormat)
 			execResult.Data = append(execResult.Data, values...)
 		}
 	}
