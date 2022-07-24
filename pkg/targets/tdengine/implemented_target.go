@@ -23,6 +23,7 @@ func (t *tdengineTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.F
 	flagSet.String(flagPrefix+"pass", "taosdata", "Password for user connecting to TDengine")
 	flagSet.String(flagPrefix+"host", "", "TDengine host")
 	flagSet.Int(flagPrefix+"port", 6030, "TDengine Port")
+	flagSet.Int(flagPrefix+"vgroups", 0, "TDengine DB vgroups")
 }
 
 func (t *tdengineTarget) TargetName() string {
