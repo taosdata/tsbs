@@ -70,14 +70,6 @@ func (p *processor) Init(workerNum int) {
 	if err != nil {
 		panic(err)
 	}
-	err = async.GlobalAsync.TaosExecWithoutResult(db.TaosConnection, "drop table if exists random_measure2_1")
-	if err != nil {
-		panic(err)
-	}
-	err = async.GlobalAsync.TaosExecWithoutResult(db.TaosConnection, "create table random_measure2_1 (ts timestamp,ela float, name binary(40))")
-	if err != nil {
-		panic(err)
-	}
 	p.db = db
 	p.opts = &queryExecutorOptions{
 		debug:         runner.DebugLevel() > 0,
