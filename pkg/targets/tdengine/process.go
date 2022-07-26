@@ -79,11 +79,9 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	//	}()
 	//}
 	//p.wg.Wait()
-	var tableList []string
 	for _, row := range batches.createSql {
 		switch row.sqlType {
 		case CreateSTable:
-			tableList = append(tableList, row.superTable)
 			c, cancel := context.WithCancel(context.Background())
 			ctx := &Ctx{
 				c:      c,
@@ -97,8 +95,12 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			}
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
+			errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.superTable})
+			if errCode != 0 {
+				errStr := wrapper.TaosErrorStr(nil)
+				panic(errors.NewError(errCode, errStr))
+			}
 		case CreateSubTable:
-			tableList = append(tableList, row.subTable)
 			c, cancel := context.WithCancel(context.Background())
 			ctx := &Ctx{
 				c:      c,
@@ -129,6 +131,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				}
 				superTableActual, _ := p.sci.m.LoadOrStore(row.superTable, superTableCtx)
 				<-superTableActual.(*Ctx).c.Done()
+				errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.subTable})
+				if errCode != 0 {
+					errStr := wrapper.TaosErrorStr(nil)
+					panic(errors.NewError(errCode, errStr))
+				}
 			}
 			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
 			if err != nil {
@@ -140,11 +147,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		default:
 			panic("impossible")
 		}
-	}
-	errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, tableList)
-	if errCode != 0 {
-		errStr := wrapper.TaosErrorStr(nil)
-		panic(errors.NewError(errCode, errStr))
 	}
 	p.wg.Add(len(batches.m))
 	for tableName := range batches.m {
