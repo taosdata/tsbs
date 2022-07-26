@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
@@ -77,9 +79,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	//	}()
 	//}
 	//p.wg.Wait()
+	var tableList []string
 	for _, row := range batches.createSql {
 		switch row.sqlType {
 		case CreateSTable:
+			tableList = append(tableList, row.superTable)
 			c, cancel := context.WithCancel(context.Background())
 			ctx := &Ctx{
 				c:      c,
@@ -94,6 +98,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
 		case CreateSubTable:
+			tableList = append(tableList, row.subTable)
 			c, cancel := context.WithCancel(context.Background())
 			ctx := &Ctx{
 				c:      c,
@@ -135,6 +140,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		default:
 			panic("impossible")
 		}
+	}
+	errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, tableList)
+	if errCode != 0 {
+		errStr := wrapper.TaosErrorStr(nil)
+		panic(errors.NewError(errCode, errStr))
 	}
 	p.wg.Add(len(batches.m))
 	for tableName := range batches.m {
