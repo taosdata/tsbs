@@ -144,6 +144,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			}
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
+			errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.subTable})
+			if errCode != 0 {
+				errStr := wrapper.TaosErrorStr(nil)
+				panic(errors.NewError(errCode, errStr))
+			}
 		default:
 			panic("impossible")
 		}
