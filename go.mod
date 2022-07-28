@@ -44,7 +44,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/taosdata/driver-go/v3 v3.0.0-20220726025737-206212ed4e92
+	github.com/taosdata/driver-go/v3 v3.0.0-20220727085750-945e8874a8f0
 	github.com/timescale/promscale v0.0.0-20201006153045-6a66a36f5c84
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/transceptor-technology/go-qpack v0.0.0-20190116123619-49a14b216a45
