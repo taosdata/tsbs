@@ -34,6 +34,10 @@ func initProgramOptions() (*tdenginesml.LoadingOptions, load.BenchmarkRunner, *l
 	opts.Pass = viper.GetString("pass")
 	opts.Host = viper.GetString("host")
 	opts.Port = viper.GetInt("port")
+	vgroups := viper.GetInt("vgroups")
+	if vgroups > 0 {
+		opts.VGroups = vgroups
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }
