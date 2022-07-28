@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
@@ -93,11 +91,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				fmt.Println(row.sql)
 				panic(err)
 			}
-			errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.superTable})
-			if errCode != 0 {
-				errStr := wrapper.TaosErrorStr(nil)
-				panic(errors.NewError(errCode, errStr))
-			}
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
 		case CreateSubTable:
@@ -119,11 +112,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 						fmt.Println(row.sql)
 						panic(err)
 					}
-					errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.subTable})
-					if errCode != 0 {
-						errStr := wrapper.TaosErrorStr(nil)
-						panic(errors.NewError(errCode, errStr))
-					}
 					GlobalTable.Store(row.subTable, nothing)
 					actual.(*Ctx).cancel()
 					continue
@@ -142,11 +130,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			if err != nil {
 				fmt.Println(row.sql)
 				panic(err)
-			}
-			errCode := wrapper.TaosLoadTableInfo(p._db.TaosConnection, []string{row.subTable})
-			if errCode != 0 {
-				errStr := wrapper.TaosErrorStr(nil)
-				panic(errors.NewError(errCode, errStr))
 			}
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
