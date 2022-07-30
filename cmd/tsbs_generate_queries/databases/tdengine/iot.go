@@ -51,8 +51,8 @@ func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
 
 // LastLocPerTruck finds all the truck locations along with truck and driver names.
 func (i *IoT) LastLocPerTruck(qi query.Query) {
-	//SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='South' and name IS NOT NULL partition BY name,driver order by name,driver;
-	sql := fmt.Sprintf(`SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='%s' and name IS NOT NULL partition BY name,driver order by name,driver`,
+	//SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='South' and name IS NOT NULL partition BY name,driver;
+	sql := fmt.Sprintf(`SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='%s' and name IS NOT NULL partition BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine last location per truck"
@@ -63,8 +63,8 @@ func (i *IoT) LastLocPerTruck(qi query.Query) {
 
 // TrucksWithLowFuel finds all trucks with low fuel (less than 10%).
 func (i *IoT) TrucksWithLowFuel(qi query.Query) {
-	//SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = 'South' and name IS NOT NULL GROUP BY name,driver order by name;
-	sql := fmt.Sprintf(`SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' and name IS NOT NULL GROUP BY name,driver order by name`,
+	//SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = 'South' and name IS NOT NULL GROUP BY name,driver ;
+	sql := fmt.Sprintf(`SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' and name IS NOT NULL GROUP BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with low fuel"
@@ -75,8 +75,8 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 
 //TrucksWithHighLoad finds all trucks that have load over 90%.
 func (i *IoT) TrucksWithHighLoad(qi query.Query) {
-	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity) partition by name ORDER BY name desc, ts DESC ;
-	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity) partition by name ORDER BY name desc, ts DESC ", i.GetRandomFleet())
+	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity) partition by name  ;
+	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity) partition by name", i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with high load"
 	humanDesc := fmt.Sprintf("%s: over 90 percent", humanLabel)
@@ -157,8 +157,8 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 
 // AvgLoad finds the average load per truck model per fleet.
 func (i *IoT) AvgLoad(qi query.Query) {
-	//SELECT fleet, model,avg(ml) AS mean_load_percentage FROM (SELECT fleet, model,current_load/load_capacity AS ml FROM diagnostics partition BY name, fleet, model) partition BY fleet, model order by fleet,model ;
-	sql := fmt.Sprintf("SELECT fleet, model,avg(ml) AS mean_load_percentage FROM (SELECT fleet, model,current_load/load_capacity AS ml FROM diagnostics partition BY name, fleet, model) partition BY fleet, model order by fleet,model")
+	//SELECT fleet, model,avg(current_load/load_capacity) AS mean_load_percentage from diagnostics partition BY fleet, model ;
+	sql := fmt.Sprintf("SELECT fleet, model,avg(current_load/load_capacity) AS mean_load_percentage from diagnostics partition BY fleet, model")
 
 	humanLabel := "TDengine average load per truck model per fleet"
 	humanDesc := humanLabel
@@ -168,8 +168,8 @@ func (i *IoT) AvgLoad(qi query.Query) {
 
 // DailyTruckActivity returns the number of hours trucks has been active (not out-of-commission) per day per fleet per model.
 func (i *IoT) DailyTruckActivity(qi query.Query) {
-	//SELECT _wstart as ts,model,fleet,count(ms1)/144 FROM (SELECT _wstart as ts1,model, fleet,avg(status) AS ms1 FROM diagnostics WHERE ts >= '2016-01-01T00:00:00Z' AND ts < '2016-01-05T00:00:01Z' partition by model, fleet interval(10m) fill(value,0)) WHERE ts1 >= '2016-01-01T00:00:00Z' AND ts1 < '2016-01-05T00:00:01Z' AND ms1<1 partition by model, fleet interval(1d)
-	sql := fmt.Sprintf("SELECT _wstart as ts,model,fleet,count(ms1)/144 FROM (SELECT _wstart as ts1,model, fleet,avg(status) AS ms1 FROM diagnostics WHERE ts >= %d AND ts < %d partition by model, fleet interval(10m) fill(value,0)) WHERE ts1 >= %d AND ts1 < %d AND ms1<1 partition by model, fleet interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis(), i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
+	//SELECT _wstart as ts,model,fleet,count(ms1)/144 FROM (SELECT _wstart as ts1,model, fleet,avg(status) AS ms1 FROM diagnostics WHERE ts >= 1451606400000 AND ts < 1451952001000 partition by model, fleet interval(10m)) WHERE ts1 >= 1451606400000 AND ts1 < 1451952001000 AND ms1<1 partition by model, fleet interval(1d)
+	sql := fmt.Sprintf("SELECT _wstart as ts,model,fleet,count(ms1)/144 FROM (SELECT _wstart as ts1,model, fleet,avg(status) AS ms1 FROM diagnostics WHERE ts >= %d AND ts < %d partition by model, fleet interval(10m)) WHERE ts1 >= %d AND ts1 < %d AND ms1<1 partition by model, fleet interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis(), i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 	humanLabel := "TDengine daily truck activity per fleet per model"
 	humanDesc := humanLabel
 
