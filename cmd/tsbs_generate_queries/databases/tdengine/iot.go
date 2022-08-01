@@ -157,8 +157,8 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 
 // AvgLoad finds the average load per truck model per fleet.
 func (i *IoT) AvgLoad(qi query.Query) {
-	//SELECT fleet, model,avg(current_load/load_capacity) AS mean_load_percentage from diagnostics partition BY fleet, model ;
-	sql := fmt.Sprintf("SELECT fleet, model,avg(current_load/load_capacity) AS mean_load_percentage from diagnostics partition BY fleet, model")
+	//select fleet,model,load_capacity,avg(ml/load_capacity)  from(SELECT fleet, model,tbname,load_capacity ,avg(current_load) AS ml FROM diagnostics where name is not null   partition BY  fleet, model,tbname,load_capacity) partition BY fleet, model,load_capacity;
+	sql := fmt.Sprintf("select fleet,model,load_capacity,avg(ml/load_capacity)  from(SELECT fleet, model,tbname,load_capacity ,avg(current_load) AS ml FROM diagnostics where name is not null   partition BY  fleet, model,tbname,load_capacity) partition BY fleet, model,load_capacity")
 
 	humanLabel := "TDengine average load per truck model per fleet"
 	humanDesc := humanLabel
