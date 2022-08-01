@@ -142,13 +142,9 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 
 // AvgDailyDrivingSession finds the average driving session without stopping per driver per day.
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
-	//create table random_measure2_1 (ts timestamp,ela float, name binary(40))
-	//
-	//insert into random_measure2_1 (select name,ela (SELECT name, diff(difka) as dif, elapsed(difka, 1m) as ela FROM (SELECT name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,floor(avg(velocity)/10)/floor(avg(velocity)/10) AS mv FROM readings WHERE name!='' AND ts > '2016-01-01T00:00:00Z' AND ts < '2016-01-05T00:00:01Z' partition by name interval(10m) fill(value,0)) partition BY name) WHERE difka!=0 partition BY name) partition BY name) WHERE dif = -2 partition BY name)
-	//
-	//SELECT avg(ela) FROM random_measure2_1 WHERE time > '2016-01-01T00:00:00Z' AND time < '2016-01-05T00:00:01Z' partition BY name interval(1d);
+	//    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka  FROM (SELECT ts,name,diff(mv) AS difka  FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > '2016-01-01T00:00:00Z' AND ts < '2016-01-05T00:00:01Z'   partition by name interval(10m) fill(value,0))partition BY name ) WHERE difka!=0   partition BY name ) partition BY name ) WHERE dif = -2   partition BY name )  partition BY name  interval(1d);
 	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-	sql := fmt.Sprintf("insert into random_measure2_1 (select name,ela (SELECT name, diff(difka) as dif, elapsed(difka, 1m) as ela FROM (SELECT name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,floor(avg(velocity)/10)/floor(avg(velocity)/10) AS mv FROM readings WHERE name!='' AND ts > %d AND ts < %d partition by name interval(10m) fill(value,0)) partition BY name) WHERE difka!=0 partition BY name) partition BY name) WHERE dif = -2 partition BY name);SELECT avg(ela) FROM random_measure2_1 WHERE time > %d AND time < %d partition BY name interval(1d)", interval.StartUnixMillis(), interval.EndUnixMillis(), interval.StartUnixMillis(), interval.EndUnixMillis())
+	sql := fmt.Sprintf("    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka  FROM (SELECT ts,name,diff(mv) AS difka  FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > %d AND ts < d%   partition by name interval(10m) fill(value,0))partition BY name ) WHERE difka!=0   partition BY name ) partition BY name ) WHERE dif = -2   partition BY name )  partition BY name  interval(1d);", interval.StartUnixMillis(), interval.EndUnixMillis(), interval.StartUnixMillis(), interval.EndUnixMillis())
 	humanLabel := "TDengine average driver driving session without stopping per day"
 	humanDesc := humanLabel
 
