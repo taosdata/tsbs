@@ -132,7 +132,7 @@ func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
 // AvgDailyDrivingDuration finds the average driving duration per driver.
 func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 	//select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,name,driver,avg(velocity) as mv from readings where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z' partition by fleet,name,driver interval(10m)) where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z' partition by fleet,name,driver interval(1d)
-	sql := fmt.Sprintf("select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,name,driver,avg(velocity) as mv from readings where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z' partition by fleet,name,driver interval(10m)) where ts > %d and ts < %d partition by fleet,name,driver interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
+	sql := fmt.Sprintf("select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,name,driver,avg(velocity) as mv from readings where ts > %d and ts < %d partition by fleet,name,driver interval(10m)) where ts > %d and ts < %d partition by fleet,name,driver interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 
 	humanLabel := "TDengine average driver driving duration per day"
 	humanDesc := humanLabel
@@ -178,8 +178,8 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 
 // TruckBreakdownFrequency calculates the amount of times a truck model broke down in the last period.
 func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
-	//SELECT model,count(state_changed) FROM (SELECT model,diff(broken_down) AS state_changed FROM (SELECT model,cast(cast(floor(2*(sum(nzs)/count(nzs))) as bool) as int) AS broken_down FROM (SELECT ts,model, cast(cast(status as bool) as int) AS nzs FROM diagnostics WHERE ts >= '2016-01-01T00:00:00Z' AND ts < '2023-01-05T00:00:01Z' ) WHERE ts >= '2016-01-01T00:00:00Z' AND ts < '2023-01-05T00:00:01Z' partition BY model interval(10m)) partition BY model) WHERE state_changed = 1 partition BY model
-	sql := fmt.Sprintf("SELECT model,count(state_changed) FROM (SELECT model,diff(broken_down) AS state_changed FROM (SELECT model,cast(cast(floor(2*(sum(nzs)/count(nzs))) as bool) as int) AS broken_down FROM (SELECT ts,model, cast(cast(status as bool) as int) AS nzs FROM diagnostics WHERE ts >= %d AND ts < %d ) WHERE ts >= %d AND ts < %d partition BY model interval(10m)) partition BY model) WHERE state_changed = 1 partition BY model", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis(), i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
+	// SELECT model,count(state_changed) FROM (SELECT model,diff(broken_down) AS state_changed  FROM (SELECT model,tb,cast(cast(floor(2*(nzs)) as bool) as int) AS broken_down  FROM (SELECT model,tbname as tb, sum(cast(cast(status as bool) as int))/count(cast(cast(status as bool) as int)) AS nzs  FROM diagnostics  WHERE ts >= '2016-01-01T00:00:00Z' AND ts < '2023-01-05T00:00:01Z'  partition BY tbname,model interval(10m))  )  partition BY tb,model )  WHERE state_changed = 1  partition BY model ;
+	sql := fmt.Sprintf("SELECT model,count(state_changed) FROM (SELECT model,diff(broken_down) AS state_changed FROM (SELECT model,tb,cast(cast(floor(2*(nzs)) as bool) as int) AS broken_down FROM (SELECT model,tbname as tb, sum(cast(cast(status as bool) as int))/count(cast(cast(status as bool) as int)) AS nzs FROM diagnostics WHERE ts >= %d AND ts < %d partition BY tbname,model interval(10m))) partition BY tb,model) WHERE state_changed = 1 partition BY model", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis(), i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 
 	humanLabel := "TDengine truck breakdown frequency per model"
 	humanDesc := humanLabel
