@@ -131,8 +131,8 @@ func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
 
 // AvgDailyDrivingDuration finds the average driving duration per driver.
 func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
-	//select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,name,driver,avg(velocity) as mv from readings where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z' partition by fleet,name,driver interval(10m)) where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z' partition by fleet,name,driver interval(1d)
-	sql := fmt.Sprintf("select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,name,driver,avg(velocity) as mv from readings where ts > %d and ts < %d partition by fleet,name,driver interval(10m)) where ts > %d and ts < %d partition by fleet,name,driver interval(1d)", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
+	//select fleet,name,driver,avg(hours_driven) as avg_daily_hours  from( select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,tbname,name,driver,avg(velocity) as mv from readings where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z'  partition by fleet,tbname,name,driver interval(10m)  ) where  mv >1  partition by fleet,name,driver interval(1d) )partition by fleet,name,driver ;
+	sql := fmt.Sprintf("select fleet,name,driver,avg(hours_driven) as avg_daily_hours  from( select _wstart as ts,fleet,name,driver,count(mv)/6 as hours_driven from ( select _wstart as ts,fleet,tbname,name,driver,avg(velocity) as mv from readings where ts > '2016-01-01T00:00:00Z' and ts < '2016-01-05T00:00:01Z'  partition by fleet,tbname,name,driver interval(10m)  ) where  mv >1  partition by fleet,name,driver interval(1d) )partition by fleet,name,driver ;", i.Interval.StartUnixMillis(), i.Interval.EndUnixMillis())
 
 	humanLabel := "TDengine average driver driving duration per day"
 	humanDesc := humanLabel
