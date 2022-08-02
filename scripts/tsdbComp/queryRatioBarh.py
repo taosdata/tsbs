@@ -144,7 +144,7 @@ ax.invert_yaxis()
 ax.axvline(100, color='gray', linewidth=2)
 # ax.set_xlabel("%s" % xLableName)  # add x lable
 # ax.set_ylabel("Query Type")  # add y lable
-ax.set_xlabel("spendtime : TDengine/otherDB %")   # add x lable
+ax.set_xlabel("spendtime : otherDB/TDengine %")   # add x lable
 ax.set_title("QueryComparisons query response Time in different %s on %s devices * 10 metrics" % (xLableName,scaleLable))  # Add a title to the axes.
 
 for i in range(resultshape):

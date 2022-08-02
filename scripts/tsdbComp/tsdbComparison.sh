@@ -8,7 +8,7 @@ installDB=false
 installTsbs=false
 
 #client and server paras
-cientIP="192.168.0.203"
+clientIP="192.168.0.203"
 clientHost="trd03"
 serverIP="192.168.0.204"
 serverHost="trd04"
@@ -78,7 +78,7 @@ cfgfile="test.ini"
 
 # enable configure :test.ini
 source ./${cfgfile}
-
+echo ${cientIP}
 echo "====now we start to test===="
 echo "start to install env in ${installPath}"
 mkdir -p ${installPath}
@@ -92,19 +92,28 @@ pip3 install matplotlib
 
 
 # install clinet env 
-echo "==========install client:${cientIP} environment and tsbs ========"
+echo "==========install client:${clientIP} basic environment and tsbs ========"
 
-./installEnv.sh 
-./installTsbsCommand.sh
+if [ "${installDB}" == "true" ] ;then
+    ./installEnv.sh 
+fi 
+
+if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ];then
+    ./installTsbsCommand.sh
+fi
 sudo systemctl stop postgresql-14
 sudo systemctl stop influxd
 sudo systemctl stop taosd
+
 
 # configure sshd 
 sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
 service sshd restart
 
-echo "==========install server:${serverIP} environment========"
+echo "==========intallation of client:${clientIP} is complete ========"
+
+
+echo "==========start to install server:${serverIP} environment and databases========"
 
 sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
     mkdir -p  ${installPath}
@@ -112,6 +121,8 @@ eeooff
 sshpass -p  ${serverPass} scp ${envfile} root@$serverHost:${installPath}
 sshpass -p  ${serverPass} scp ${cfgfile} root@$serverHost:${installPath}
 # install at server host 
+if [ "${installDB}" == "true" ];then
+
 sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
     cd ${installPath}
     echo "install basic env in server ${serverIP}"
@@ -120,6 +131,10 @@ sshpass -p ${serverPass}  ssh root@$serverHost << eeooff
     sleep 1
     exit
 eeooff
+
+fi 
+echo "==========intallation of server: is complete ========"
+
 
 GO_HOME=${installPath}/go
 export PATH=$GO_HOME/bin:$PATH
