@@ -124,6 +124,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				}
 				superTableActual, _ := p.sci.m.LoadOrStore(row.superTable, superTableCtx)
 				<-superTableActual.(*Ctx).c.Done()
+
 			}
 			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
 			if err != nil {
