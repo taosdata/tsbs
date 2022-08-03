@@ -274,7 +274,7 @@ if [ "${installDB}" == "true" ];then
   #   install_TDengine
   # fi
 else 
-  echo "It doesn't install timescaleDB InfluxDB and TDengine.If you want to install,please set installGo env true"
+  echo "It doesn't install timescaleDB InfluxDB and TDengine.If you want to install,please set installDB  true"
 fi 
 
 

@@ -53,35 +53,19 @@ high-cpu-all \
 groupby-orderby-limit \
 lastpoint "}
 
-# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"high-cpu-all \
-# groupby-orderby-limit \
-# high-cpu-1 \
-# "}
-
-# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"high-cpu-all "}
-
-
 QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
 last-loc \
 low-fuel \
-avg-daily-driving-duration \
+high-load \
+stationary-trucks \
+long-driving-sessions \
+long-daily-sessions	\
 avg-vs-projected-fuel-consumption \
-daily-activity "}    
-
-
-# QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
-# last-loc \
-# low-fuel \
-# high-load \           tdengine does not support 
-# stationary-trucks \   tdengine does not support 
-# long-driving-sessions \  tdengine does not support 
-# long-daily-sessions	\  tdengine does not support 
-# avg-vs-projected-fuel-consumption \ tdengine does not support 
-# avg-daily-driving-duration \
-# avg-daily-driving-session \  tdengine does not support 
-# avg-load \                     tdengine does not support 
-# daily-activity \
-# breakdown-frequency"}      tdengine does not support 
+avg-daily-driving-duration \
+avg-daily-driving-session \
+avg-load \
+daily-activity \
+breakdown-frequency"}     
 
 
 # Number of queries to generate
@@ -126,6 +110,13 @@ for FORMAT in ${FORMATS}; do
             else
                 QUERY_TYPES=${QUERY_TYPES_IOT_ALL}
             fi
+            #  restart taosd
+
+            if [  ${FORMAT} == "TDengine" ];then
+                echo `date +%Y_%m%d_%H%M%S`":restart taosd and checck taosd status "
+                sshpass -p ${SERVER_PASSWORD}  ssh  root@$DATABASE_HOST "systemctl restart taosd && systemctl status taosd && sleep 2 && exit "
+            fi
+
             for QUERY_TYPE in ${QUERY_TYPES}; do
                 for NUM_WORKER in ${NUM_WORKERS}; do
                     echo " DATABASE_HOST=${DATABASE_HOST} BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR} BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES}  TS_START=${TS_START}  TS_END=${QUERY_TS_END} QUERIES=${QUERIES} FORMAT=${FORMAT} USE_CASE=${USE_CASE} QUERY_TYPE=${QUERY_TYPE} SCALE=${SCALE} NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_query.sh "
