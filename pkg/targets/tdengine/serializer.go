@@ -87,6 +87,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	var fieldTypes []string
 	var tagValues []string
 	var tagKeys []string
+	var tagTypes []string
 	tKeys := p.TagKeys()
 	tValues := p.TagValues()
 	fKeys := p.FieldKeys()
@@ -94,51 +95,23 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	superTable := string(p.MeasurementName())
 	for i, value := range fValues {
 		fType := FastFormat(s.tmpBuf, value)
-		if value != nil {
-			fieldKeys = append(fieldKeys, string(fKeys[i]))
-			fieldTypes = append(fieldTypes, fType)
-		}
+		fieldKeys = append(fieldKeys, convertKeywords(string(fKeys[i])))
+		fieldTypes = append(fieldTypes, fType)
 		fieldValues = append(fieldValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
 
 	for i, value := range tValues {
-		if value == nil {
-			stable, exist := s.superTable[superTable]
-			if exist {
-				_, exist = stable.columns[string(tKeys[i])]
-				if exist {
-					FastFormat(s.tmpBuf, value)
-					fieldValues = append(fieldValues, s.tmpBuf.String())
-					s.tmpBuf.Reset()
-				}
-			} else {
-				//todo 可能类型错误
-				tagKeys = append(tagKeys, string(tKeys[i]))
-				FastFormat(s.tmpBuf, value)
-				tagValues = append(tagValues, s.tmpBuf.String())
-				s.tmpBuf.Reset()
-			}
-			continue
-		}
-		switch value.(type) {
-		case string:
-			tagKeys = append(tagKeys, string(tKeys[i]))
-			FastFormat(s.tmpBuf, value)
-			tagValues = append(tagValues, s.tmpBuf.String())
-			s.tmpBuf.Reset()
-		default:
-			fType := FastFormat(s.tmpBuf, value)
-			fieldKeys = append(fieldKeys, string(tKeys[i]))
-			fieldTypes = append(fieldTypes, fType)
-			fieldValues = append(fieldValues, s.tmpBuf.String())
-			s.tmpBuf.Reset()
-		}
+		tType := FastFormat(s.tmpBuf, value)
+		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
+		tagTypes = append(tagTypes, tType)
+		tagValues = append(tagValues, s.tmpBuf.String())
+		s.tmpBuf.Reset()
 	}
 	s.tmpBuf.WriteString(superTable)
 	for i, v := range tagValues {
 		s.tmpBuf.WriteByte(',')
-		s.tmpBuf.Write(tKeys[i])
+		s.tmpBuf.WriteString(tagKeys[i])
 		s.tmpBuf.WriteByte('=')
 		s.tmpBuf.WriteString(v)
 	}
@@ -152,7 +125,18 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			s.tmpBuf.WriteByte(' ')
 			s.tmpBuf.WriteString(fieldTypes[i])
 		}
-		fmt.Fprintf(w, "%c,%s,%s,create table %s (ts timestamp%s) tags (%s binary(30))\n", CreateSTable, superTable, subTable, superTable, s.tmpBuf.String(), strings.Join(tagKeys, " binary(30),"))
+		fieldStr := s.tmpBuf.String()
+		s.tmpBuf.Reset()
+		for i := 0; i < len(tagTypes); i++ {
+			s.tmpBuf.WriteString(tagKeys[i])
+			s.tmpBuf.WriteByte(' ')
+			s.tmpBuf.WriteString(tagTypes[i])
+			if i != len(tagTypes)-1 {
+				s.tmpBuf.WriteByte(',')
+			}
+		}
+		tagStr := s.tmpBuf.String()
+		fmt.Fprintf(w, "%c,%s,%s,create table %s (ts timestamp%s) tags (%s)\n", CreateSTable, superTable, subTable, superTable, fieldStr, tagStr)
 		s.tmpBuf.Reset()
 		table := &Table{
 			columns: map[string]struct{}{},
@@ -187,4 +171,15 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 
 	fmt.Fprintf(w, "%c,%s,%d,(%d,%s)\n", Insert, subTable, len(fieldValues), p.TimestampInUnixMs(), strings.Join(fieldValues, ","))
 	return nil
+}
+
+var keyWords = map[string]bool{
+	"port": true,
+}
+
+func convertKeywords(s string) string {
+	if is := keyWords[s]; is {
+		return fmt.Sprintf("`%s`", s)
+	}
+	return s
 }
