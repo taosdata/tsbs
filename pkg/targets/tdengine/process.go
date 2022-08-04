@@ -1,12 +1,15 @@
 package tdengine
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"strings"
 	"sync"
+	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/errors"
+	taosTypes "github.com/taosdata/driver-go/v3/types"
+	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
@@ -16,8 +19,6 @@ type syncCSI struct {
 	m sync.Map //table:ctx
 }
 
-const Size1M = 1 * 1024 * 1024
-
 type Ctx struct {
 	c      context.Context
 	cancel context.CancelFunc
@@ -25,24 +26,30 @@ type Ctx struct {
 
 var globalSCI = &syncCSI{}
 
+var stableTypesLocker = sync.RWMutex{}
+var stableTypes = map[string][]*taosTypes.ColumnType{}
+
+//var subTableFieldMap = map[string]int{} //sub table : column count
+//var subTableStableMap = map[string]string{}
+var subTableStableMap = sync.Map{}
+
 type processor struct {
+	stmts  map[int]unsafe.Pointer
 	opts   *LoadingOptions
 	dbName string
 	sci    *syncCSI
 	_db    *commonpool.Conn
 	wg     *sync.WaitGroup
-	buf    *bytes.Buffer
 }
 
 func newProcessor(opts *LoadingOptions, dbName string) *processor {
-	return &processor{opts: opts, dbName: dbName, sci: globalSCI, wg: &sync.WaitGroup{}, buf: &bytes.Buffer{}}
+	return &processor{opts: opts, dbName: dbName, sci: globalSCI, wg: &sync.WaitGroup{}, stmts: map[int]unsafe.Pointer{}}
 }
 
 func (p *processor) Init(_ int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
-	p.buf.Grow(Size1M)
 	var err error
 	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass, p.opts.Host, p.opts.Port)
 	if err != nil {
@@ -64,19 +71,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}
 		return metricCnt, rowCnt
 	}
-	//p.wg.Add(len(batches.createSql))
-	//for _, row := range batches.createSql {
-	//	row := row
-	//	go func() {
-	//		defer p.wg.Done()
-	//		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
-	//		if err != nil {
-	//			fmt.Println(row.sql)
-	//			panic(err)
-	//		}
-	//	}()
-	//}
-	//p.wg.Wait()
 	for _, row := range batches.createSql {
 		switch row.sqlType {
 		case CreateSTable:
@@ -162,55 +156,68 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}()
 	}
 	p.wg.Wait()
-	p.buf.WriteString("insert into ")
-	for tableName, sqls := range batches.m {
-		rowCnt += uint64(len(sqls))
-		if p.buf.Len()+len(sqls[0])+len(tableName)+7 > Size1M {
-			sql := p.buf.String()
-			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
-			if err != nil {
-				ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
-				fmt.Println(sql)
-				panic(err)
-			}
-			p.buf.Reset()
-			p.buf.WriteString("insert into ")
-		}
-		p.buf.WriteString(tableName)
-		p.buf.WriteString(" values")
-		for i := 0; i < len(sqls); i++ {
-			if p.buf.Len()+len(sqls[i]) > Size1M {
-				sql := p.buf.String()
-				err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
-				if err != nil {
-					ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
-					fmt.Println(sql)
-					panic(err)
+	usingStmt := map[int]unsafe.Pointer{}
+	for tableName, colData := range batches.m {
+		sv, _ := subTableStableMap.Load(tableName)
+		stableName := sv.(string)
+		stableTypesLocker.RLock()
+		colTypes := stableTypes[stableName]
+		stableTypesLocker.RUnlock()
+		columnCount := len(colTypes)
+		stmt, exist := p.stmts[columnCount]
+		if !exist {
+			stmt = wrapper.TaosStmtInit(p._db.TaosConnection)
+			builder := &strings.Builder{}
+			builder.WriteString("insert into ? values(")
+			for i := 0; i < columnCount; i++ {
+				builder.WriteByte('?')
+				if i != columnCount-1 {
+					builder.WriteByte(',')
 				}
-				p.buf.Reset()
-				p.buf.WriteString("insert into ")
-				p.buf.WriteString(tableName)
-				p.buf.WriteString(" values")
 			}
-			p.buf.WriteString(sqls[i])
+			builder.WriteByte(')')
+			code := wrapper.TaosStmtPrepare(stmt, builder.String())
+			if code != 0 {
+				errStr := wrapper.TaosStmtErrStr(stmt)
+				panic(errors.NewError(code, errStr))
+			}
+			p.stmts[columnCount] = stmt
 		}
-	}
-	if p.buf.Len() > 0 {
-		sql := p.buf.String()
-		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
-		if err != nil {
-			fmt.Println(sql)
-			panic(err)
+		usingStmt[columnCount] = stmt
+		rowCnt += uint64(len(colData[0]))
+		code := wrapper.TaosStmtSetTBName(stmt, tableName)
+		if code != 0 {
+			errStr := wrapper.TaosStmtErrStr(stmt)
+			panic(errors.NewError(code, errStr))
 		}
-		p.buf.Reset()
-	}
 
+		code = wrapper.TaosStmtBindParamBatch(stmt, colData, colTypes)
+		if code != 0 {
+			errStr := wrapper.TaosStmtErrStr(stmt)
+			panic(errors.NewError(code, errStr))
+		}
+		code = wrapper.TaosStmtAddBatch(stmt)
+		if code != 0 {
+			errStr := wrapper.TaosStmtErrStr(stmt)
+			panic(errors.NewError(code, errStr))
+		}
+	}
+	for _, stmt := range usingStmt {
+		code := wrapper.TaosStmtExecute(stmt)
+		if code != 0 {
+			errStr := wrapper.TaosStmtErrStr(stmt)
+			panic(errors.NewError(code, errStr))
+		}
+	}
 	batches.Reset()
 	return metricCnt, rowCnt
 }
 
 func (p *processor) Close(doLoad bool) {
-	if doLoad {
+	if p._db != nil {
 		p._db.Put()
+	}
+	for _, stmt := range p.stmts {
+		wrapper.TaosStmtClose(stmt)
 	}
 }

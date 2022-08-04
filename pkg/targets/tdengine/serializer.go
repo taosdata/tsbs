@@ -12,6 +12,14 @@ import (
 	"github.com/taosdata/tsbs/pkg/data"
 )
 
+const (
+	TypeInt    = 'i'
+	TypeTS     = 't'
+	TypeDouble = 'f'
+	TypeBool   = 'b'
+	TypeString = 's'
+)
+
 type Serializer struct {
 	tmpBuf     *bytes.Buffer
 	tableMap   map[string]struct{}
@@ -136,8 +144,24 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			}
 		}
 		tagStr := s.tmpBuf.String()
-		fmt.Fprintf(w, "%c,%s,%s,create table %s (ts timestamp%s) tags (%s)\n", CreateSTable, superTable, subTable, superTable, fieldStr, tagStr)
 		s.tmpBuf.Reset()
+		fmt.Fprintf(w, "%c,%s,%s,create table %s (ts timestamp%s) tags (%s)\n", CreateSTable, superTable, subTable, superTable, fieldStr, tagStr)
+		fmt.Fprint(w, string(TypeTS))
+		for i := 0; i < len(fieldTypes); i++ {
+			switch fieldTypes[i] {
+			case "bigint":
+				fmt.Fprint(w, string(TypeInt))
+			case "double":
+				fmt.Fprintf(w, string(TypeDouble))
+			case "binary(30)":
+				fmt.Fprint(w, string(TypeString))
+			case "bool":
+				fmt.Fprintf(w, string(TypeBool))
+			default:
+				panic("create stbale with null type")
+			}
+		}
+		fmt.Fprint(w, "\n")
 		table := &Table{
 			columns: map[string]struct{}{},
 			tags:    map[string]struct{}{},
@@ -152,14 +176,12 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	} else {
 		for _, key := range fieldKeys {
 			if _, exist = stable.columns[key]; !exist {
-				fmt.Fprintf(w, "%c,%s,%s,alter table %s add COLUMN %s double\n", Modify, superTable, subTable, superTable, key)
-				stable.columns[key] = nothing
+				panic("not support modify column")
 			}
 		}
 		for _, key := range tagKeys {
 			if _, exist = stable.tags[key]; !exist {
-				fmt.Fprintf(w, "%c,%s,%s,alter table %s add TAG %s binary(30)\n", Modify, superTable, subTable, superTable, key)
-				stable.tags[key] = nothing
+				panic("not support modify tag")
 			}
 		}
 	}
@@ -169,7 +191,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		s.tableMap[subTable] = nothing
 	}
 
-	fmt.Fprintf(w, "%c,%s,%d,(%d,%s)\n", Insert, subTable, len(fieldValues), p.TimestampInUnixMs(), strings.Join(fieldValues, ","))
+	fmt.Fprintf(w, "%c,%s,%d,%d,%s\n", Insert, subTable, len(fieldValues), p.TimestampInUnixMs(), strings.Join(fieldValues, ","))
 	return nil
 }
 
