@@ -3,6 +3,8 @@ package tdengine
 import (
 	"bytes"
 	"crypto/md5"
+	"database/sql/driver"
+	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -10,17 +12,11 @@ import (
 	"strings"
 
 	"github.com/taosdata/tsbs/pkg/data"
-)
-
-const (
-	TypeInt    = 'i'
-	TypeTS     = 't'
-	TypeDouble = 'f'
-	TypeBool   = 'b'
-	TypeString = 's'
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/cstmt"
 )
 
 type Serializer struct {
+	encoder    *gob.Encoder
 	tmpBuf     *bytes.Buffer
 	tableMap   map[string]struct{}
 	superTable map[string]*Table
@@ -31,38 +27,58 @@ var nothing = struct{}{}
 type Table struct {
 	columns map[string]struct{}
 	tags    map[string]struct{}
+	types   []byte
 }
 
-func FastFormat(buf *bytes.Buffer, v interface{}) string {
-	switch v.(type) {
+func FastFormat(buf *bytes.Buffer, v interface{}, write bool) (byte, driver.Value, string) {
+	if v == nil {
+		if write {
+			buf.WriteString("null")
+		}
+		return cstmt.TypeNull, nil, "null"
+	}
+	switch vv := v.(type) {
 	case int:
-		buf.WriteString(strconv.Itoa(v.(int)))
-		return "bigint"
+		if write {
+			buf.WriteString(strconv.Itoa(vv))
+		}
+		return cstmt.TypeInt, int64(vv), "bigint"
 	case int64:
-		buf.WriteString(strconv.FormatInt(v.(int64), 10))
-		return "bigint"
+		if write {
+			buf.WriteString(strconv.FormatInt(vv, 10))
+		}
+		return cstmt.TypeInt, vv, "bigint"
 	case float64:
-		buf.WriteString(strconv.FormatFloat(v.(float64), 'f', -1, 64))
-		return "double"
+		if write {
+			buf.WriteString(strconv.FormatFloat(vv, 'f', -1, 64))
+		}
+		return cstmt.TypeDouble, vv, "double"
 	case float32:
-		buf.WriteString(strconv.FormatFloat(float64(v.(float32)), 'f', -1, 32))
-		return "double"
+		vvv := float64(vv)
+		if write {
+			buf.WriteString(strconv.FormatFloat(vvv, 'f', -1, 32))
+		}
+		return cstmt.TypeDouble, vvv, "double"
 	case bool:
-		buf.WriteString(strconv.FormatBool(v.(bool)))
-		return "bool"
+		if write {
+			buf.WriteString(strconv.FormatBool(vv))
+		}
+		return cstmt.TypeBool, vv, "bool"
 	case []byte:
-		buf.WriteByte('\'')
-		buf.WriteString(string(v.([]byte)))
-		buf.WriteByte('\'')
-		return "binary(30)"
+		vvv := string(vv)
+		if write {
+			buf.WriteByte('\'')
+			buf.WriteString(vvv)
+			buf.WriteByte('\'')
+		}
+		return cstmt.TypeString, vvv, "binary(30)"
 	case string:
-		buf.WriteByte('\'')
-		buf.WriteString(v.(string))
-		buf.WriteByte('\'')
-		return "binary(30)"
-	case nil:
-		buf.WriteString("null")
-		return "null"
+		if write {
+			buf.WriteByte('\'')
+			buf.WriteString(vv)
+			buf.WriteByte('\'')
+		}
+		return cstmt.TypeString, vv, "binary(30)"
 	default:
 		panic(fmt.Sprintf("unknown field type for %#v", v))
 	}
@@ -90,8 +106,10 @@ const (
 )
 
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
+	if s.encoder == nil {
+		s.encoder = gob.NewEncoder(w)
+	}
 	var fieldKeys []string
-	var fieldValues []string
 	var fieldTypes []string
 	var tagValues []string
 	var tagKeys []string
@@ -99,18 +117,22 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	tKeys := p.TagKeys()
 	tValues := p.TagValues()
 	fKeys := p.FieldKeys()
+	byteTypes := make([]byte, len(fKeys)+1)
+	byteTypes[0] = cstmt.TypeTS
+	fieldValues := make([]driver.Value, len(fKeys)+1)
+	fieldValues[0] = p.TimestampInUnixMs()
 	fValues := p.FieldValues()
 	superTable := string(p.MeasurementName())
 	for i, value := range fValues {
-		fType := FastFormat(s.tmpBuf, value)
 		fieldKeys = append(fieldKeys, convertKeywords(string(fKeys[i])))
+		byteType, driverValue, fType := FastFormat(nil, value, false)
 		fieldTypes = append(fieldTypes, fType)
-		fieldValues = append(fieldValues, s.tmpBuf.String())
-		s.tmpBuf.Reset()
+		byteTypes[i+1] = byteType
+		fieldValues[i+1] = driverValue
 	}
 
 	for i, value := range tValues {
-		tType := FastFormat(s.tmpBuf, value)
+		_, _, tType := FastFormat(s.tmpBuf, value, true)
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
 		tagValues = append(tagValues, s.tmpBuf.String())
@@ -145,26 +167,17 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		}
 		tagStr := s.tmpBuf.String()
 		s.tmpBuf.Reset()
-		fmt.Fprintf(w, "%c,%s,%s,create table %s (ts timestamp%s) tags (%s)\n", CreateSTable, superTable, subTable, superTable, fieldStr, tagStr)
-		fmt.Fprint(w, string(TypeTS))
-		for i := 0; i < len(fieldTypes); i++ {
-			switch fieldTypes[i] {
-			case "bigint":
-				fmt.Fprint(w, string(TypeInt))
-			case "double":
-				fmt.Fprintf(w, string(TypeDouble))
-			case "binary(30)":
-				fmt.Fprint(w, string(TypeString))
-			case "bool":
-				fmt.Fprintf(w, string(TypeBool))
-			default:
-				panic("create stbale with null type")
-			}
+		pd := point{
+			SqlType:    CreateSTable,
+			SuperTable: superTable,
+			SubTable:   subTable,
+			Sql:        fmt.Sprintf("create table %s (ts timestamp%s) tags (%s)", superTable, fieldStr, tagStr),
 		}
-		fmt.Fprint(w, "\n")
+		s.encoder.Encode(pd)
 		table := &Table{
 			columns: map[string]struct{}{},
 			tags:    map[string]struct{}{},
+			types:   byteTypes,
 		}
 		for _, key := range fieldKeys {
 			table.columns[key] = nothing
@@ -187,11 +200,24 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	}
 	_, exist = s.tableMap[subTable]
 	if !exist {
-		fmt.Fprintf(w, "%c,%s,%s,create table %s using %s (%s) tags (%s)\n", CreateSubTable, superTable, subTable, subTable, superTable, strings.Join(tagKeys, ","), strings.Join(tagValues, ","))
+		pd := point{
+			SqlType:    CreateSubTable,
+			SuperTable: superTable,
+			SubTable:   subTable,
+			Sql:        fmt.Sprintf("create table %s using %s (%s) tags (%s)", subTable, superTable, strings.Join(tagKeys, ","), strings.Join(tagValues, ",")),
+		}
+		s.encoder.Encode(pd)
 		s.tableMap[subTable] = nothing
 	}
-
-	fmt.Fprintf(w, "%c,%s,%d,%d,%s\n", Insert, subTable, len(fieldValues), p.TimestampInUnixMs(), strings.Join(fieldValues, ","))
+	pd := point{
+		SqlType:    Insert,
+		SuperTable: "",
+		SubTable:   subTable,
+		Sql:        "",
+		Types:      s.superTable[superTable].types,
+		Values:     fieldValues,
+	}
+	s.encoder.Encode(pd)
 	return nil
 }
 

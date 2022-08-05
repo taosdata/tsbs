@@ -1,22 +1,20 @@
 package tdengine
 
 import (
-	"github.com/taosdata/tsbs/internal/inputs"
+	"errors"
+
 	"github.com/taosdata/tsbs/pkg/data/source"
 	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+	if dataSourceConfig.Type != source.FileDataSourceType {
+		return nil, errors.New("only FILE data source implemented for TDengine")
+	}
+
 	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
 		ds = newFileDataSource(dataSourceConfig.File.Location)
-	} else {
-		dataGenerator := &inputs.DataGenerator{}
-		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
-		if err != nil {
-			return nil, err
-		}
-		ds = newSimulationDataSource(simulator)
 	}
 
 	return &benchmark{

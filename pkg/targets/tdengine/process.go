@@ -8,11 +8,11 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/errors"
-	taosTypes "github.com/taosdata/driver-go/v3/types"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine/cstmt"
 )
 
 type syncCSI struct {
@@ -26,14 +26,8 @@ type Ctx struct {
 
 var globalSCI = &syncCSI{}
 
-var stableTypesLocker = sync.RWMutex{}
-var stableTypes = map[string][]*taosTypes.ColumnType{}
-
-//var subTableFieldMap = map[string]int{} //sub table : column count
-//var subTableStableMap = map[string]string{}
-var subTableStableMap = sync.Map{}
-
 type processor struct {
+	id     int
 	stmts  map[int]unsafe.Pointer
 	opts   *LoadingOptions
 	dbName string
@@ -46,7 +40,8 @@ func newProcessor(opts *LoadingOptions, dbName string) *processor {
 	return &processor{opts: opts, dbName: dbName, sci: globalSCI, wg: &sync.WaitGroup{}, stmts: map[int]unsafe.Pointer{}}
 }
 
-func (p *processor) Init(_ int, doLoad, _ bool) {
+func (p *processor) Init(id int, doLoad, _ bool) {
+	p.id = id
 	if !doLoad {
 		return
 	}
@@ -72,20 +67,20 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		return metricCnt, rowCnt
 	}
 	for _, row := range batches.createSql {
-		switch row.sqlType {
+		switch row.SqlType {
 		case CreateSTable:
 			c, cancel := context.WithCancel(context.Background())
 			ctx := &Ctx{
 				c:      c,
 				cancel: cancel,
 			}
-			actual, _ := p.sci.m.LoadOrStore(row.superTable, ctx)
-			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+			actual, _ := p.sci.m.LoadOrStore(row.SuperTable, ctx)
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.Sql)
 			if err != nil {
-				fmt.Println(row.sql)
+				fmt.Println(row.Sql)
 				panic(err)
 			}
-			GlobalTable.Store(row.subTable, nothing)
+			GlobalTable.Store(row.SubTable, nothing)
 			actual.(*Ctx).cancel()
 		case CreateSubTable:
 			c, cancel := context.WithCancel(context.Background())
@@ -93,20 +88,20 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				c:      c,
 				cancel: cancel,
 			}
-			actual, _ := p.sci.m.LoadOrStore(row.subTable, ctx)
+			actual, _ := p.sci.m.LoadOrStore(row.SubTable, ctx)
 
 			//check super table created
-			_, ok := GlobalTable.Load(row.superTable)
+			_, ok := GlobalTable.Load(row.SuperTable)
 			if !ok {
-				v, ok := p.sci.m.Load(row.superTable)
+				v, ok := p.sci.m.Load(row.SuperTable)
 				if ok {
 					<-v.(*Ctx).c.Done()
-					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.Sql)
 					if err != nil {
-						fmt.Println(row.sql)
+						fmt.Println(row.Sql)
 						panic(err)
 					}
-					GlobalTable.Store(row.subTable, nothing)
+					GlobalTable.Store(row.SubTable, nothing)
 					actual.(*Ctx).cancel()
 					continue
 				}
@@ -116,16 +111,16 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					c:      superTableC,
 					cancel: superTableCancel,
 				}
-				superTableActual, _ := p.sci.m.LoadOrStore(row.superTable, superTableCtx)
+				superTableActual, _ := p.sci.m.LoadOrStore(row.SuperTable, superTableCtx)
 				<-superTableActual.(*Ctx).c.Done()
 
 			}
-			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.Sql)
 			if err != nil {
-				fmt.Println(row.sql)
+				fmt.Println(row.Sql)
 				panic(err)
 			}
-			GlobalTable.Store(row.subTable, nothing)
+			GlobalTable.Store(row.SubTable, nothing)
 			actual.(*Ctx).cancel()
 		default:
 			panic("impossible")
@@ -158,15 +153,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	p.wg.Wait()
 	usingStmt := map[int]unsafe.Pointer{}
 	for tableName, colData := range batches.m {
-		sv, _ := subTableStableMap.Load(tableName)
-		stableName := sv.(string)
-		stableTypesLocker.RLock()
-		colTypes := stableTypes[stableName]
-		stableTypesLocker.RUnlock()
+		colTypes := batches.t[tableName]
 		columnCount := len(colTypes)
 		stmt, exist := p.stmts[columnCount]
 		if !exist {
-			stmt = wrapper.TaosStmtInit(p._db.TaosConnection)
+			stmt = cstmt.TaosStmtInit(p._db.TaosConnection)
 			builder := &strings.Builder{}
 			builder.WriteString("insert into ? values(")
 			for i := 0; i < columnCount; i++ {
@@ -176,36 +167,36 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				}
 			}
 			builder.WriteByte(')')
-			code := wrapper.TaosStmtPrepare(stmt, builder.String())
+			code := cstmt.TaosStmtPrepare(stmt, builder.String())
 			if code != 0 {
-				errStr := wrapper.TaosStmtErrStr(stmt)
+				errStr := cstmt.TaosStmtErrStr(stmt)
 				panic(errors.NewError(code, errStr))
 			}
 			p.stmts[columnCount] = stmt
 		}
 		usingStmt[columnCount] = stmt
 		rowCnt += uint64(len(colData[0]))
-		code := wrapper.TaosStmtSetTBName(stmt, tableName)
+		code := cstmt.TaosStmtSetTBName(stmt, tableName)
 		if code != 0 {
-			errStr := wrapper.TaosStmtErrStr(stmt)
+			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
 		}
 
-		code = wrapper.TaosStmtBindParamBatch(stmt, colData, colTypes)
+		code = cstmt.TaosStmtBindParamBatch(stmt, colData, colTypes)
 		if code != 0 {
-			errStr := wrapper.TaosStmtErrStr(stmt)
+			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
 		}
-		code = wrapper.TaosStmtAddBatch(stmt)
+		code = cstmt.TaosStmtAddBatch(stmt)
 		if code != 0 {
-			errStr := wrapper.TaosStmtErrStr(stmt)
+			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
 		}
 	}
 	for _, stmt := range usingStmt {
-		code := wrapper.TaosStmtExecute(stmt)
+		code := cstmt.TaosStmtExecute(stmt)
 		if code != 0 {
-			errStr := wrapper.TaosStmtErrStr(stmt)
+			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
 		}
 	}
