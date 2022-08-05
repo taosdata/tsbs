@@ -27,7 +27,7 @@ type Table struct {
 
 func FastFormatField(buf *bytes.Buffer, v interface{}) string {
 	if v == nil {
-		buf.WriteString("null")
+		buf.WriteString("")
 		return ""
 	}
 	switch vv := v.(type) {
