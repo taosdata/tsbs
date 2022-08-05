@@ -35,6 +35,7 @@ func (t *tdengineTarget) Serializer() serialize.PointSerializer {
 		tableMap:   map[string]struct{}{},
 		superTable: map[string]*Table{},
 		tmpBuf:     &bytes.Buffer{},
+		writeBuf:   &bytes.Buffer{},
 	}
 }
 

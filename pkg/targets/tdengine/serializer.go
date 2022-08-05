@@ -3,20 +3,16 @@ package tdengine
 import (
 	"bytes"
 	"crypto/md5"
-	"database/sql/driver"
-	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 
 	"github.com/taosdata/tsbs/pkg/data"
-	"github.com/taosdata/tsbs/pkg/targets/tdengine/cstmt"
 )
 
 type Serializer struct {
-	encoder    *gob.Encoder
+	writeBuf   *bytes.Buffer
 	tmpBuf     *bytes.Buffer
 	tableMap   map[string]struct{}
 	superTable map[string]*Table
@@ -27,58 +23,60 @@ var nothing = struct{}{}
 type Table struct {
 	columns map[string]struct{}
 	tags    map[string]struct{}
-	types   []byte
 }
 
-func FastFormat(buf *bytes.Buffer, v interface{}, write bool) (byte, driver.Value, string) {
+func FastFormatField(buf *bytes.Buffer, v interface{}) string {
 	if v == nil {
-		if write {
-			buf.WriteString("null")
-		}
-		return cstmt.TypeNull, nil, "null"
+		buf.WriteString("null")
+		return ""
 	}
 	switch vv := v.(type) {
 	case int:
-		if write {
-			buf.WriteString(strconv.Itoa(vv))
-		}
-		return cstmt.TypeInt, int64(vv), "bigint"
+		buf.WriteString(strconv.Itoa(vv))
 	case int64:
-		if write {
-			buf.WriteString(strconv.FormatInt(vv, 10))
-		}
-		return cstmt.TypeInt, vv, "bigint"
+		buf.WriteString(strconv.FormatInt(vv, 10))
 	case float64:
-		if write {
-			buf.WriteString(strconv.FormatFloat(vv, 'f', -1, 64))
-		}
-		return cstmt.TypeDouble, vv, "double"
+		buf.WriteString(strconv.FormatFloat(vv, 'f', -1, 32))
 	case float32:
-		vvv := float64(vv)
-		if write {
-			buf.WriteString(strconv.FormatFloat(vvv, 'f', -1, 32))
-		}
-		return cstmt.TypeDouble, vvv, "double"
+		buf.WriteString(strconv.FormatFloat(float64(vv), 'f', -1, 32))
+	default:
+		panic(fmt.Sprintf("unknown field type for %#v", v))
+	}
+	return "double"
+}
+
+func FastFormatTag(buf *bytes.Buffer, v interface{}) string {
+	if v == nil {
+		buf.WriteString("null")
+		return "null"
+	}
+	switch vv := v.(type) {
+	case int:
+		buf.WriteString(strconv.Itoa(vv))
+		return "bigint"
+	case int64:
+		buf.WriteString(strconv.FormatInt(vv, 10))
+		return "bigint"
+	case float64:
+		buf.WriteString(strconv.FormatFloat(vv, 'f', -1, 64))
+		return "double"
+	case float32:
+		buf.WriteString(strconv.FormatFloat(float64(vv), 'f', -1, 32))
+		return "double"
 	case bool:
-		if write {
-			buf.WriteString(strconv.FormatBool(vv))
-		}
-		return cstmt.TypeBool, vv, "bool"
+		buf.WriteString(strconv.FormatBool(vv))
+		return "bool"
 	case []byte:
 		vvv := string(vv)
-		if write {
-			buf.WriteByte('\'')
-			buf.WriteString(vvv)
-			buf.WriteByte('\'')
-		}
-		return cstmt.TypeString, vvv, "binary(30)"
+		buf.WriteByte('\'')
+		buf.WriteString(vvv)
+		buf.WriteByte('\'')
+		return "binary(30)"
 	case string:
-		if write {
-			buf.WriteByte('\'')
-			buf.WriteString(vv)
-			buf.WriteByte('\'')
-		}
-		return cstmt.TypeString, vv, "binary(30)"
+		buf.WriteByte('\'')
+		buf.WriteString(vv)
+		buf.WriteByte('\'')
+		return "binary(30)"
 	default:
 		panic(fmt.Sprintf("unknown field type for %#v", v))
 	}
@@ -106,9 +104,6 @@ const (
 )
 
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
-	if s.encoder == nil {
-		s.encoder = gob.NewEncoder(w)
-	}
 	var fieldKeys []string
 	var fieldTypes []string
 	var tagValues []string
@@ -117,22 +112,24 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	tKeys := p.TagKeys()
 	tValues := p.TagValues()
 	fKeys := p.FieldKeys()
-	byteTypes := make([]byte, len(fKeys)+1)
-	byteTypes[0] = cstmt.TypeTS
-	fieldValues := make([]driver.Value, len(fKeys)+1)
-	fieldValues[0] = p.TimestampInUnixMs()
+	var fieldValue string
 	fValues := p.FieldValues()
 	superTable := string(p.MeasurementName())
+	s.tmpBuf.WriteString(strconv.FormatInt(p.TimestampInUnixMs(), 10))
+	s.tmpBuf.WriteByte(',')
 	for i, value := range fValues {
 		fieldKeys = append(fieldKeys, convertKeywords(string(fKeys[i])))
-		byteType, driverValue, fType := FastFormat(nil, value, false)
+		fType := FastFormatField(s.tmpBuf, value)
 		fieldTypes = append(fieldTypes, fType)
-		byteTypes[i+1] = byteType
-		fieldValues[i+1] = driverValue
+		if i != len(fValues)-1 {
+			s.tmpBuf.WriteByte(',')
+		}
 	}
+	fieldValue = s.tmpBuf.String()
+	s.tmpBuf.Reset()
 
 	for i, value := range tValues {
-		_, _, tType := FastFormat(s.tmpBuf, value, true)
+		tType := FastFormatTag(s.tmpBuf, value)
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
 		tagValues = append(tagValues, s.tmpBuf.String())
@@ -149,35 +146,38 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	s.tmpBuf.Reset()
 	stable, exist := s.superTable[superTable]
 	if !exist {
+		s.writeBuf.WriteByte(CreateSTable)
+		s.writeBuf.WriteByte(',')
+		s.writeBuf.WriteString(superTable)
+		s.writeBuf.WriteByte(',')
+		s.writeBuf.WriteString(subTable)
+		s.writeBuf.WriteString(",create table ")
+		s.writeBuf.WriteString(superTable)
+		s.writeBuf.WriteString(" (ts timestamp")
 		for i := 0; i < len(fieldTypes); i++ {
-			s.tmpBuf.WriteByte(',')
-			s.tmpBuf.WriteString(fieldKeys[i])
-			s.tmpBuf.WriteByte(' ')
-			s.tmpBuf.WriteString(fieldTypes[i])
+			s.writeBuf.WriteByte(',')
+			s.writeBuf.WriteString(fieldKeys[i])
+			s.writeBuf.WriteByte(' ')
+			s.writeBuf.WriteString(fieldTypes[i])
 		}
-		fieldStr := s.tmpBuf.String()
-		s.tmpBuf.Reset()
+		s.writeBuf.WriteString(") tags (")
 		for i := 0; i < len(tagTypes); i++ {
-			s.tmpBuf.WriteString(tagKeys[i])
-			s.tmpBuf.WriteByte(' ')
-			s.tmpBuf.WriteString(tagTypes[i])
+			s.writeBuf.WriteString(tagKeys[i])
+			s.writeBuf.WriteByte(' ')
+			s.writeBuf.WriteString(tagTypes[i])
 			if i != len(tagTypes)-1 {
-				s.tmpBuf.WriteByte(',')
+				s.writeBuf.WriteByte(',')
 			}
 		}
-		tagStr := s.tmpBuf.String()
-		s.tmpBuf.Reset()
-		pd := point{
-			SqlType:    CreateSTable,
-			SuperTable: superTable,
-			SubTable:   subTable,
-			Sql:        fmt.Sprintf("create table %s (ts timestamp%s) tags (%s)", superTable, fieldStr, tagStr),
+		s.writeBuf.WriteString(")\n")
+		//Sql:        fmt.Sprintf("create table %s (ts timestamp%s) tags (%s)", superTable, fieldStr, tagStr),
+		_, err := s.writeBuf.WriteTo(w)
+		if err != nil {
+			panic(err)
 		}
-		s.encoder.Encode(pd)
 		table := &Table{
 			columns: map[string]struct{}{},
 			tags:    map[string]struct{}{},
-			types:   byteTypes,
 		}
 		for _, key := range fieldKeys {
 			table.columns[key] = nothing
@@ -200,24 +200,51 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	}
 	_, exist = s.tableMap[subTable]
 	if !exist {
-		pd := point{
-			SqlType:    CreateSubTable,
-			SuperTable: superTable,
-			SubTable:   subTable,
-			Sql:        fmt.Sprintf("create table %s using %s (%s) tags (%s)", subTable, superTable, strings.Join(tagKeys, ","), strings.Join(tagValues, ",")),
+		s.writeBuf.WriteByte(CreateSubTable)
+		s.writeBuf.WriteByte(',')
+		s.writeBuf.WriteString(superTable)
+		s.writeBuf.WriteByte(',')
+		s.writeBuf.WriteString(subTable)
+		s.writeBuf.WriteString(",create table ")
+		s.writeBuf.WriteString(subTable)
+		s.writeBuf.WriteString(" using ")
+		s.writeBuf.WriteString(superTable)
+		s.writeBuf.WriteString(" (")
+		for i := 0; i < len(tagKeys); i++ {
+			s.writeBuf.WriteString(tagKeys[i])
+			if i != len(tagTypes)-1 {
+				s.writeBuf.WriteByte(',')
+			}
 		}
-		s.encoder.Encode(pd)
+		s.writeBuf.WriteString(") tags (")
+		for i := 0; i < len(tagValues); i++ {
+			s.writeBuf.WriteString(tagValues[i])
+			if i != len(tagTypes)-1 {
+				s.writeBuf.WriteByte(',')
+			}
+		}
+		s.writeBuf.WriteString(")\n")
+		_, err := s.writeBuf.WriteTo(w)
+		if err != nil {
+			panic(err)
+		}
+		//fmt.Fprintf(w, "%d,%s,%s,create table %s using %s (%s) tags (%s)", CreateSubTable, superTable, subTable, subTable, superTable, strings.Join(tagKeys, ","), strings.Join(tagValues, ","))
 		s.tableMap[subTable] = nothing
 	}
-	pd := point{
-		SqlType:    Insert,
-		SuperTable: "",
-		SubTable:   subTable,
-		Sql:        "",
-		Types:      s.superTable[superTable].types,
-		Values:     fieldValues,
+	s.writeBuf.WriteByte(Insert)
+	s.writeBuf.WriteByte(',')
+	s.writeBuf.WriteString(strconv.Itoa(len(fieldKeys)))
+	s.writeBuf.WriteByte(',')
+	s.writeBuf.WriteString(subTable)
+	s.writeBuf.WriteByte(',')
+	s.writeBuf.WriteString(fieldValue)
+	s.writeBuf.WriteByte('\n')
+	_, err := s.writeBuf.WriteTo(w)
+	if err != nil {
+		panic(err)
 	}
-	s.encoder.Encode(pd)
+
+	//fmt.Fprintf(w, "%d,%d,%s,%s", Insert, len(fieldKeys), subTable, fieldValue)
 	return nil
 }
 

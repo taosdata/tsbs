@@ -3,12 +3,12 @@ package tdengine
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/commonpool"
@@ -153,8 +153,23 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	p.wg.Wait()
 	usingStmt := map[int]unsafe.Pointer{}
 	for tableName, colData := range batches.m {
-		colTypes := batches.t[tableName]
-		columnCount := len(colTypes)
+		values := make([][]*float64, len(colData))
+		var tmp []string
+		for i := 0; i < len(colData); i++ {
+			tmp = strings.Split(colData[i], ",")
+			value := make([]*float64, len(tmp))
+			for j := 0; j < len(tmp); j++ {
+				if len(tmp[j]) != 0 {
+					v, err := strconv.ParseFloat(tmp[j], 64)
+					if err != nil {
+						panic(err)
+					}
+					value[j] = &v
+				}
+			}
+			values[i] = value
+		}
+		columnCount := len(values[0])
 		stmt, exist := p.stmts[columnCount]
 		if !exist {
 			stmt = cstmt.TaosStmtInit(p._db.TaosConnection)
@@ -175,14 +190,14 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			p.stmts[columnCount] = stmt
 		}
 		usingStmt[columnCount] = stmt
-		rowCnt += uint64(len(colData[0]))
+		rowCnt += uint64(len(colData))
 		code := cstmt.TaosStmtSetTBName(stmt, tableName)
 		if code != 0 {
 			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
 		}
 
-		code = cstmt.TaosStmtBindParamBatch(stmt, colData, colTypes)
+		code = cstmt.TaosStmtBindParamBatch(stmt, values)
 		if code != 0 {
 			errStr := cstmt.TaosStmtErrStr(stmt)
 			panic(errors.NewError(code, errStr))
@@ -205,10 +220,10 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 }
 
 func (p *processor) Close(doLoad bool) {
+	for _, stmt := range p.stmts {
+		cstmt.TaosStmtClose(stmt)
+	}
 	if p._db != nil {
 		p._db.Put()
-	}
-	for _, stmt := range p.stmts {
-		wrapper.TaosStmtClose(stmt)
 	}
 }

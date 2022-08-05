@@ -1,7 +1,6 @@
 package tdengine
 
 import (
-	"database/sql/driver"
 	"sync"
 
 	"github.com/taosdata/tsbs/pkg/data"
@@ -18,11 +17,7 @@ type indexer struct {
 func (i *indexer) GetIndex(item data.LoadedPoint) uint {
 	p := item.Data.(*point)
 	switch p.SqlType {
-	case CreateSTable:
-		fallthrough
-	case CreateSubTable:
-		fallthrough
-	case Insert:
+	case Insert, CreateSTable, CreateSubTable:
 		idx, exist := i.tmp[p.SubTable]
 		if exist {
 			return idx
@@ -42,16 +37,15 @@ type point struct {
 	SuperTable string
 	SubTable   string
 	Sql        string
-	Types      []byte
-	Values     []driver.Value
+	Values     string
+	Metrics    int
 }
 
 var GlobalTable = sync.Map{}
 
 type hypertableArr struct {
 	createSql   []*point
-	m           map[string][][]driver.Value
-	t           map[string][]byte
+	m           map[string][]string
 	totalMetric uint64
 	cnt         uint
 }
@@ -63,11 +57,8 @@ func (ha *hypertableArr) Len() uint {
 func (ha *hypertableArr) Append(item data.LoadedPoint) {
 	p := item.Data.(*point)
 	if p.SqlType == Insert {
-		if _, exist := ha.t[p.SubTable]; !exist {
-			ha.t[p.SubTable] = p.Types
-		}
 		ha.m[p.SubTable] = append(ha.m[p.SubTable], p.Values)
-		ha.totalMetric += uint64(len(p.Values) - 1)
+		ha.totalMetric += uint64(p.Metrics)
 		ha.cnt++
 	} else {
 		ha.createSql = append(ha.createSql, p)
@@ -75,7 +66,7 @@ func (ha *hypertableArr) Append(item data.LoadedPoint) {
 }
 
 func (ha *hypertableArr) Reset() {
-	ha.m = map[string][][]driver.Value{}
+	ha.m = map[string][]string{}
 	ha.cnt = 0
 	ha.createSql = ha.createSql[:0]
 }
@@ -84,8 +75,7 @@ type factory struct{}
 
 func (f *factory) New() targets.Batch {
 	return &hypertableArr{
-		m:   map[string][][]driver.Value{},
-		t:   map[string][]byte{},
+		m:   map[string][]string{},
 		cnt: 0,
 	}
 }

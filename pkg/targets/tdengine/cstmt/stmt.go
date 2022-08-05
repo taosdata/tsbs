@@ -12,17 +12,7 @@ package cstmt
 */
 import "C"
 import (
-	"database/sql/driver"
 	"unsafe"
-)
-
-const (
-	TypeInt    = 'i'
-	TypeTS     = 't'
-	TypeDouble = 'f'
-	TypeBool   = 'b'
-	TypeString = 's'
-	TypeNull   = 'n'
 )
 
 // TaosStmtInit TAOS_STMT *taos_stmt_init(TAOS *taos);
@@ -66,7 +56,7 @@ func TaosStmtErrStr(stmt unsafe.Pointer) string {
 }
 
 // TaosStmtBindParamBatch int        taos_stmt_bind_param_batch(TAOS_STMT* stmt, TAOS_MULTI_BIND* bind);
-func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, columnTypes []byte) int {
+func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]*float64) int {
 	columnCount := len(multiBind[0])
 	rowLen := len(multiBind)
 	var binds = make([]C.TAOS_MULTI_BIND, columnCount)
@@ -95,82 +85,25 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, col
 					*(*C.char)(currentNull) = C.char(1)
 				} else {
 					*(*C.char)(currentNull) = C.char(0)
-					value := multiBind[row][columnIndex].(int64)
+					value := int64(*multiBind[row][columnIndex])
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*row))
 					*(*C.int64_t)(current) = C.int64_t(value)
 				}
 			}
 		} else {
-			switch columnTypes[columnIndex] {
-			case TypeBool:
-				//1
-				p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
-				bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
-				bind.buffer_length = C.uintptr_t(1)
-				for row := 0; row < rowLen; row++ {
-					currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(row))
-					if multiBind[row][columnIndex] == nil {
-						*(*C.char)(currentNull) = C.char(1)
-					} else {
-						*(*C.char)(currentNull) = C.char(0)
-						value := multiBind[row][columnIndex].(bool)
-						current := unsafe.Pointer(uintptr(p) + uintptr(row))
-						if value {
-							*(*C.int8_t)(current) = C.int8_t(1)
-						} else {
-							*(*C.int8_t)(current) = C.int8_t(0)
-						}
-					}
-				}
-			case TypeInt:
-				//8
-				p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-				bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
-				bind.buffer_length = C.uintptr_t(8)
-				for row := 0; row < rowLen; row++ {
-					currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(row))
-					if multiBind[row][columnIndex] == nil {
-						*(*C.char)(currentNull) = C.char(1)
-					} else {
-						*(*C.char)(currentNull) = C.char(0)
-						value := multiBind[row][columnIndex].(int64)
-						current := unsafe.Pointer(uintptr(p) + uintptr(8*row))
-						*(*C.int64_t)(current) = C.int64_t(value)
-					}
-				}
-			case TypeDouble:
-				//8
-				p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-				bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
-				bind.buffer_length = C.uintptr_t(8)
-				for row := 0; row < rowLen; row++ {
-					currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(row))
-					if multiBind[row][columnIndex] == nil {
-						*(*C.char)(currentNull) = C.char(1)
-					} else {
-						*(*C.char)(currentNull) = C.char(0)
-						value := multiBind[row][columnIndex].(float64)
-						current := unsafe.Pointer(uintptr(p) + uintptr(8*row))
-						*(*C.double)(current) = C.double(value)
-					}
-				}
-			case TypeString:
-				p = unsafe.Pointer(C.malloc(C.size_t(C.uint(30 * rowLen))))
-				bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
-				bind.buffer_length = C.uintptr_t(30)
-				for row := 0; row < rowLen; row++ {
-					currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(row))
-					if multiBind[row][columnIndex] == nil {
-						*(*C.char)(currentNull) = C.char(1)
-					} else {
-						*(*C.char)(currentNull) = C.char(0)
-						value := multiBind[row][columnIndex].(string)
-						for j := 0; j < len(value); j++ {
-							*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(30*row+j))) = (C.char)(value[j])
-						}
-						l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*row))
-						*(*C.int32_t)(l) = C.int32_t(len(value))
-					}
+			//8
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
+			bind.buffer_length = C.uintptr_t(8)
+			for row := 0; row < rowLen; row++ {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(row))
+				if multiBind[row][columnIndex] == nil {
+					*(*C.char)(currentNull) = C.char(1)
+				} else {
+					*(*C.char)(currentNull) = C.char(0)
+					value := *multiBind[row][columnIndex]
+					current := unsafe.Pointer(uintptr(p) + uintptr(8*row))
+					*(*C.double)(current) = C.double(value)
 				}
 			}
 		}
