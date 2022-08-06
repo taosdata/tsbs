@@ -2,8 +2,6 @@ package tdengine
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"strconv"
@@ -61,6 +59,7 @@ func FastFormat(buf *bytes.Buffer, v interface{}) string {
 }
 
 var tmpMD5 = map[string]string{}
+var tmpIndex = 0
 
 func calculateTable(src []byte) string {
 	key := string(src)
@@ -68,8 +67,8 @@ func calculateTable(src []byte) string {
 	if exist {
 		return v
 	}
-	s := md5.Sum(src)
-	v = fmt.Sprintf("t_%s", hex.EncodeToString(s[:]))
+	tmpIndex += 1
+	v = fmt.Sprintf("t_%d", tmpIndex)
 	tmpMD5[key] = v
 	return v
 }
