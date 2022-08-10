@@ -51,8 +51,8 @@ func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
 
 // LastLocPerTruck finds all the truck locations along with truck and driver names.
 func (i *IoT) LastLocPerTruck(qi query.Query) {
-	//SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='South' and name IS NOT NULL partition BY name,driver;
-	sql := fmt.Sprintf(`SELECT last(ts),name,driver,latitude,longitude FROM readings WHERE fleet='%s' and name IS NOT NULL partition BY name,driver`,
+	//SELECT last_row(ts),name,driver,latitude,longitude FROM readings WHERE fleet='South' and name IS NOT NULL partition BY name,driver;
+	sql := fmt.Sprintf(`SELECT last_row(ts),name,driver,latitude,longitude FROM readings WHERE fleet='%s' and name IS NOT NULL partition BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine last location per truck"
@@ -63,8 +63,8 @@ func (i *IoT) LastLocPerTruck(qi query.Query) {
 
 // TrucksWithLowFuel finds all trucks with low fuel (less than 10%).
 func (i *IoT) TrucksWithLowFuel(qi query.Query) {
-	//SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = 'South' and name IS NOT NULL GROUP BY name,driver ;
-	sql := fmt.Sprintf(`SELECT last(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' and name IS NOT NULL GROUP BY name,driver`,
+	//SELECT last_row(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = 'South' and name IS NOT NULL GROUP BY name,driver ;
+	sql := fmt.Sprintf(`SELECT last_row(ts),name,driver,fuel_state FROM diagnostics WHERE fuel_state <= 0.1 AND fleet = '%s' and name IS NOT NULL GROUP BY name,driver`,
 		i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with low fuel"
@@ -75,8 +75,8 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 
 //TrucksWithHighLoad finds all trucks that have load over 90%.
 func (i *IoT) TrucksWithHighLoad(qi query.Query) {
-	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity);
-	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
+	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity);
+	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with high load"
 	humanDesc := fmt.Sprintf("%s: over 90 percent", humanLabel)
