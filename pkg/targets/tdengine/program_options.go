@@ -6,4 +6,6 @@ type LoadingOptions struct {
 	Host    string
 	Port    int
 	VGroups int
+	Buffer  int
+	Pages   int
 }

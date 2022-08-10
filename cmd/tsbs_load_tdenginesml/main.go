@@ -38,6 +38,14 @@ func initProgramOptions() (*tdenginesml.LoadingOptions, load.BenchmarkRunner, *l
 	if vgroups > 0 {
 		opts.VGroups = vgroups
 	}
+	buffer := viper.GetInt("buffer")
+	if buffer > 0 {
+		opts.Buffer = buffer
+	}
+	pages := viper.GetInt("pages")
+	if pages > 0 {
+		opts.Pages = pages
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }

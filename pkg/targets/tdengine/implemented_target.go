@@ -24,6 +24,8 @@ func (t *tdengineTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.F
 	flagSet.String(flagPrefix+"host", "", "TDengine host")
 	flagSet.Int(flagPrefix+"port", 6030, "TDengine Port")
 	flagSet.Int(flagPrefix+"vgroups", 0, "TDengine DB vgroups")
+	flagSet.Int(flagPrefix+"pages", 0, "TDengine DB pages")
+	flagSet.Int(flagPrefix+"buffer", 0, "TDengine DB buffer")
 }
 
 func (t *tdengineTarget) TargetName() string {
