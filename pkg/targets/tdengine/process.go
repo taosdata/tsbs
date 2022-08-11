@@ -64,19 +64,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}
 		return metricCnt, rowCnt
 	}
-	//p.wg.Add(len(batches.createSql))
-	//for _, row := range batches.createSql {
-	//	row := row
-	//	go func() {
-	//		defer p.wg.Done()
-	//		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
-	//		if err != nil {
-	//			fmt.Println(row.sql)
-	//			panic(err)
-	//		}
-	//	}()
-	//}
-	//p.wg.Wait()
+	p.buf.Reset()
+	p.buf.WriteString("create table")
 	for _, row := range batches.createSql {
 		switch row.sqlType {
 		case CreateSTable:
@@ -107,11 +96,17 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				v, ok := p.sci.m.Load(row.superTable)
 				if ok {
 					<-v.(*Ctx).c.Done()
-					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
-					if err != nil {
-						fmt.Println(row.sql)
-						panic(err)
+					if p.buf.Len()+len(row.sql) > Size1M {
+						sql := p.buf.String()
+						err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+						if err != nil {
+							fmt.Println(sql)
+							panic(err)
+						}
+						p.buf.Reset()
+						p.buf.WriteString("create table")
 					}
+					p.buf.WriteString(row.sql)
 					GlobalTable.Store(row.subTable, nothing)
 					actual.(*Ctx).cancel()
 					continue
@@ -124,19 +119,33 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				}
 				superTableActual, _ := p.sci.m.LoadOrStore(row.superTable, superTableCtx)
 				<-superTableActual.(*Ctx).c.Done()
-
 			}
-			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, row.sql)
-			if err != nil {
-				fmt.Println(row.sql)
-				panic(err)
+			if p.buf.Len()+len(row.sql) > Size1M {
+				sql := p.buf.String()
+				err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+				if err != nil {
+					fmt.Println(sql)
+					panic(err)
+				}
+				p.buf.Reset()
+				p.buf.WriteString("create table")
 			}
+			p.buf.WriteString(row.sql)
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
 		default:
 			panic("impossible")
 		}
 	}
+	if p.buf.Len() > 12 {
+		sql := p.buf.String()
+		err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, sql)
+		if err != nil {
+			fmt.Println(sql)
+			panic(err)
+		}
+	}
+	p.buf.Reset()
 	p.wg.Add(len(batches.m))
 	for tableName := range batches.m {
 		tableName := tableName
