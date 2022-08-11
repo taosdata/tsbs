@@ -52,7 +52,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 		parts := strings.SplitN(line, ",", 4)
 		p.superTable = parts[1]
 		p.subTable = parts[2]
-		p.sql = parts[3]
+		p.sql = parts[3][12:]
 	//case Modify:
 	//	parts := strings.SplitN(line, ",", 4)
 	//	p.superTable = parts[1]
