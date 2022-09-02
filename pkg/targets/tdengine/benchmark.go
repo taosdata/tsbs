@@ -1,6 +1,9 @@
 package tdengine
 
 import (
+	"bytes"
+	"math"
+
 	"github.com/taosdata/tsbs/internal/inputs"
 	"github.com/taosdata/tsbs/pkg/data/source"
 	"github.com/taosdata/tsbs/pkg/targets"
@@ -42,7 +45,17 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 	if maxPartitions > 1 {
-		return &indexer{partitions: maxPartitions, tmp: map[string]uint{}}
+		interval := uint32(math.MaxUint32 / maxPartitions)
+		hashEndGroups := make([]uint32, maxPartitions)
+		for i := 0; i < int(maxPartitions); i++ {
+			if i == int(maxPartitions)-1 {
+				hashEndGroups[i] = math.MaxUint32
+			} else {
+				hashEndGroups[i] = interval*uint32(i+1) - 1
+			}
+		}
+		prefix := []byte("1." + b.dbName + ".")
+		return &indexer{buffer: &bytes.Buffer{}, prefix: prefix, hashEndGroups: hashEndGroups, partitions: int(maxPartitions), tmp: map[string]uint{}}
 	}
 	return &targets.ConstantIndexer{}
 }

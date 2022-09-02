@@ -47,6 +47,10 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	if pages > 0 {
 		opts.Pages = pages
 	}
+	if loaderConf.HashWorkers {
+		loaderConf.NoFlowControl = true
+		//loaderConf.ChannelCapacity = 50
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }

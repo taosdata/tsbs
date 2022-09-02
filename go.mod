@@ -39,6 +39,7 @@ require (
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/silenceper/pool v1.0.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/cobra v1.0.0

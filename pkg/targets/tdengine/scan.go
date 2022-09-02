@@ -1,38 +1,41 @@
 package tdengine
 
 import (
+	"bytes"
 	"sync"
 
+	"github.com/spaolacci/murmur3"
 	"github.com/taosdata/tsbs/pkg/data"
 	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 // indexer is used to consistently send the same hostnames to the same worker
 type indexer struct {
-	partitions uint
-	index      uint
-	tmp        map[string]uint
+	buffer        *bytes.Buffer
+	prefix        []byte
+	partitions    int
+	hashEndGroups []uint32
+	tmp           map[string]uint
 }
 
 func (i *indexer) GetIndex(item data.LoadedPoint) uint {
 	p := item.Data.(*point)
-	switch p.sqlType {
-	case CreateSTable:
-		fallthrough
-	case CreateSubTable:
-		fallthrough
-	case Insert:
-		idx, exist := i.tmp[p.subTable]
-		if exist {
-			return idx
-		}
-		i.index += 1
-		idx = i.index % i.partitions
-		i.tmp[p.subTable] = idx
+	idx, exist := i.tmp[p.subTable]
+	if exist {
 		return idx
-	default:
-		return 0
 	}
+	i.buffer.Write(i.prefix)
+	i.buffer.WriteString(p.subTable)
+	hash := murmur3.Sum32WithSeed(i.buffer.Bytes(), 0x12345678)
+	i.buffer.Reset()
+	for j := 0; j < i.partitions; j++ {
+		if hash <= i.hashEndGroups[j] {
+			idx = uint(j)
+			break
+		}
+	}
+	i.tmp[p.subTable] = idx
+	return idx
 }
 
 // point is a single row of data keyed by which superTable it belongs
