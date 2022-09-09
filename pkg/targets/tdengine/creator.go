@@ -43,6 +43,9 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if d.opts.VGroups > 0 {
 		sql += " vgroups " + strconv.Itoa(d.opts.VGroups)
 	}
+	if d.opts.SstTrigger > 0 {
+		sql += " sst_trigger " + strconv.Itoa(d.opts.SstTrigger)
+	}
 	return async.GlobalAsync.TaosExecWithoutResult(d.db.TaosConnection, sql)
 }
 

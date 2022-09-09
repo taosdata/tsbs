@@ -26,6 +26,7 @@ func (t *tdengineTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.F
 	flagSet.Int(flagPrefix+"vgroups", 0, "TDengine DB vgroups")
 	flagSet.Int(flagPrefix+"pages", 0, "TDengine DB pages")
 	flagSet.Int(flagPrefix+"buffer", 0, "TDengine DB buffer")
+	flagSet.Int(flagPrefix+"sst_trigger", 0, "TDengine DB sst_trigger")
 }
 
 func (t *tdengineTarget) TargetName() string {
