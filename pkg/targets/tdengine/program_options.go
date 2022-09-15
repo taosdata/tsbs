@@ -8,5 +8,5 @@ type LoadingOptions struct {
 	VGroups    int
 	Buffer     int
 	Pages      int
-	SstTrigger int
+	SttTrigger int
 }

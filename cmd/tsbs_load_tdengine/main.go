@@ -47,9 +47,9 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	if pages > 0 {
 		opts.Pages = pages
 	}
-	sstTrigger := viper.GetInt("sst_trigger")
-	if sstTrigger > 0 {
-		opts.SstTrigger = sstTrigger
+	sttTrigger := viper.GetInt("stt_trigger")
+	if sttTrigger > 0 {
+		opts.SttTrigger = sttTrigger
 	}
 	loaderConf.HashWorkers = true
 	loaderConf.NoFlowControl = true
