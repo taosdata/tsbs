@@ -99,23 +99,36 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		fieldValues = append(fieldValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
-
+	nameWithHost := false
+	if superTable == "cpu" {
+		nameWithHost = true
+	}
+	hostName := ""
 	for i, value := range tValues {
 		tType := FastFormat(s.tmpBuf, value)
+		if nameWithHost && len(hostName) == 0 && string(tKeys[i]) == "hostname" {
+			hostName = value.(string)
+		}
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
 		tagValues = append(tagValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
-	s.tmpBuf.WriteString(superTable)
-	for i, v := range tagValues {
-		s.tmpBuf.WriteByte(',')
-		s.tmpBuf.WriteString(tagKeys[i])
-		s.tmpBuf.WriteByte('=')
-		s.tmpBuf.WriteString(v)
+
+	subTable := ""
+	if len(hostName) != 0 {
+		subTable = hostName
+	} else {
+		s.tmpBuf.WriteString(superTable)
+		for i, v := range tagValues {
+			s.tmpBuf.WriteByte(',')
+			s.tmpBuf.WriteString(tagKeys[i])
+			s.tmpBuf.WriteByte('=')
+			s.tmpBuf.WriteString(v)
+		}
+		subTable = calculateTable(s.tmpBuf.Bytes())
+		s.tmpBuf.Reset()
 	}
-	subTable := calculateTable(s.tmpBuf.Bytes())
-	s.tmpBuf.Reset()
 	stable, exist := s.superTable[superTable]
 	if !exist {
 		for i := 0; i < len(fieldTypes); i++ {
