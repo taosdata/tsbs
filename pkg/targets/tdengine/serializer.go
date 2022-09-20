@@ -118,6 +118,8 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	subTable := ""
 	if len(hostName) != 0 {
 		subTable = hostName
+	} else if nameWithHost {
+		subTable = "host_null"
 	} else {
 		s.tmpBuf.WriteString(superTable)
 		for i, v := range tagValues {
