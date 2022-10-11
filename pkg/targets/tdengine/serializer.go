@@ -122,15 +122,12 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		fieldValues = append(fieldValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
-	needFixTableName := false
-	rule, exist := tbRuleMap[superTable]
-	if exist {
-		needFixTableName = true
-	}
+
+	rule := tbRuleMap[superTable]
 	fixedName := ""
 	for i, value := range tValues {
 		tType := FastFormat(s.tmpBuf, value)
-		if needFixTableName && len(fixedName) == 0 && string(tKeys[i]) == rule.tag {
+		if rule != nil && len(fixedName) == 0 && string(tKeys[i]) == rule.tag {
 			fixedName = value.(string)
 		}
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
@@ -140,17 +137,19 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	}
 
 	subTable := ""
-	if len(fixedName) != 0 {
-		if len(rule.prefix) == 0 {
-			subTable = fixedName
+	if rule != nil {
+		if len(fixedName) != 0 {
+			if len(rule.prefix) == 0 {
+				subTable = fixedName
+			} else {
+				s.tmpBuf.WriteString(rule.prefix)
+				s.tmpBuf.WriteString(fixedName)
+				subTable = s.tmpBuf.String()
+				s.tmpBuf.Reset()
+			}
 		} else {
-			s.tmpBuf.WriteString(rule.prefix)
-			s.tmpBuf.WriteString(fixedName)
-			subTable = s.tmpBuf.String()
-			s.tmpBuf.Reset()
+			subTable = rule.nilValue
 		}
-	} else if needFixTableName {
-		subTable = rule.nilValue
 	} else {
 		s.tmpBuf.WriteString(superTable)
 		for i, v := range tagValues {
