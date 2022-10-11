@@ -80,6 +80,29 @@ const (
 	Modify         = '4'
 )
 
+type tbNameRule struct {
+	tag      string
+	prefix   string
+	nilValue string
+}
+
+var tbRuleMap = map[string]*tbNameRule{
+	"cpu": {
+		tag:      "hostname",
+		nilValue: "host_null",
+	},
+	"readings": {
+		tag:      "name",
+		prefix:   "r_",
+		nilValue: "r_truck_null",
+	},
+	"diagnostics": {
+		tag:      "name",
+		prefix:   "d_",
+		nilValue: "d_truck_null",
+	},
+}
+
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	var fieldKeys []string
 	var fieldValues []string
@@ -99,15 +122,16 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		fieldValues = append(fieldValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
-	nameWithHost := false
-	if superTable == "cpu" {
-		nameWithHost = true
+	needFixTableName := false
+	rule, exist := tbRuleMap[superTable]
+	if exist {
+		needFixTableName = true
 	}
-	hostName := ""
+	fixedName := ""
 	for i, value := range tValues {
 		tType := FastFormat(s.tmpBuf, value)
-		if nameWithHost && len(hostName) == 0 && string(tKeys[i]) == "hostname" {
-			hostName = value.(string)
+		if needFixTableName && len(fixedName) == 0 && string(tKeys[i]) == rule.tag {
+			fixedName = value.(string)
 		}
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
@@ -116,10 +140,17 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	}
 
 	subTable := ""
-	if len(hostName) != 0 {
-		subTable = hostName
-	} else if nameWithHost {
-		subTable = "host_null"
+	if len(fixedName) != 0 {
+		if len(rule.prefix) == 0 {
+			subTable = fixedName
+		} else {
+			s.tmpBuf.WriteString(rule.prefix)
+			s.tmpBuf.WriteString(fixedName)
+			subTable = s.tmpBuf.String()
+			s.tmpBuf.Reset()
+		}
+	} else if needFixTableName {
+		subTable = rule.nilValue
 	} else {
 		s.tmpBuf.WriteString(superTable)
 		for i, v := range tagValues {
