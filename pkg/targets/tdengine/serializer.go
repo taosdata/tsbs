@@ -128,7 +128,10 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	for i, value := range tValues {
 		tType := FastFormat(s.tmpBuf, value)
 		if rule != nil && len(fixedName) == 0 && string(tKeys[i]) == rule.tag {
-			fixedName = value.(string)
+			str, is := value.(string)
+			if is {
+				fixedName = str
+			}
 		}
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
