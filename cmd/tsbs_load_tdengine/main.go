@@ -51,6 +51,10 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	if sttTrigger > 0 {
 		opts.SttTrigger = sttTrigger
 	}
+	if viper.IsSet("wal_fsync_period") {
+		walFsyncPeriod := viper.GetInt("wal_fsync_period")
+		opts.WalFsyncPeriod = &walFsyncPeriod
+	}
 	loaderConf.HashWorkers = true
 	loaderConf.NoFlowControl = true
 	loaderConf.ChannelCapacity = 50

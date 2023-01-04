@@ -46,6 +46,9 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if d.opts.SttTrigger > 0 {
 		sql += " stt_trigger " + strconv.Itoa(d.opts.SttTrigger)
 	}
+	if d.opts.WalFsyncPeriod != nil {
+		sql += " wal_fsync_period " + strconv.Itoa(*d.opts.WalFsyncPeriod)
+	}
 	return async.GlobalAsync.TaosExecWithoutResult(d.db.TaosConnection, sql)
 }
 

@@ -46,6 +46,14 @@ func initProgramOptions() (*tdenginesml.LoadingOptions, load.BenchmarkRunner, *l
 	if pages > 0 {
 		opts.Pages = pages
 	}
+	sttTrigger := viper.GetInt("stt_trigger")
+	if sttTrigger > 0 {
+		opts.SttTrigger = sttTrigger
+	}
+	if viper.IsSet("wal_fsync_period") {
+		walFsyncPeriod := viper.GetInt("wal_fsync_period")
+		opts.WalFsyncPeriod = &walFsyncPeriod
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }

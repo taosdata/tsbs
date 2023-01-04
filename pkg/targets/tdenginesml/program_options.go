@@ -1,11 +1,13 @@
 package tdenginesml
 
 type LoadingOptions struct {
-	User    string
-	Pass    string
-	Host    string
-	Port    int
-	VGroups int
-	Buffer  int
-	Pages   int
+	User           string
+	Pass           string
+	Host           string
+	Port           int
+	VGroups        int
+	Buffer         int
+	Pages          int
+	SttTrigger     int
+	WalFsyncPeriod *int
 }
