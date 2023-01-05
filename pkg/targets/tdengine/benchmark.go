@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"math"
 
-	"github.com/taosdata/tsbs/internal/inputs"
 	"github.com/taosdata/tsbs/pkg/data/source"
 	"github.com/taosdata/tsbs/pkg/targets"
 )
@@ -14,12 +13,7 @@ func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.
 	if dataSourceConfig.Type == source.FileDataSourceType {
 		ds = newFileDataSource(dataSourceConfig.File.Location)
 	} else {
-		dataGenerator := &inputs.DataGenerator{}
-		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
-		if err != nil {
-			return nil, err
-		}
-		ds = newSimulationDataSource(simulator)
+		panic("not implement")
 	}
 
 	return &benchmark{

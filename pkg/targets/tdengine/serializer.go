@@ -80,6 +80,29 @@ const (
 	Modify         = '4'
 )
 
+type tbNameRule struct {
+	tag      string
+	prefix   string
+	nilValue string
+}
+
+var tbRuleMap = map[string]*tbNameRule{
+	"cpu": {
+		tag:      "hostname",
+		nilValue: "host_null",
+	},
+	"readings": {
+		tag:      "name",
+		prefix:   "r_",
+		nilValue: "r_truck_null",
+	},
+	"diagnostics": {
+		tag:      "name",
+		prefix:   "d_",
+		nilValue: "d_truck_null",
+	},
+}
+
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	var fieldKeys []string
 	var fieldValues []string
@@ -100,22 +123,47 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		s.tmpBuf.Reset()
 	}
 
+	rule := tbRuleMap[superTable]
+	fixedName := ""
 	for i, value := range tValues {
 		tType := FastFormat(s.tmpBuf, value)
+		if rule != nil && len(fixedName) == 0 && string(tKeys[i]) == rule.tag {
+			str, is := value.(string)
+			if is {
+				fixedName = str
+			}
+		}
 		tagKeys = append(tagKeys, convertKeywords(string(tKeys[i])))
 		tagTypes = append(tagTypes, tType)
 		tagValues = append(tagValues, s.tmpBuf.String())
 		s.tmpBuf.Reset()
 	}
-	s.tmpBuf.WriteString(superTable)
-	for i, v := range tagValues {
-		s.tmpBuf.WriteByte(',')
-		s.tmpBuf.WriteString(tagKeys[i])
-		s.tmpBuf.WriteByte('=')
-		s.tmpBuf.WriteString(v)
+
+	subTable := ""
+	if rule != nil {
+		if len(fixedName) != 0 {
+			if len(rule.prefix) == 0 {
+				subTable = fixedName
+			} else {
+				s.tmpBuf.WriteString(rule.prefix)
+				s.tmpBuf.WriteString(fixedName)
+				subTable = s.tmpBuf.String()
+				s.tmpBuf.Reset()
+			}
+		} else {
+			subTable = rule.nilValue
+		}
+	} else {
+		s.tmpBuf.WriteString(superTable)
+		for i, v := range tagValues {
+			s.tmpBuf.WriteByte(',')
+			s.tmpBuf.WriteString(tagKeys[i])
+			s.tmpBuf.WriteByte('=')
+			s.tmpBuf.WriteString(v)
+		}
+		subTable = calculateTable(s.tmpBuf.Bytes())
+		s.tmpBuf.Reset()
 	}
-	subTable := calculateTable(s.tmpBuf.Bytes())
-	s.tmpBuf.Reset()
 	stable, exist := s.superTable[superTable]
 	if !exist {
 		for i := 0; i < len(fieldTypes); i++ {
