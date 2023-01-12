@@ -41,5 +41,7 @@ func InitQueryFactories(config *config.QueryGeneratorConfig) map[string]interfac
 	}
 	factories[constants.FormatQuestDB] = &questdb.BaseGenerator{}
 	factories[constants.FormatTDengine] = &tdengine.BaseGenerator{}
+	factories[constants.FormatTDengineSML] = &influx.BaseGenerator{}
+	factories[constants.FormatTDengineRest] = &tdengine.BaseGenerator{}
 	return factories
 }
