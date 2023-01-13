@@ -49,6 +49,9 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if d.opts.WalFsyncPeriod != nil {
 		sql += " wal_fsync_period " + strconv.Itoa(*d.opts.WalFsyncPeriod)
 	}
+	if d.opts.WalLevel != nil {
+		sql += " wal_level " + strconv.Itoa(*d.opts.WalLevel)
+	}
 	return async.GlobalAsync.TaosExecWithoutResult(d.db.TaosConnection, sql)
 }
 
