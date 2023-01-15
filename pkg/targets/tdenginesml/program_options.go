@@ -10,4 +10,5 @@ type LoadingOptions struct {
 	Pages          int
 	SttTrigger     int
 	WalFsyncPeriod *int
+	WalLevel       *int
 }
