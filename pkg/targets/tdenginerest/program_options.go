@@ -14,6 +14,7 @@ type LoadingOptions struct {
 	Pages          int
 	SttTrigger     int
 	WalFsyncPeriod *int
+	WalLevel       *int
 }
 
 func (o *LoadingOptions) GetConnectString(db string) string {

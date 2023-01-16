@@ -20,12 +20,12 @@ type indexer struct {
 
 func (i *indexer) GetIndex(item data.LoadedPoint) uint {
 	p := item.Data.(*point)
-	idx, exist := i.tmp[p.subTable]
+	idx, exist := i.tmp[string(p.subTable)]
 	if exist {
 		return idx
 	}
 	i.buffer.Write(i.prefix)
-	i.buffer.WriteString(p.subTable)
+	i.buffer.WriteString(string(p.subTable))
 	hash := murmur3.Sum32WithSeed(i.buffer.Bytes(), 0x12345678)
 	i.buffer.Reset()
 	for j := 0; j < i.partitions; j++ {
@@ -44,14 +44,14 @@ type point struct {
 	superTable string
 	subTable   string
 	fieldCount int
-	sql        string
+	sql        []byte
 }
 
 var GlobalTable = sync.Map{}
 
 type hypertableArr struct {
 	createSql   []*point
-	m           map[string][]string
+	m           map[string][][]byte
 	totalMetric uint64
 	cnt         uint
 }
@@ -72,7 +72,7 @@ func (ha *hypertableArr) Append(item data.LoadedPoint) {
 }
 
 func (ha *hypertableArr) Reset() {
-	ha.m = map[string][]string{}
+	ha.m = map[string][][]byte{}
 	ha.cnt = 0
 	ha.createSql = ha.createSql[:0]
 }
@@ -81,7 +81,7 @@ type factory struct{}
 
 func (f *factory) New() targets.Batch {
 	return &hypertableArr{
-		m:   map[string][]string{},
+		m:   map[string][][]byte{},
 		cnt: 0,
 	}
 }

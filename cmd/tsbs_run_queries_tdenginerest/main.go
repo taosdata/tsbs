@@ -1,18 +1,16 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
+	"log"
+	"os"
+	"runtime/pprof"
 
 	"github.com/blagojts/viper"
-	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
 	"github.com/taosdata/tsbs/internal/utils"
 	"github.com/taosdata/tsbs/pkg/query"
+	"github.com/taosdata/tsbs/pkg/targets/tdenginerest/connector"
 )
 
 var (
@@ -47,6 +45,14 @@ func init() {
 	runner = query.NewBenchmarkRunner(config)
 }
 func main() {
+	f, err := os.Create("./cpu.prof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	defer pprof.StopCPUProfile()
 	runner.Run(&query.TDenginePool, newProcessor)
 }
 
@@ -56,12 +62,12 @@ type queryExecutorOptions struct {
 }
 
 type processor struct {
-	db   *sql.DB
-	opts *queryExecutorOptions
+	db       *connector.TaosConn
+	opts     *queryExecutorOptions
+	lastData []byte
 }
 
 func (p *processor) Init(workerNum int) {
-
 	dbName := runner.DatabaseName()
 	dsn := fmt.Sprintf("%s:%s@http(%s:%d)/%s", user, pass, host, port, dbName)
 	p.db = mustConnect(dsn)
@@ -69,45 +75,25 @@ func (p *processor) Init(workerNum int) {
 		debug:         runner.DebugLevel() > 0,
 		printResponse: runner.DoPrintResponses(),
 	}
+	p.lastData = make([]byte, 0, 4<<10)
 }
 
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	tq := q.(*query.TDengine)
-
-	start := time.Now()
-	qry := string(tq.SqlQuery)
+	qry := tq.SqlQuery
 	if p.opts.debug {
-		fmt.Println(qry)
+		fmt.Println(string(qry))
 	}
-	querys := strings.Split(qry, ";")
-	if len(querys) > 1 {
-		var preQuerys []string
-		for i := 0; i < len(querys); i++ {
-			if len(querys[i]) > 0 {
-				preQuerys = append(preQuerys, querys[i])
-			}
-		}
-		if len(preQuerys) > 1 {
-			for i := 0; i < len(preQuerys)-1; i++ {
-				err := execWithoutResult(p.db, preQuerys[i])
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-		qry = querys[len(preQuerys)-1]
-	}
-	rows, err := p.db.Query(qry)
+	var took float64
+	var err error
+	p.lastData = p.lastData[:0]
+	took, p.lastData, err = p.db.TaosQuery(nil, qry, p.lastData)
 	if err != nil {
 		return nil, err
 	}
 	if p.opts.printResponse {
-		prettyPrintResponse(rows, tq)
+		fmt.Println(string(p.lastData))
 	}
-	for rows.Next() {
-	}
-	rows.Close()
-	took := float64(time.Since(start).Nanoseconds()) / 1e6
 	stat := query.GetStat()
 	stat.Init(q.HumanLabelName(), took)
 
@@ -116,54 +102,10 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 
 func newProcessor() query.Processor { return &processor{} }
 
-func mustConnect(dsn string) *sql.DB {
-	db, err := sql.Open("taosRestful", dsn)
+func mustConnect(dsn string) *connector.TaosConn {
+	db, err := connector.NewTaosConn(dsn)
 	if err != nil {
 		panic(err)
 	}
 	return db
-}
-
-func execWithoutResult(db *sql.DB, sql string) error {
-	_, err := db.Exec(sql)
-	return err
-}
-
-// prettyPrintResponse prints a Query and its response in JSON format with two
-// keys: 'query' which has a value of the SQL used to generate the second key
-// 'results' which is an array of each row in the return set.
-func prettyPrintResponse(rows *sql.Rows, q *query.TDengine) {
-	resp := make(map[string]interface{})
-	resp["query"] = string(q.SqlQuery)
-	resp["results"] = mapRows(rows)
-
-	line, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(line) + "\n")
-}
-
-func mapRows(r *sql.Rows) []map[string]interface{} {
-	rows := []map[string]interface{}{}
-	cols, _ := r.Columns()
-	for r.Next() {
-		row := make(map[string]interface{})
-		values := make([]interface{}, len(cols))
-		for i := range values {
-			values[i] = new(interface{})
-		}
-
-		err := r.Scan(values...)
-		if err != nil {
-			panic(errors.Wrap(err, "error while reading values"))
-		}
-
-		for i, column := range cols {
-			row[column] = *values[i].(*interface{})
-		}
-		rows = append(rows, row)
-	}
-	return rows
 }

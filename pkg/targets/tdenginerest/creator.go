@@ -1,13 +1,12 @@
 package tdenginerest
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"strconv"
 
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
 	"github.com/taosdata/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/targets/tdenginerest/connector"
 )
 
 var fatal = log.Fatalf
@@ -15,7 +14,7 @@ var fatal = log.Fatalf
 type dbCreator struct {
 	opts *LoadingOptions
 	ds   targets.DataSource
-	db   *sql.DB
+	db   *connector.TaosConn
 }
 
 func (d *dbCreator) Init() {
@@ -23,7 +22,7 @@ func (d *dbCreator) Init() {
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	_, err := d.db.Exec("use " + dbName)
+	_, err := d.db.Exec([]byte("use " + dbName))
 	return err == nil
 }
 
@@ -44,13 +43,16 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if d.opts.WalFsyncPeriod != nil {
 		sql += " wal_fsync_period " + strconv.Itoa(*d.opts.WalFsyncPeriod)
 	}
-	_, err := d.db.Exec(sql)
+	if d.opts.WalLevel != nil {
+		sql += " wal_level " + strconv.Itoa(*d.opts.WalLevel)
+	}
+	_, err := d.db.Exec([]byte(sql))
 	return err
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
 	sql := fmt.Sprintf("drop database %s", dbName)
-	_, err := d.db.Exec(sql)
+	_, err := d.db.Exec([]byte(sql))
 	return err
 }
 
@@ -60,15 +62,15 @@ func (d *dbCreator) Close() {
 	}
 }
 
-func mustConnect(dsn string) *sql.DB {
-	db, err := sql.Open("taosRestful", dsn)
+func mustConnect(dsn string) *connector.TaosConn {
+	db, err := connector.NewTaosConn(dsn)
 	if err != nil {
 		panic(err)
 	}
 	return db
 }
 
-func execWithoutResult(db *sql.DB, sql string) error {
+func execWithoutResult(db *connector.TaosConn, sql []byte) error {
 	_, err := db.Exec(sql)
 	return err
 }

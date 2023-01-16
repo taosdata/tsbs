@@ -2,8 +2,8 @@ package tdenginerest
 
 import (
 	"bufio"
+	"bytes"
 	"strconv"
-	"strings"
 
 	"github.com/taosdata/tsbs/load"
 	"github.com/taosdata/tsbs/pkg/data"
@@ -26,6 +26,8 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 	return nil
 }
 
+var sep = []byte{','}
+
 func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
@@ -35,29 +37,27 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 		return data.LoadedPoint{}
 	}
 	p := &point{}
-	line := d.scanner.Text()
+	line := d.scanner.Bytes()
 	p.sqlType = line[0]
 	switch line[0] {
 	case Insert:
-		parts := strings.SplitN(line, ",", 4)
-		p.subTable = parts[1]
-		p.fieldCount, _ = strconv.Atoi(parts[2])
-		p.sql = strings.TrimSpace(parts[3])
+		parts := bytes.SplitN(line, sep, 4)
+		p.subTable = string(parts[1])
+		p.fieldCount, _ = strconv.Atoi(string(parts[2]))
+		p.sql = make([]byte, len(parts[3]))
+		copy(p.sql, parts[3])
 	case CreateSTable:
-		parts := strings.SplitN(line, ",", 4)
-		p.superTable = parts[1]
-		p.subTable = parts[2]
-		p.sql = parts[3]
+		parts := bytes.SplitN(line, sep, 4)
+		p.superTable = string(parts[1])
+		p.subTable = string(parts[2])
+		p.sql = make([]byte, len(parts[3]))
+		copy(p.sql, parts[3])
 	case CreateSubTable:
-		parts := strings.SplitN(line, ",", 4)
-		p.superTable = parts[1]
-		p.subTable = parts[2]
-		p.sql = parts[3][12:]
-	//case Modify:
-	//	parts := strings.SplitN(line, ",", 4)
-	//	p.superTable = parts[1]
-	//	p.subTable = parts[2]
-	//	p.sql = parts[3]
+		parts := bytes.SplitN(line, sep, 4)
+		p.superTable = string(parts[1])
+		p.subTable = string(parts[2])
+		p.sql = make([]byte, len(parts[3])-12)
+		copy(p.sql, parts[3][12:])
 	default:
 		panic(line)
 	}

@@ -3,12 +3,12 @@ package tdenginerest
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"sync"
 
 	"github.com/taosdata/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/targets/tdenginerest/connector"
 )
 
 type syncCSI struct {
@@ -28,7 +28,7 @@ type processor struct {
 	opts   *LoadingOptions
 	dbName string
 	sci    *syncCSI
-	_db    *sql.DB
+	_db    *connector.TaosConn
 	wg     *sync.WaitGroup
 	buf    *bytes.Buffer
 }
@@ -68,7 +68,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			actual, _ := p.sci.m.LoadOrStore(row.superTable, ctx)
 			err := execWithoutResult(p._db, row.sql)
 			if err != nil {
-				fmt.Println(row.sql)
+				fmt.Println(string(row.sql))
 				panic(err)
 			}
 			GlobalTable.Store(row.subTable, nothing)
@@ -88,16 +88,16 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				if ok {
 					<-v.(*Ctx).c.Done()
 					if p.buf.Len()+len(row.sql) > Size1M {
-						sql := p.buf.String()
+						sql := p.buf.Bytes()
 						err := execWithoutResult(p._db, sql)
 						if err != nil {
-							fmt.Println(sql)
+							fmt.Println(string(sql))
 							panic(err)
 						}
 						p.buf.Reset()
 						p.buf.WriteString("create table")
 					}
-					p.buf.WriteString(row.sql)
+					p.buf.Write(row.sql)
 					GlobalTable.Store(row.subTable, nothing)
 					actual.(*Ctx).cancel()
 					continue
@@ -112,16 +112,16 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				<-superTableActual.(*Ctx).c.Done()
 			}
 			if p.buf.Len()+len(row.sql) > Size1M {
-				sql := p.buf.String()
+				sql := p.buf.Bytes()
 				err := execWithoutResult(p._db, sql)
 				if err != nil {
-					fmt.Println(sql)
+					fmt.Println(string(sql))
 					panic(err)
 				}
 				p.buf.Reset()
 				p.buf.WriteString("create table")
 			}
-			p.buf.WriteString(row.sql)
+			p.buf.Write(row.sql)
 			GlobalTable.Store(row.subTable, nothing)
 			actual.(*Ctx).cancel()
 		default:
@@ -129,10 +129,10 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}
 	}
 	if p.buf.Len() > 12 {
-		sql := p.buf.String()
+		sql := p.buf.Bytes()
 		err := execWithoutResult(p._db, sql)
 		if err != nil {
-			fmt.Println(sql)
+			fmt.Println(string(sql))
 			panic(err)
 		}
 	}
@@ -166,11 +166,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	for tableName, sqls := range batches.m {
 		rowCnt += uint64(len(sqls))
 		if p.buf.Len()+len(sqls[0])+len(tableName)+7 > Size1M {
-			sql := p.buf.String()
+			sql := p.buf.Bytes()
 			err := execWithoutResult(p._db, sql)
 			if err != nil {
-				ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
-				fmt.Println(sql)
+				ioutil.WriteFile("wrongsql.txt", sql, 0755)
+				fmt.Println(string(sql))
 				panic(err)
 			}
 			p.buf.Reset()
@@ -180,11 +180,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		p.buf.WriteString(" values")
 		for i := 0; i < len(sqls); i++ {
 			if p.buf.Len()+len(sqls[i]) > Size1M {
-				sql := p.buf.String()
+				sql := p.buf.Bytes()
 				err := execWithoutResult(p._db, sql)
 				if err != nil {
-					ioutil.WriteFile("wrongsql.txt", []byte(sql), 0755)
-					fmt.Println(sql)
+					ioutil.WriteFile("wrongsql.txt", sql, 0755)
+					fmt.Println(string(sql))
 					panic(err)
 				}
 				p.buf.Reset()
@@ -192,14 +192,14 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				p.buf.WriteString(tableName)
 				p.buf.WriteString(" values")
 			}
-			p.buf.WriteString(sqls[i])
+			p.buf.Write(sqls[i])
 		}
 	}
 	if p.buf.Len() > 0 {
-		sql := p.buf.String()
+		sql := p.buf.Bytes()
 		err := execWithoutResult(p._db, sql)
 		if err != nil {
-			fmt.Println(sql)
+			fmt.Println(string(sql))
 			panic(err)
 		}
 		p.buf.Reset()
