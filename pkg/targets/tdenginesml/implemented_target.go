@@ -28,6 +28,7 @@ func (t *influxTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Fla
 	flagSet.Int(flagPrefix+"buffer", 0, "TDengine DB buffer")
 	flagSet.Int(flagPrefix+"stt_trigger", 0, "TDengine DB stt_trigger")
 	flagSet.Int(flagPrefix+"wal_fsync_period", 3000, "TDengine DB wal_fsync_period")
+	flagSet.Int(flagPrefix+"wal_level", 1, "TDengine DB wal_level")
 }
 
 func (t *influxTarget) TargetName() string {

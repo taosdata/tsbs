@@ -54,6 +54,10 @@ func initProgramOptions() (*tdenginesml.LoadingOptions, load.BenchmarkRunner, *l
 		walFsyncPeriod := viper.GetInt("wal_fsync_period")
 		opts.WalFsyncPeriod = &walFsyncPeriod
 	}
+	if viper.IsSet("wal_level") {
+		walLevel := viper.GetInt("wal_level")
+		opts.WalLevel = &walLevel
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }
