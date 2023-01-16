@@ -29,7 +29,7 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 	for _, s := range hostnames {
 		hostnameClauses = append(hostnameClauses, fmt.Sprintf("'%s'", s))
 	}
-	return fmt.Sprintf("hostname IN (%s)", strings.Join(hostnameClauses, ","))
+	return fmt.Sprintf("tbname IN (%s)", strings.Join(hostnameClauses, ","))
 }
 
 // getHostWhereString gets multiple random hostnames and creates a WHERE SQL statement for these hostnames.
@@ -57,7 +57,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 		panic(fmt.Sprintf("invalid number of select clauses: got %d", len(selectClauses)))
 	}
 
-	//SELECT _wstart as ts,max(usage_user) FROM cpu WHERE hostname IN ('host_249') AND ts >= 1451618560000 AND ts < 1451622160000 INTERVAL(1m) ;
+	//SELECT _wstart as ts,max(usage_user) FROM cpu WHERE tbname IN ('host_249') AND ts >= 1451618560000 AND ts < 1451622160000 INTERVAL(1m) ;
 	//SELECT _wstart as ts,max(usage_user) FROM host_249 WHERE ts >= 1451618560000 AND ts < 1451622160000 INTERVAL(1m) ;
 	sql := ""
 	if nHosts == 1{
@@ -114,9 +114,9 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	//SELECT _wstart as ts,max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_iowait), max(usage_irq), max(usage_softirq), max(usage_steal), max(usage_guest), max(usage_guest_nice) FROM cpu
-	//WHERE hostname IN ('host_249') AND ts >= 1451648911646 AND ts < 1451677711646 interval(1h);
+	//WHERE tbname IN ('host_249') AND ts >= 1451648911646 AND ts < 1451677711646 interval(1h);
 	//modify:SELECT _wstart as ts,max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_iowait), max(usage_irq), max(usage_softirq), max(usage_steal), max(usage_guest), max(usage_guest_nice) FROM cpu
-	//WHERE hostname IN ('host_249') AND ts >= 1451648911646 AND ts < 1451677711646 interval(1h);	
+	//WHERE tbname IN ('host_249') AND ts >= 1451648911646 AND ts < 1451677711646 interval(1h);	
 
 	sql := ""
 	if nHosts == 1{
@@ -155,7 +155,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	//SELECT * FROM cpu WHERE usage_user > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 AND hostname IN ('host_35')
+	//SELECT * FROM cpu WHERE usage_user > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 AND tbname IN ('host_35')
 	//modify:SELECT * FROM host_35 WHERE usage_user  > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 
 
 	sql := ""
