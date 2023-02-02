@@ -23,9 +23,6 @@ TimePath="/var/lib/postgresql/14/main/base/"
 # Space-separated list of target DB formats to generate
 FORMAT=${FORMAT:-"timescaledb"}
 
-# TDneing Databases: Vgroups
-vgroups=${vgroups:-"24"} 
-
 # Number of hosts to generate data about
 SCALE=${SCALE:-"100"}
 
@@ -102,6 +99,14 @@ SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
 BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
 CASE_TYPE=${CASE_TYPE:-"cputest"} 
 
+# TDneing Databases parameters
+VGROUPS=${VGROUPS:-"24"}
+BUFFER=${BUFFER:-"256"}
+PAGES=${PAGES:-"4096"}
+TRIGGER=${TRIGGER:-"8"} 
+WALFSYNCPERIOD=${WALFSYNCPERIOD:-"3000"}
+WAL_LEVEL=${WAL_LEVEL:-"2"}
+
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
@@ -122,9 +127,9 @@ if [ "${FORMAT}" == "timescaledb" ];then
     echo $disk_usage_before
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    echo `date +%Y_%m%d_%H%M%S`
-    echo "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    echo `date +%Y_%m%d_%H%M%S`":start to insert data in timescaldeb"
+    echo "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     if [ "${USE_CASE}" == "cpu-only" ];then
         PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" > tempCompress.txt
         tempCompressNum=`more tempCompress.txt |grep rows |awk -F ' ' '{print $1}'`
@@ -139,6 +144,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    echo `date +%Y_%m%d_%H%M%S`":timescaledb data is being compressed"
     if [ "${USE_CASE}" == "cpu-only" ];then
         while true
         do   
@@ -158,10 +164,13 @@ if [ "${FORMAT}" == "timescaledb" ];then
             fi
         done
     fi
+    echo `date +%Y_%m%d_%H%M%S`"timescaledb data compression has been completed"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
     echo "${disk_usage_before} ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
+    sleep 60
 elif [  ${FORMAT} == "influx" ];then
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
     rm -rf ${InfPath}/*
@@ -173,15 +182,28 @@ eeooff
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
-    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    if [ ${SCALE} -le 100000 ];then
+        sleep 200
+    elif [  ${SCALE} -eq 1000000 ];then
+        sleep 600
+    elif [  ${SCALE} -eq 10000000 ];then
+        sleep 4200    
+    fi
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
+    rm -rf ${InfPath}/*
+    systemctl restart influxd
+    sleep 1
+    exit
+eeooff
 elif [  ${FORMAT} == "TDengine" ];then
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
     echo `date +%Y_%m%d_%H%M%S`":start to stop taosd and remove data ${TDPath} "
@@ -189,7 +211,7 @@ elif [  ${FORMAT} == "TDengine" ];then
     rm -rf ${TDPath}/*
     echo `date +%Y_%m%d_%H%M%S`":finish  remove data ${TDPath} "
     echo `date +%Y_%m%d_%H%M%S`":restart taosd "
-    systemctl restart taosd
+    systemctl start taosd
     echo `date +%Y_%m%d_%H%M%S`":check status of taosd "
     systemctl status taosd
     echo `date +%Y_%m%d_%H%M%S`":restart successfully"
@@ -201,19 +223,22 @@ eeooff
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`":start to load TDengine Data "
-    echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --vgroups=${vgroups} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   tsbs_load_tdengine \
-    --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_TAOS_PORT} --vgroups=${vgroups}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_TAOS_PORT}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES}  --hash-workers=true  --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
+    wal_uasge=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
+    disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     # pid=`ps aux|grep taosd|grep -v  grep |awk '{print $2}'`
     # echo ${pid}
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     echo "it don't support format"
 fi  

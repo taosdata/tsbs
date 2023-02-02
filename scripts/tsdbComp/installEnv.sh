@@ -230,7 +230,7 @@ function install_TDengine {
   systemctl restart taosd
   taosPar=`grep -w "tableIncStepPerVnode 100000" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
-    echo -e  "tableIncStepPerVnode 100000\nminTablesPerVnode    100000 \nmaxSQLLength 1048576 \n#tscEnableRecordSql 1 \n#debugflag 135 \n#shortcutFlag 1 \n"  >> /etc/taos/taos.cfg
+    echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
   fi
   fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
   fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
@@ -258,8 +258,9 @@ if [ "${installDB}" == "true" ];then
     #   install_influx_centos
     # fi
   elif [ "${osType}" == "ubuntu" ];then
-    apt install wget -y
-    apt install curl -y
+    sudo apt-get update
+    sudo apt install wget -y
+    sudo apt install curl -y
     install_timescale_ubuntu 
     install_influx_ubuntu 
     # if [[ -z `influx --help` ]];then
