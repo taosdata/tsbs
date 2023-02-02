@@ -228,7 +228,7 @@ function install_TDengine {
       rm -rf debug 
   fi
   mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
-  systemctl restart taosd
+  systemctl status taosd
   taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
     echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
