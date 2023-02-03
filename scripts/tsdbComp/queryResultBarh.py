@@ -32,6 +32,11 @@ if( len(sys.argv)>3 ):
 else: 
     pngName="test_query.png"
 
+if( len(sys.argv)>4 ):
+    queryTimes=sys.argv[4]
+else: 
+    queryTimes=1000
+
 print("open %s" % inputfile )
 
 with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
@@ -45,11 +50,13 @@ with open(inputfile, newline='',encoding = 'utf-8') as csvfile:
 
 scaleLable=list(set(scaleNum))[0]
 print(scaleLable)
+print(querytype)
 xticks = np.arange(0,len(set(querytype))*6,6)
-# print(xticks)
+print(xticks)
 datacount=wc_count(inputfile)
 print(datacount)
 sortlist=list(set(databasetype))
+print(sortlist)
 typeCount=len(sortlist)
 bar_width = 1.5
 # timescaledb_x=xticks
@@ -81,9 +88,9 @@ for j  in range(typeCount):
             tdengine_wcltime.append(wcltime[i])
             tdengine_qps.append(qps[i])
     # print(tuple(timescdb_querytype))   
-# print(timescdb_wcltime)
-
+print(timescdb_wcltime)
 if( "timescaledb" in sortlist ):
+    
     ax.barh(xticks+bar_width*2, timescdb_wcltime, height=bar_width, label="timescaledb")
     for a,b in zip(xticks+bar_width*2,timescdb_wcltime):   #柱子上的数字显示
         plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
@@ -104,9 +111,10 @@ if( "TDengine" in  sortlist ):
     ax.set_yticklabels(tuple(tdengine_querytype))
 
 ax.invert_yaxis() 
+ax.set_xscale('log')
 # ax.set_xlabel("%s" % xLableName)  # add x lable
 ax.set_xlabel("spendtime:ms")  # add y lable
-ax.set_title("QueryComparisons query response Time in different %s on %s device * 10 metrics" % (xLableName,scaleLable))  # Add a title to the axes.
+ax.set_title("QueryComparisons: query response time in different %s on %s device * 10 metrics , the number of queries:%s" % (xLableName,scaleLable,queryTimes),loc='left',fontsize = 8)  # Add a title to the axes.
 print(tuple(influx_querytype),xticks)
 ax.legend() 
 
