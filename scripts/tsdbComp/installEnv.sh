@@ -245,7 +245,7 @@ function install_TDengine {
 
 
 
-cmdInstall sshpass
+# cmdInstall sshpass
 cmdInstall git
 
 
