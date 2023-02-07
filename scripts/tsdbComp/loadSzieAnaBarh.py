@@ -33,7 +33,7 @@ else:
 if (targets=="rows"):
     targets_number=5
 elif (targets=="metrics"):
-    targets_number=7
+    targets_number=8
     
 df = pd.read_csv(inputfile,header=None)  # read file
 arrt=np.array(df.T)   #　transpose and  transfer to array
@@ -119,9 +119,9 @@ plt.style.use('Solarize_Light2')
 plt.grid(axis="x")
 
 # ax.set_xlabel("%s" % xLableName)  # add x lable
-ax.set_xlabel("Metrics ingested per second")  # add x lable
+ax.set_xlabel("Disk usage KB")  # add x lable
 # ax.set_ylabel("%s number * 10 metrics" % xLableName)  #add y lable
-ax.set_title("LoadComparisons Ingestion Rate in different %s:%s/s"% (xLableName,targets))  # Add a title to the axes.
+ax.set_title("LoadComparisons Disk usage in different %s:KB"% (xLableName))  # Add a title to the axes.
 # ax.set_title("QueryComparisons :TDengine/otherDB QPS ratios in different %s "% xLableName)  # Add a title to the axes.
 
 # for i in range(nshape):
@@ -139,6 +139,7 @@ print(tuple(xtype),xticks+bar_width)
 ax.legend() 
 ax.set_yticks(xticks+bar_width)
 ax.set_yticklabels(tuple(xtype))
+ax.set_xscale('log')
 
 # ax.set_xticklabels(rotation=70)
 # plt.yticks(rotation=45)

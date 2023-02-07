@@ -221,16 +221,17 @@ systemctl restart influxd
 function install_TDengine {
   echo "=============reinstall TDengine  in ubuntu ============="
   cd ${installPath}
-  if [ ! -f "TDengine-server-2.4.0.14-Linux-x64.tar.gz"  ] ;then
-    wget https://taosdata.com/assets-download/TDengine-server-2.4.0.14-Linux-x64.tar.gz 
+  sudo apt-get install -y gcc cmake build-essential git libssl-dev
+  git clone https://github.com/taosdata/TDengine.git
+  cd TDengine && git checkout  073fa4b509cc8005bcade4dd057d9d6ebecdf7ce
+  if [ -d "debug/" ];then
+      rm -rf debug 
   fi
-  tar xvf TDengine-server-2.4.0.14-Linux-x64.tar.gz 
-  cd  TDengine-server-2.4.0.14
-  ./install.sh  -e no
-  systemctl restart taosd
-  taosPar=`grep -w "tableIncStepPerVnode 100000" /etc/taos/taos.cfg`
+  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
+  systemctl status taosd
+  taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
-    echo -e  "tableIncStepPerVnode 100000\nminTablesPerVnode    100000 \nmaxSQLLength 1048576 \n#tscEnableRecordSql 1 \n#debugflag 135 \n#shortcutFlag 1 \n"  >> /etc/taos/taos.cfg
+    echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
   fi
   fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
   fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
@@ -244,7 +245,7 @@ function install_TDengine {
 
 
 
-cmdInstall sshpass
+# cmdInstall sshpass
 cmdInstall git
 
 
@@ -258,8 +259,9 @@ if [ "${installDB}" == "true" ];then
     #   install_influx_centos
     # fi
   elif [ "${osType}" == "ubuntu" ];then
-    apt install wget -y
-    apt install curl -y
+    sudo apt-get update
+    sudo apt install wget -y
+    sudo apt install curl -y
     install_timescale_ubuntu 
     install_influx_ubuntu 
     # if [[ -z `influx --help` ]];then

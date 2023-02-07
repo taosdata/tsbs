@@ -23,6 +23,13 @@ if( len(sys.argv)>3 ):
 else: 
     pngName="test_query.png"
 
+if( len(sys.argv)>4 ):
+    queryTimes=sys.argv[4]
+else: 
+    queryTimes=1000
+
+
+
 
 df = pd.read_csv(inputfile,header=None)  # read file
 arrt=np.array(df.T)   #　transpose and  transfer to array
@@ -45,9 +52,9 @@ if(numformate>1):
             k=i+j*numgroup
             ratio=[]
             tempdataTime=100*arr[k][6]/arr[i][6]   
-            tempdataQps=100*arr[i][7]/arr[k][7]   # QPS ratio .if you want to generate times, you should replace 7 with 6
+            # tempdataQps=100*arr[i][7]/arr[k][7]   # QPS ratio .if you want to generate times, you should replace 7 with 6
             ratiodataTime=float('%.2f' % tempdataTime ) 
-            ratiodataQps=float('%.2f' % tempdataQps ) 
+            # ratiodataQps=float('%.2f' % tempdataQps ) 
             ratio.append(ratiodataTime)
             # ratio.append(ratiodataQps)
             # print(i,j,arr[i][7],arr[k][7],ratiodata)
@@ -141,11 +148,13 @@ if( "TDengine" in result_arrt ):
 
 
 ax.invert_yaxis() 
+# ax.set_xscale('log')
+
 ax.axvline(100, color='gray', linewidth=2)
 # ax.set_xlabel("%s" % xLableName)  # add x lable
 # ax.set_ylabel("Query Type")  # add y lable
 ax.set_xlabel("spendtime : otherDB/TDengine %")   # add x lable
-ax.set_title("QueryComparisons query response Time in different %s on %s devices * 10 metrics" % (xLableName,scaleLable))  # Add a title to the axes.
+ax.set_title("QueryComparisons: query response time ratio in different %s on %s device * 10 metrics , the number of queries:%s" % (xLableName,scaleLable,queryTimes),loc='left',fontsize = 8)  # Add a title to the axes.
 
 for i in range(resultshape):
     if(result_arr[i][0]=="timescaledb"):

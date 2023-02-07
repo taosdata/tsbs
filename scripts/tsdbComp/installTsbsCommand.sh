@@ -175,7 +175,7 @@ function install_tsbs {
 
 }
 
-cmdInstall sshpass
+# cmdInstall sshpass
 cmdInstall git
 
 

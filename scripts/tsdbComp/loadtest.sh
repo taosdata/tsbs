@@ -37,7 +37,9 @@ NUM_WORKERS=${NUM_WORKERS:-"24"}
 BATCH_SIZES=${BATCH_SIZES:-"10000"} 
 SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
 CASE_TYPE=${CASE_TYPE:-"cputest"} 
-
+WALFSYNCPERIOD=${WALFSYNCPERIOD:-"0"}
+TRIGGER=${TRIGGER:-"8"} 
+VGROUPS=${VGROUPS:-"24"}
 
 # worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
 # batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
@@ -58,7 +60,7 @@ for USE_CASE in ${USE_CASES}; do
                 elif [ ${SCALE} -eq 4000 ];then
                     TS_END="2016-01-05T00:00:00Z"
                     CHUNK_TIME="8h"
-                    echo "generate 5 days data"
+                    echo "generate 4 days data"
                 elif [ ${SCALE} -eq 100000 ] ;then
                     TS_END="2016-01-01T03:00:00Z"
                     CHUNK_TIME="15m"
@@ -80,7 +82,7 @@ for USE_CASE in ${USE_CASES}; do
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
                     echo `date +%Y_%m%d_%H%M%S`
-                    echo " TS_START=${TS_START}  TS_END=${TS_END}   DATABASE_USER=${DATABASE_USER} DATABASE_HOST=${DATABASE_HOST}  DATABASE_PWD=${DATABASE_PWD} DATABASE_NAME=${DATABASE_NAME} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh " 
+                    echo " TS_START=${TS_START}  TS_END=${TS_END}   DATABASE_USER=${DATABASE_USER} DATABASE_HOST=${DATABASE_HOST}  DATABASE_PWD=${DATABASE_PWD} DATABASE_NAME=${DATABASE_NAME} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} WALFSYNCPERIOD=${WALFSYNCPERIOD} VGROUPS=${VGROUPS} ./full_cycle_minitest_loading.sh " 
                    TS_START=${TS_START} \
                    TS_END=${TS_END} \
                    DATABASE_USER=${DATABASE_USER} \
@@ -96,27 +98,15 @@ for USE_CASE in ${USE_CASES}; do
                    SERVER_PASSWORD=${SERVER_PASSWORD} \
                    BULK_DATA_DIR=${BULK_DATA_DIR} \
                    CASE_TYPE=${CASE_TYPE} \
-                   BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} ./full_cycle_minitest_loading.sh
+                   BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
+                   WALFSYNCPERIOD=${WALFSYNCPERIOD} \
+                   VGROUPS=${VGROUPS} ./full_cycle_minitest_loading.sh
                    sleep 60s
                 done
             done
         done
     done
 done
-
-# # generate png report
-# # loadResultAnaly.py has three parameter,
-# # 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
-# if [ ${worklen} != 1 ];then 
-#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png"
-#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv NUM_WORKER ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${BATCH_SIZES}.png
-# elif [ ${batchlen} != 1 ];then 
-#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png"
-#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv BATCH_SIZE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${SCALES}.png
-# elif [ ${scalelen} != 1 ];then 
-#     echo "python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png"
-#     python3 loadResultAnaly.py ${BULK_DATA_DIR_RES_LOAD}/load_input.csv SCALE ${BULK_DATA_DIR_RES_LOAD}/test_load_${USE_CASE}_${NUM_WORKERS}.png  
-# fi  
 
 
 

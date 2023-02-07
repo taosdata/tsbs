@@ -41,6 +41,8 @@ load_batchsizes="10000"
 load_scales="100 4000 100000 1000000 10000000"
 load_formats="TDengine influx timescaledb"
 load_test_scales="200"
+load_fsync="0"
+vgroups="24"
 
 #query test parameters
 query_ts_start="2016-01-01T00:00:00Z"
@@ -106,17 +108,17 @@ function load_testcase {
 # need define data and result path
 echo "excute testcase scenarios $5"
 load_executeTime=`date +%Y_%m%d_%H%M%S`
-load_dataDir="${loadDataRootDir}/load_data_${caseType}/" 
+load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/" 
 load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
 
 # excute testcase
-echo "TS_START="$3" TS_END="$4"  DATABASE_HOST="$1" SERVER_PASSWORD="$2" BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir}  NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} SCALES="$5" DATABASE_NAME="benchmark$caseType" ./loadtest.sh "
+echo "TS_START="$3" TS_END="$4"  DATABASE_HOST="$1" SERVER_PASSWORD="$2" BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir}  NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} SCALES="$5" DATABASE_NAME="benchmark$caseType"  WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" ./loadtest.sh "
 
 TS_START="$3" TS_END="$4"  \
 DATABASE_HOST="$1" SERVER_PASSWORD="$2"  \
 BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir} \
 NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} \
-SCALES="$5" DATABASE_NAME="benchmark$caseType" ./loadtest.sh 
+SCALES="$5" DATABASE_NAME="benchmark$caseType" WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" ./loadtest.sh 
 
 
 if [ ${caseType} != "userdefined" ];then
@@ -136,7 +138,7 @@ if [ ${caseType} == "cputest" ];then
     echo "load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb" "
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "cpu" ];then
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "1000000" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "influx" 
 elif [ ${caseType} == "devops" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000"  "devops" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "iot" ];then

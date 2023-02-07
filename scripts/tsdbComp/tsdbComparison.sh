@@ -66,7 +66,6 @@ else
 fi
 }
 
-cmdInstall sshpass
 
 # start to test
 cd ${scriptDir}
@@ -115,15 +114,15 @@ echo "==========intallation of client:${clientIP} is complete ========"
 
 echo "==========start to install server:${serverIP} environment and databases========"
 
-sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
+ssh root@$serverHost << eeooff 
     mkdir -p  ${installPath}
 eeooff
-sshpass -p  ${serverPass} scp ${envfile} root@$serverHost:${installPath}
-sshpass -p  ${serverPass} scp ${cfgfile} root@$serverHost:${installPath}
+scp ${envfile} root@$serverHost:${installPath}
+scp ${cfgfile} root@$serverHost:${installPath}
 # install at server host 
 if [ "${installDB}" == "true" ];then
 
-sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
+${serverPass}  ssh root@$serverHost << eeooff 
     cd ${installPath}
     echo "install basic env in server ${serverIP}"
     ./installEnv.sh 

@@ -20,6 +20,9 @@ EXE_FILE_VERSION=`md5sum $EXE_FILE_NAME_GENERATE_QUE | awk '{ print $1 }'`
 # Queries folder
 BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR:-"/tmp/bulk_queries"}
 
+FORMATAISA=${FORMATAISA:-"timescaledb"}
+
+
 # Form of data to generate
 USE_JSON=${USE_JSON:-false}
 USE_TAGS=${USE_TAGS:-true}
@@ -154,9 +157,10 @@ else
 fi
 echo "${debugflag} ${printResponse}"
 echo "Running ${DATA_FILE_NAME}"
-if [ "${FORMAT}" == "timescaledb" ]; then
+if [[ "${FORMAT}" =~ "timescaledb" ]]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
+    echo "start to execute timescaledb query:"`date +%Y_%m%d_%H%M%S`
     echo " cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TSCD} --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS}|tee ${OUT_FULL_FILE_NAME} "
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
@@ -172,10 +176,12 @@ if [ "${FORMAT}" == "timescaledb" ]; then
         | tee ${OUT_FULL_FILE_NAME}
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g" `
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
-        echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+        echo ${FORMATAISA},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+        echo " timescaledb query finish:"`date +%Y_%m%d_%H%M%S`
 elif [  ${FORMAT} == "influx" ]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
+    echo "start to execute influx query:"`date +%Y_%m%d_%H%M%S`
     echo "cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${EXE_FILE_NAME_RUN_INF}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
@@ -190,9 +196,11 @@ elif [  ${FORMAT} == "influx" ]; then
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g" `
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+        echo " influx query finish:"`date +%Y_%m%d_%H%M%S`
 elif [  ${FORMAT} == "TDengine" ]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
+    echo "start to execute TDengine query:"`date +%Y_%m%d_%H%M%S`
     echo " cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TD} --db-name ${DATABASE_NAME} --host ${DATABASE_HOST}  --pass ${DATABASE_TAOS_PWD} --port ${DATABASE_TAOS_PORT} --max-queries ${MAX_QUERIES}  --workers ${NUM_WORKER} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
@@ -209,6 +217,7 @@ elif [  ${FORMAT} == "TDengine" ]; then
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g"`
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+        echo " TDengine query finish:"`date +%Y_%m%d_%H%M%S`
 else
     echo "it don't support format"
 fi  

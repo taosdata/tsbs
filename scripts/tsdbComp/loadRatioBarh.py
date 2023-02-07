@@ -23,6 +23,15 @@ if( len(sys.argv)>3 ):
 else: 
     pngName="test_query.png"
 
+if( len(sys.argv)>4 ):
+    targets=sys.argv[4]
+else: 
+    targets="metrics"
+
+if (targets=="rows"):
+    targets_number=5
+elif (targets=="metrics"):
+    targets_number=7
 
 df = pd.read_csv(inputfile,header=None)  # read file
 arrt=np.array(df.T)
@@ -47,8 +56,8 @@ if(numformate>1):
             #     ratio.append(100*arr[i][5]/arr[k][5])
             # elif(arr[i][5]<arr[k][5]):
             #     ratio.append(100*-arr[k][5]/arr[i][5])
-            ratio.append(100*arr[i][5]/arr[k][5])
-            print(arr[i][5],arr[k][5],arr[i][5]/arr[k][5])
+            ratio.append(100*arr[i][targets_number]/arr[k][targets_number])
+            # print(arr[i][5],arr[k][5],arr[i][5]/arr[k][5])
             # ratio.append(arr[i][5]/arr[k][5])
             # ratio.append(format(arr[i][5]*100/arr[k][5],'.1f'))
             ratio_arr.append(ratio)
@@ -94,7 +103,7 @@ elif (xLableName=="SCALE"):
 print(resultshape)
 for i in range(resultshape):
     if(result_arr[i][0]=="timescaledb"):
-        timescaledbRatio.append(result_arr[i][9])
+        timescaledbRatio.append(result_arr[i][-1])
         if (xLableName=="NUM_WORKER"):
             xtimescaletype.append("%d  devices x 10 metrics" % result_arr[i][4])
         elif (xLableName=="BATCH_SIZE"):
@@ -103,7 +112,7 @@ for i in range(resultshape):
             xtimescaletype.append("%d  devices x 10 metrics" % result_arr[i][2])
         print(timescaledbRatio)
     elif(result_arr[i][0]=="influx"):
-        influxRatio.append(result_arr[i][9])
+        influxRatio.append(result_arr[i][-1])
         if (xLableName=="NUM_WORKER"):
             xinfluxtype.append(result_arr[i][4])
         elif (xLableName=="BATCH_SIZE"):
@@ -111,7 +120,7 @@ for i in range(resultshape):
         elif (xLableName=="SCALE"):
             xinfluxtype.append(result_arr[i][2])
     elif(result_arr[i][0]=="TDengine"):
-        tdengineRatio.append(result_arr[i][9])
+        tdengineRatio.append(result_arr[i][-1])
         if (xLableName=="NUM_WORKER"):
             xtdenginetype.append(result_arr[i][4])
         elif (xLableName=="BATCH_SIZE"):
@@ -143,7 +152,7 @@ plt.grid(axis="x")
 # ax.set_xlabel("%s" % xLableName)  # add x lable
 ax.set_xlabel("ratios:%")  # add y lable
 # ax.set_ylabel("%s" % xLableName)  # 添加横轴标签
-ax.set_title("LoadComparisons TDengine/otherDB Ingestion Rate Ratio in different %s : percent "% xLableName)  # Add a title to the axes.
+ax.set_title("LoadComparisons TDengine/otherDB Ingestion Rate Ratio(%s/s) in different %s : percent "% (targets,xLableName),loc='left',fontsize = 12)  # Add a title to the axes.
 # ax.set_title("QueryComparisons :TDengine/otherDB QPS ratios in different %s "% xLableName)  # Add a title to the axes.
 
 # for i in range(resultshape):
