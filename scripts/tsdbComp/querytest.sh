@@ -35,23 +35,23 @@ BATCH_SIZE=${BATCH_SIZE:-"50000"}
 #reset loading data
 RESTLOAD=${RESTLOAD:-"true"}
 
-# # All available for generation query types (sorted alphabetically)
-#  QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
-#  single-groupby-1-1-1 \
-#  single-groupby-1-1-12 \
-#  single-groupby-1-8-1 \
-#  single-groupby-5-1-1 \
-#  single-groupby-5-1-12 \
-#  single-groupby-5-8-1 \
-#  cpu-max-all-1 \
-#  cpu-max-all-8 \
-#  double-groupby-1 \
-#  double-groupby-5 \
-#  double-groupby-all \
-#  high-cpu-1 \
-#  high-cpu-all \
-#  groupby-orderby-limit \
-#  lastpoint "}
+# All available for generation query types (sorted alphabetically)
+ QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
+ single-groupby-1-1-1 \
+ single-groupby-1-1-12 \
+ single-groupby-1-8-1 \
+ single-groupby-5-1-1 \
+ single-groupby-5-1-12 \
+ single-groupby-5-8-1 \
+ cpu-max-all-1 \
+ cpu-max-all-8 \
+ double-groupby-1 \
+ double-groupby-5 \
+ double-groupby-all \
+ high-cpu-1 \
+ high-cpu-all \
+ groupby-orderby-limit \
+ lastpoint "}
 
 
 
@@ -65,10 +65,10 @@ RESTLOAD=${RESTLOAD:-"true"}
 #  cpu-max-all-1 \
 #  cpu-max-all-8 "}
 
-QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
-single-groupby-1-8-1 \
-single-groupby-5-8-1 \
-single-groupby-5-1-12  "}
+# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
+# single-groupby-1-8-1 \
+# single-groupby-5-8-1 \
+# single-groupby-5-1-12  "}
 
 
 #QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
