@@ -149,7 +149,8 @@ echo "=============reinstall influx in centos ============="
   if [[ -z "${indexPar1}" ]] || [[  -n "${indexPar2}" ]];then
     sed -i '/^\[data\]/a\ index-version = "tsi1"'  /etc/influxdb/influxdb.conf 
     sed -i '/^\[data\]/a\ max-values-per-tag = 0'  /etc/influxdb/influxdb.conf 
-    sed -i '/^\[data\]/a\ cache-max-memory-size = "5g"'  /etc/influxdb/influxdb.conf 
+    sed -i '/^\[data\]/a\ cache-max-memory-size = "80g"'  /etc/influxdb/influxdb.conf 
+    sed -i '/^\[data\]/a\ compact-full-write-cold-duration = "30s"'  /etc/influxdb/influxdb.conf 
   else 
     echo "indexPar has already been add to influxdb.conf"    
   fi 
@@ -210,7 +211,8 @@ function install_influx_ubuntu {
   if [[ -z "${indexPar1}" ]] || [[  -n "${indexPar2}" ]];then
     sed -i '/^\[data\]/a\ index-version = "tsi1"'  /etc/influxdb/influxdb.conf 
     sed -i '/^\[data\]/a\ max-values-per-tag = 0'  /etc/influxdb/influxdb.conf 
-    sed -i '/^\[data\]/a\ cache-max-memory-size = "5g"'  /etc/influxdb/influxdb.conf 
+    sed -i '/^\[data\]/a\ cache-max-memory-size = "80g"'  /etc/influxdb/influxdb.conf 
+    sed -i '/^\[data\]/a\ compact-full-write-cold-duration = "30s"'  /etc/influxdb/influxdb.conf 
   else 
     echo "indexPar has already been add to influxdb.conf"    
   fi 
@@ -223,7 +225,7 @@ function install_TDengine {
   cd ${installPath}
   sudo apt-get install -y gcc cmake build-essential git libssl-dev
   git clone https://github.com/taosdata/TDengine.git
-  cd TDengine && git checkout  073fa4b509cc8005bcade4dd057d9d6ebecdf7ce
+  cd TDengine && git checkout  299afd98d977ee50d2d5df4608242fe40b188cbf
   if [ -d "debug/" ];then
       rm -rf debug 
   fi
@@ -244,15 +246,17 @@ function install_TDengine {
 }
 
 
-
-# cmdInstall sshpass
+# install sshpass,git and dool
+cmdInstall sshpass
 cmdInstall git
+cd {installPath}
+wget https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz
+tar vxf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
-
+# install db  
 if [ "${installDB}" == "true" ];then
   if [ "${osType}" == "centos" ];then
     yum install -y  curl wget
-    yum install expect -y 
     install_timescale_centos
     install_influx_centos
     # if [[ -z `influx --help` ]];then
@@ -260,8 +264,7 @@ if [ "${installDB}" == "true" ];then
     # fi
   elif [ "${osType}" == "ubuntu" ];then
     sudo apt-get update
-    sudo apt install wget -y
-    sudo apt install curl -y
+    sudo apt install wget curl  -y
     install_timescale_ubuntu 
     install_influx_ubuntu 
     # if [[ -z `influx --help` ]];then
@@ -283,11 +286,20 @@ fi
 # you need add trust link entry for your host in pg_hba.conf manually
 # eg : host    all     all             192.168.0.1/24               md5
 
-trustlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
+trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
 echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustlinkPar}"
-if [ -z "${trustlinkPar}" ];then
+echo "${trustSlinkPar}"
+if [ -z "${trustSlinkPar}" ];then
   echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+else
+  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+fi
+
+trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
+echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
+echo "${trustClinkPar}"
+if [ -z "${trustClinkPar}" ];then
+  echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
 else
   echo "it has been added trust link entry for your test server ip in pg_hba.conf"
 fi
