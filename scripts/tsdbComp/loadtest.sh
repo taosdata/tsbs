@@ -100,7 +100,8 @@ for USE_CASE in ${USE_CASES}; do
                    CASE_TYPE=${CASE_TYPE} \
                    BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
                    WALFSYNCPERIOD=${WALFSYNCPERIOD} \
-                   VGROUPS=${VGROUPS} ./full_cycle_minitest_loading.sh
+                   VGROUPS=${VGROUPS} \
+                   TRIGGER=${TRIGGER} ./full_cycle_minitest_loading.sh
                    sleep 60s
                 done
             done

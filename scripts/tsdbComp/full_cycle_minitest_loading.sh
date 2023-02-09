@@ -103,7 +103,7 @@ CASE_TYPE=${CASE_TYPE:-"cputest"}
 VGROUPS=${VGROUPS:-"24"}
 BUFFER=${BUFFER:-"256"}
 PAGES=${PAGES:-"4096"}
-TRIGGER=${TRIGGER:-"8"} 
+TRIGGER=${TRIGGER:-"1"} 
 WALFSYNCPERIOD=${WALFSYNCPERIOD:-"3000"}
 WAL_LEVEL=${WAL_LEVEL:-"2"}
 
@@ -241,6 +241,9 @@ eeooff
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
+    if [ ${SCALE} -gt 10000000 ];then
+        TRIGGER="8"
+    fi
     echo `date +%Y_%m%d_%H%M%S`":start to load TDengine Data "
     echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   tsbs_load_tdengine \
