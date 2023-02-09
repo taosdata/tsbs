@@ -43,6 +43,7 @@ load_formats="TDengine influx timescaledb"
 load_test_scales="200"
 load_fsync="0"
 vgroups="24"
+triggers="1"
 
 #query test parameters
 query_ts_start="2016-01-01T00:00:00Z"
@@ -118,7 +119,7 @@ TS_START="$3" TS_END="$4"  \
 DATABASE_HOST="$1" SERVER_PASSWORD="$2"  \
 BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir} \
 NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} \
-SCALES="$5" DATABASE_NAME="benchmark$caseType" WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" ./loadtest.sh 
+SCALES="$5" DATABASE_NAME="benchmark$caseType" WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" TRIGGER=${triggers} ./loadtest.sh 
 
 
 if [ ${caseType} != "userdefined" ];then
@@ -136,9 +137,9 @@ fi
 # caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
     echo "load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb" "
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-01T12:00:00Z"  "200" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine timescaledb influx"
 elif [ ${caseType} == "cpu" ];then
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb" 
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine timescaledb influx" 
 elif [ ${caseType} == "devops" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000"  "devops" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "iot" ];then
