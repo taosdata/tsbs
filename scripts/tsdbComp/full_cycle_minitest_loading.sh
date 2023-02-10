@@ -187,6 +187,7 @@ eeooff
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    echo `date +%Y_%m%d_%H%M%S`":influxdb data is being compressed"
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
     ioStatusPa=true
     while ${ioStatusPa}
@@ -205,14 +206,8 @@ eeooff
             ioStatusPa=true
         fi
     done
+    echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
-    # if [ ${SCALE} -le 100000 ];then
-    #     sleep 200
-    # elif [  ${SCALE} -eq 1000000 ];then
-    #     sleep 600
-    # elif [  ${SCALE} -eq 10000000 ];then
-    #     sleep 4200    
-    # fi
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
@@ -241,7 +236,7 @@ eeooff
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    if [ ${SCALE} -gt 10000000 ];then
+    if [ ${SCALE} -ge 100000 ];then
         TRIGGER="8"
     fi
     echo `date +%Y_%m%d_%H%M%S`":start to load TDengine Data "
@@ -251,6 +246,8 @@ eeooff
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    echo `date +%Y_%m%d_%H%M%S`":TDengine data is being written to disk "
+
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
@@ -272,6 +269,7 @@ eeooff
         fi
        
     done
+    echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
