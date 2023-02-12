@@ -103,7 +103,7 @@ CASE_TYPE=${CASE_TYPE:-"cputest"}
 VGROUPS=${VGROUPS:-"24"}
 BUFFER=${BUFFER:-"256"}
 PAGES=${PAGES:-"4096"}
-TRIGGER=${TRIGGER:-"8"} 
+TRIGGER=${TRIGGER:-"1"} 
 WALFSYNCPERIOD=${WALFSYNCPERIOD:-"3000"}
 WAL_LEVEL=${WAL_LEVEL:-"2"}
 
@@ -187,13 +187,27 @@ eeooff
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
-    if [ ${SCALE} -le 100000 ];then
-        sleep 200
-    elif [  ${SCALE} -eq 1000000 ];then
-        sleep 600
-    elif [  ${SCALE} -eq 10000000 ];then
-        sleep 4200    
-    fi
+    echo `date +%Y_%m%d_%H%M%S`":influxdb data is being compressed"
+    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
+    ioStatusPa=true
+    while ${ioStatusPa}
+    do
+        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+        echo "${iotempstatus},${cputempstatus}"
+        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+            echo "io and cpu are free"
+            ioStatusPa=false
+            break
+        else 
+            echo "io and cpu are busy"
+            ioStatusPa=true
+        fi
+    done
+    echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
+    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
@@ -222,6 +236,9 @@ eeooff
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
+    if [ ${SCALE} -ge 100000 ];then
+        TRIGGER="8"
+    fi
     echo `date +%Y_%m%d_%H%M%S`":start to load TDengine Data "
     echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   tsbs_load_tdengine \
@@ -229,8 +246,31 @@ eeooff
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    echo `date +%Y_%m%d_%H%M%S`":TDengine data is being written to disk "
+
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
+    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
+    ioStatusPa=true
+    while ${ioStatusPa}
+    do
+        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+        echo "${iotempstatus},${cputempstatus}"
+        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+            echo "io and cpu are free"
+            ioStatusPa=false
+            break
+        else 
+            echo "io and cpu are busy"
+            ioStatusPa=true
+        fi
+       
+    done
+    echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
+    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     wal_uasge=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `

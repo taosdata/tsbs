@@ -87,7 +87,7 @@ cp ${scriptDir}/${cfgfile} ${installPath}
 # install  basic env, and you should have python3 and pip3 environment
 echo "install basic env, and you should have python3 and pip3 environment"
 
-pip3 install matplotlib
+pip3 install matplotlib pandas
 
 
 # install clinet env 
@@ -114,15 +114,15 @@ echo "==========intallation of client:${clientIP} is complete ========"
 
 echo "==========start to install server:${serverIP} environment and databases========"
 
-ssh root@$serverHost << eeooff 
+sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
     mkdir -p  ${installPath}
 eeooff
-scp ${envfile} root@$serverHost:${installPath}
-scp ${cfgfile} root@$serverHost:${installPath}
+sshpass -p ${serverPass}  scp ${envfile} root@$serverHost:${installPath}
+sshpass -p ${serverPass}  scp ${cfgfile} root@$serverHost:${installPath}
 # install at server host 
 if [ "${installDB}" == "true" ];then
 
-${serverPass}  ssh root@$serverHost << eeooff 
+sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
     cd ${installPath}
     echo "install basic env in server ${serverIP}"
     ./installEnv.sh 
@@ -143,6 +143,7 @@ export PATH=$GOPATH/bin:$PATH
 # execute load tests
 echo "execute load tests"
 time=`date +%Y_%m%d_%H%M%S`
+cp 
 cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
