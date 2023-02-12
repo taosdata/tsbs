@@ -161,7 +161,7 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     echo "start to execute timescaledb query:"`date +%Y_%m%d_%H%M%S`
-    echo " cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TSCD} --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS}|tee ${OUT_FULL_FILE_NAME} "
+    echo " cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TSCD}  --hosts ${DATABASE_HOST} --user  ${DATABASE_USER}   --pass ${DATABASE_PWD}  --db-name ${DATABASE_NAME} --max-queries ${MAX_QUERIES} --workers ${NUM_WORKER}  --debug=${debugflag} --print-responses=${printResponse} |tee ${OUT_FULL_FILE_NAME} "
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
         | ${EXE_FILE_NAME_RUN_TSCD} \

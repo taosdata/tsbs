@@ -197,6 +197,7 @@ for FORMAT in ${FORMATS}; do
                     DATABASE_HOST=${DATABASE_HOST} \
                     BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR} \
                     BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES} \
+                    DATABASE_NAME=${DATABASE_NAME} \
                     TS_START=${TS_START} \
                     TS_END=${QUERY_TS_END} \
                     QUERIES=${QUERIES} \
