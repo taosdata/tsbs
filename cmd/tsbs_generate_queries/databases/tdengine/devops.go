@@ -154,7 +154,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	//SELECT * FROM cpu WHERE usage_user > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 AND tbname IN ('host_35')
+	//SELECT ts,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice FROM cpu WHERE usage_user > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 AND tbname IN ('host_35')
 	//modify:SELECT * FROM host_35 WHERE usage_user  > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 
 
 	sql := ""
@@ -164,7 +164,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		sql = fmt.Sprintf(`SELECT * FROM %s WHERE usage_user > 90.0 and ts >= %d AND ts < %d `,
 		hostnames[0], interval.StartUnixMillis(), interval.EndUnixMillis())
 	}else{
-		sql = fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and ts >= %d AND ts < %d %s`,
+		sql = fmt.Sprintf(`SELECT ts,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice FROM cpu WHERE usage_user > 90.0 and ts >= %d AND ts < %d %s`,
 		interval.StartUnixMillis(), interval.EndUnixMillis(), hostWhereClause)
 	}
 	humanLabel, err := devops.GetHighCPULabel("TDengine", nHosts)
