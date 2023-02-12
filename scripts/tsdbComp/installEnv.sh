@@ -249,7 +249,7 @@ function install_TDengine {
 # install sshpass,git and dool
 cmdInstall sshpass
 cmdInstall git
-cd {installPath}
+cd ${installPath}
 wget https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz
 tar vxf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
