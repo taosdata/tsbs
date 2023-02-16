@@ -170,12 +170,7 @@ for FORMAT in ${FORMATS}; do
             else
                 echo "data has been loaded in all database"
             fi
-            # if [ ${FORMAT}== "TDengine" ];then
-            #     taos -d benchmarkcpu -h test209 -s "show benchmarkcpu.vgroups;"
-            #     taos -d benchmarkcpu -h test209 -s "compact vnodes in (3);"
-            #     sleep 10
-            #     taos -d benchmarkcpu -h test209 -s "show benchmarkcpu.vgroups;"
-            # fi
+
             echo `date +%Y_%m%d_%H%M%S`
             sleep 10s
             if [ ${USE_CASE} != "iot" ] ;then
