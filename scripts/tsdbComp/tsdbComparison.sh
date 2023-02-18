@@ -12,11 +12,11 @@ clientIP="192.168.0.203"
 clientHost="trd03"
 serverIP="192.168.0.204"
 serverHost="trd04"
-serverPass="taosdata!"
+serverPass="taosdata123"
 
 #testcase type
 #[cputest | cpu| devops | iot ]
-caseType=cputest
+caseType=cpu
 case="cpu-only"
 
 # data and result root path
@@ -43,8 +43,8 @@ query_ts_start="2016-01-01T00:00:00Z"
 query_load_ts_end="2016-01-05T00:00:00Z"
 query_ts_end="2016-01-05T00:00:01Z"
 query_load_number_wokers="12"
-query_number_wokers="12"
-query_times="10000"
+query_number_wokers="8"
+query_times="4000"
 query_scales="100 4000 100000 1000000 10000000"
 query_formats="TDengine influx timescaledb"
 
@@ -85,8 +85,9 @@ mkdir -p ${installPath}
 cp ${scriptDir}/${cfgfile} ${installPath}
 
 # install  basic env, and you should have python3 and pip3 environment
-echo "install basic env, and you should have python3 and pip3 environment"
-
+echo "install basic env"
+cmdInstall python3.8
+cmdInstall python3-pip
 pip3 install matplotlib pandas
 
 
@@ -141,18 +142,24 @@ export GOPATH=$(go env GOPATH)
 export PATH=$GOPATH/bin:$PATH
 
 # execute load tests
-echo "execute load tests"
+echo `date +%Y_%m%d_%H%M%S`":start to execute load test ========"
 time=`date +%Y_%m%d_%H%M%S`
-cp 
+
 cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
 ./loadAllcases.sh > log/testload${time}.log 
 
+echo `date +%Y_%m%d_%H%M%S`":load test is completed ========"
+
 # # execute query tests
+echo `date +%Y_%m%d_%H%M%S`":start to execute query test ========"
+
 cd ${scriptDir}
+time=`date +%Y_%m%d_%H%M%S`
 # time=`date +%Y_%m%d_%H%M%S`
 # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
 ./queryAllcases.sh  > log/testquery${time}.log
 
+echo `date +%Y_%m%d_%H%M%S`":start to execute query test ========"
