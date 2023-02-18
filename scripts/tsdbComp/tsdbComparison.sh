@@ -92,7 +92,7 @@ pip3 install matplotlib pandas
 
 
 # install clinet env 
-echo "==========install client:${clientIP} basic environment and tsbs ========"
+echo "========== install client:${clientIP} basic environment and tsbs ========"
 
 if [ "${installDB}" == "true" ] ;then
     ./installEnv.sh 
@@ -110,10 +110,10 @@ sudo systemctl stop taosd
 sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
 service sshd restart
 
-echo "==========intallation of client:${clientIP} is complete ========"
+echo "========== intallation of client:${clientIP}  completed ========"
 
 
-echo "==========start to install server:${serverIP} environment and databases========"
+echo "========== start to install server:${serverIP} environment and databases ========"
 
 sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
     mkdir -p  ${installPath}
@@ -133,7 +133,7 @@ sshpass -p ${serverPass}  ssh root@$serverHost << eeooff
 eeooff
 
 fi 
-echo "==========intallation of server: is complete ========"
+echo "========== intallation of server:${serverIP}  completed ========"
 
 
 GO_HOME=${installPath}/go
@@ -142,7 +142,7 @@ export GOPATH=$(go env GOPATH)
 export PATH=$GOPATH/bin:$PATH
 
 # execute load tests
-echo `date +%Y_%m%d_%H%M%S`":start to execute load test ========"
+echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute load test ========"
 time=`date +%Y_%m%d_%H%M%S`
 
 cd ${scriptDir}
@@ -150,10 +150,10 @@ cd ${scriptDir}
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
 ./loadAllcases.sh > log/testload${time}.log 
 
-echo `date +%Y_%m%d_%H%M%S`":load test is completed ========"
+echo "========== "`date +%Y_%m%d_%H%M%S`":load test completed ========"
 
 # # execute query tests
-echo `date +%Y_%m%d_%H%M%S`":start to execute query test ========"
+echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute query test ========"
 
 cd ${scriptDir}
 time=`date +%Y_%m%d_%H%M%S`
@@ -162,4 +162,4 @@ time=`date +%Y_%m%d_%H%M%S`
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
 ./queryAllcases.sh  > log/testquery${time}.log
 
-echo `date +%Y_%m%d_%H%M%S`":start to execute query test ========"
+echo "========== "`date +%Y_%m%d_%H%M%S`":query test completed ========"
