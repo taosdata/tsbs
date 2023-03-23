@@ -17,6 +17,7 @@ Current databases supported:
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
 + Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
++ TDengine [(supplemental docs)](docs/tdengine.md)
 
 ## Overview
 
@@ -81,6 +82,7 @@ cases are implemented for each database:
 |TimescaleDB|X|X|
 |Timestream|X||
 |VictoriaMetrics|X²||
+|TimescaleDB|X|X|
 
 ¹ Does not support the `groupby-orderby-limit` query
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
