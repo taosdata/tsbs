@@ -17,6 +17,7 @@ Current databases supported:
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
 + Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
++ TDengine [(supplemental docs)](docs/tdengine.md)
 
 ## Overview
 
@@ -81,6 +82,7 @@ cases are implemented for each database:
 |TimescaleDB|X|X|
 |Timestream|X||
 |VictoriaMetrics|X²||
+|TimescaleDB|X|X|
 
 ¹ Does not support the `groupby-orderby-limit` query
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
@@ -103,12 +105,22 @@ with identical data and queried using identical queries.
 ## Installation
 
 TSBS is a collection of Go programs (with some auxiliary bash and Python
-scripts). The easiest way to get and install the Go programs is to use
+scripts).
+
+**`Notice`**
+
+TDengine uses the go connector to perform data writing and querying in the 
+TSBS test, and the installation process relies on the C client library. 
+Therefore, prior to compiling TSBS, the taos client must be installed to 
+obtain the necessary library files. For instructions on how to install the 
+taos client and server, refer to the [TDengine documentation](https://docs.tdengine.com/get-started/package/) .
+
+The easiest way to get and install the Go programs is to use
 `go get` and then `make all` to install all binaries:
 ```bash
 # Fetch TSBS and its dependencies
-$ go get github.com/timescale/tsbs
-$ cd $GOPATH/src/github.com/timescale/tsbs
+$ go get github.com/taosdata/tsbs
+$ cd $GOPATH/src/github.com/taosdata/tsbs
 $ make
 ```
 
