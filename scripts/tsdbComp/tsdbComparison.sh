@@ -3,6 +3,7 @@
 osType=ubuntu      
 
 # install env
+installEnvAll=false
 installGoEnv=false
 installDB=false
 installTsbs=false
@@ -90,56 +91,58 @@ cmdInstall python3.8
 cmdInstall python3-pip
 pip3 install matplotlib pandas
 
+if [ "installEnvAll" == "true" ];then
+    # install clinet env 
+    echo "========== install client:${clientIP} basic environment and tsbs ========"
 
-# install clinet env 
-echo "========== install client:${clientIP} basic environment and tsbs ========"
+    if [ "${installDB}" == "true" ] ;then
+        ./installEnv.sh 
+    fi 
 
-if [ "${installDB}" == "true" ] ;then
-    ./installEnv.sh 
-fi 
+    if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ];then
+        ./installTsbsCommand.sh
+        GO_HOME=${installPath}/go
+        export PATH=$GO_HOME/bin:$PATH
+        export GOPATH=$(go env GOPATH)
+        export PATH=$GOPATH/bin:$PATH
+    fi
+    sudo systemctl stop postgresql-14
+    sudo systemctl stop influxd
+    sudo systemctl stop taosd
 
-if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ];then
-    ./installTsbsCommand.sh
+
+    # configure sshd 
+    sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
+    service sshd restart
+
+    echo "========== intallation of client:${clientIP}  completed ========"
+
+    if [ "${clientIP}" == "${serverIP}" ];then
+        echo "========== start to install server:${serverIP} environment and databases ========"
+
+        sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
+            mkdir -p  ${installPath}
+eeooff
+        sshpass -p ${serverPass}  scp ${envfile} root@$serverHost:${installPath}
+        sshpass -p ${serverPass}  scp ${cfgfile} root@$serverHost:${installPath}
+        # install at server host 
+        if [ "${installDB}" == "true" ];then
+
+        sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
+            cd ${installPath}
+            echo "install basic env in server ${serverIP}"
+            ./installEnv.sh 
+            source  /root/.bashrc
+            sleep 1
+            exit
+eeooff
+
+        fi 
+    fi
+
+    echo "========== intallation of server:${serverIP}  completed ========"
 fi
-sudo systemctl stop postgresql-14
-sudo systemctl stop influxd
-sudo systemctl stop taosd
 
-
-# configure sshd 
-sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
-service sshd restart
-
-echo "========== intallation of client:${clientIP}  completed ========"
-
-
-echo "========== start to install server:${serverIP} environment and databases ========"
-
-sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
-    mkdir -p  ${installPath}
-eeooff
-sshpass -p ${serverPass}  scp ${envfile} root@$serverHost:${installPath}
-sshpass -p ${serverPass}  scp ${cfgfile} root@$serverHost:${installPath}
-# install at server host 
-if [ "${installDB}" == "true" ];then
-
-sshpass -p ${serverPass}  ssh root@$serverHost << eeooff 
-    cd ${installPath}
-    echo "install basic env in server ${serverIP}"
-    ./installEnv.sh 
-    source  /root/.bashrc
-    sleep 1
-    exit
-eeooff
-
-fi 
-echo "========== intallation of server:${serverIP}  completed ========"
-
-
-GO_HOME=${installPath}/go
-export PATH=$GO_HOME/bin:$PATH
-export GOPATH=$(go env GOPATH)
-export PATH=$GOPATH/bin:$PATH
 
 # execute load tests
 echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute load test ========"
