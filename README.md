@@ -82,7 +82,7 @@ cases are implemented for each database:
 |TimescaleDB|X|X|
 |Timestream|X||
 |VictoriaMetrics|X²||
-|TimescaleDB|X|X|
+|TDengine|X|X|
 
 ¹ Does not support the `groupby-orderby-limit` query
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
