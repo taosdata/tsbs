@@ -78,22 +78,24 @@ cfgfile="test.ini"
 
 # enable configure :test.ini
 source ./${cfgfile}
-echo ${cientIP}
-echo "====now we start to test===="
-echo "start to install env in ${installPath}"
-mkdir -p ${installPath}
-# copy configure to installPath
-cp ${scriptDir}/${cfgfile} ${installPath}
+echo -e  "client:${clientIP} \r\nserver:${serverIP} \r\ninstallEnvAll: ${installEnvAll}  \r\n   installGoEnv: ${installGoEnv} installDB: ${installDB} installTsbs: ${installTsbs} \r\ncase: ${caseType}\r\nLoad config \r\n  load_scales: ${load_scales}\r\n  load_formats: ${load_formats}\r\n  load_number_wokers: ${load_number_wokers}\r\nQuery config \r\n  query_scales: ${query_scales}\r\n  restload: ${restload} \r\n  query_number_wokers: ${query_number_wokers}\r\n  query_formats: ${query_formats} \r\n  query_times: ${query_times}\r\n  query_types: ${query_types}"
+
 
 # install  basic env, and you should have python3 and pip3 environment
-echo "install basic env"
-cmdInstall python3.8
-cmdInstall python3-pip
-pip3 install matplotlib pandas
 
-if [ "installEnvAll" == "true" ];then
+
+if [ "${installEnvAll}" == "true" ];then
+    echo "====now we start to test===="
+    echo "start to install env in ${installPath}"
+    mkdir -p ${installPath}
+    # copy configure to installPath
+    cp ${scriptDir}/${cfgfile} ${installPath}
     # install clinet env 
     echo "========== install client:${clientIP} basic environment and tsbs ========"
+    echo "install basic env"
+    cmdInstall python3.8
+    cmdInstall python3-pip
+    pip3 install matplotlib pandas
 
     if [ "${installDB}" == "true" ] ;then
         ./installEnv.sh 
@@ -117,7 +119,7 @@ if [ "installEnvAll" == "true" ];then
 
     echo "========== intallation of client:${clientIP}  completed ========"
 
-    if [ "${clientIP}" == "${serverIP}" ];then
+    if [ "${clientIP}" != "${serverIP}" ];then
         echo "========== start to install server:${serverIP} environment and databases ========"
 
         sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
@@ -138,9 +140,8 @@ eeooff
 eeooff
 
         fi 
+        echo "========== intallation of server:${serverIP}  completed ========"
     fi
-
-    echo "========== intallation of server:${serverIP}  completed ========"
 fi
 
 
@@ -151,7 +152,8 @@ time=`date +%Y_%m%d_%H%M%S`
 cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
-./loadAllcases.sh > log/testload${time}.log 
+echo "./loadAllcases.sh &> log/testload${time}.log "
+./loadAllcases.sh  &> log/testload${time}.log 
 
 echo "========== "`date +%Y_%m%d_%H%M%S`":load test completed ========"
 
@@ -163,6 +165,7 @@ time=`date +%Y_%m%d_%H%M%S`
 # time=`date +%Y_%m%d_%H%M%S`
 # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
-./queryAllcases.sh  > log/testquery${time}.log
+echo "./queryAllcases.sh  &> log/testquery${time}.log"
+./queryAllcases.sh  &> log/testquery${time}.log
 
 echo "========== "`date +%Y_%m%d_%H%M%S`":query test completed ========"

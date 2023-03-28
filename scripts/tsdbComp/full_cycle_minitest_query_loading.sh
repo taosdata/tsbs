@@ -179,15 +179,15 @@ eeooff
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
-            echo "${tempCompressNum},${disk_usage_after}"
+            # echo "${tempCompressNum},${disk_usage_after}"
             timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
             # echo "chunkTimeSeconds:${chunkTimeInter}"
             timesHours=`echo "scale=3;${timesdiffSec}/${chunkTimeInter}"|bc`
             timesHours1=`ceil $timesHours`
             timesHours2=`floor $timesHours`
-            echo ${timesHours1}, ${timesHours2}
+            # echo ${timesHours1}, ${timesHours2}
             if [[ "${tempCompressNum}" == "(${timesHours1}" ]] || [[ "${tempCompressNum}" == "(${timesHours2}" ]] ;then
-                echo "${timesHours},${tempCompressNum}"
+                # echo "${timesHours},${tempCompressNum}"
                 echo "$(date +%Y_%m%d_%H%M%S): complete  compression"
                 break
             fi

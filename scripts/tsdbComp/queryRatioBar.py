@@ -116,19 +116,19 @@ for i in range(resultshape):
 # print(xinfluxtype)
 
 if( "timescaledb" in result_arrt ):
-    ax.bar(xticks, timescaledbRatio, width=bar_width, label="timescaledb")
+    ax.bar(xticks, timescaledbRatio, width=bar_width, color='darkorange',label="timescaledb")
     for a,b in zip(xticks,timescaledbRatio):   #柱子上的数字显示
         plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
     ax.set_xticks(xticks)
     ax.set_xticklabels(tuple(xtimescaletype))
 if( "influx" in result_arrt ):
-    ax.bar(xticks+bar_width, influxRatio, width=bar_width, label="influx")   
+    ax.bar(xticks+bar_width, influxRatio, width=bar_width, color='mediumvioletred', label="influx")   
     for a,b in zip(xticks+bar_width,influxRatio):   #柱子上的数字显示
         plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
     ax.set_xticks(xticks)
     ax.set_xticklabels(tuple(xinfluxtype))
 if( "TDengine" in result_arrt ):
-    ax.bar(xticks+2*bar_width, tdengineRatio, width=bar_width, label="TDengine")
+    ax.bar(xticks+2*bar_width, tdengineRatio, width=bar_width, color='b', label="TDengine")
     for a,b in zip(xticks+bar_width,tdengineRatio):   #柱子上的数字显示
         plt.text(a,b,'%.2f'%b,ha='center',va='bottom',fontsize=8);
     ax.set_xticks(xticks)

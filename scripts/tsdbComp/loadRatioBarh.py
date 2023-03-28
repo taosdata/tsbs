@@ -133,11 +133,11 @@ print(influxRatio)
 # print(result_arrt)
 
 if( "timescaledb" in result_arrt ):
-    ax.barh(xticks, timescaledbRatio, height=bar_width, label="TDengine/timescaledb")
+    ax.barh(xticks, timescaledbRatio, height=bar_width, color='darkorange', label="TDengine/timescaledb")
 if( "influx" in result_arrt ):
-    ax.barh(xticks+bar_width, influxRatio, height=bar_width, label="TDengine/influx")   
+    ax.barh(xticks+bar_width, influxRatio, height=bar_width,  color='mediumvioletred', label="TDengine/influx")   
 if( "TDengine" in result_arrt ):
-    ax.barh(xticks+2*bar_width, tdengineRatio, height=bar_width, label="TDengine")
+    ax.barh(xticks+2*bar_width, tdengineRatio, height=bar_width, color='b',  label="TDengine")
 
 
 for a,b in zip(xticks,timescaledbRatio):   #柱子上的数字显示

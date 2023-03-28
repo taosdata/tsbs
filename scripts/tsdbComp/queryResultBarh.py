@@ -91,20 +91,20 @@ for j  in range(typeCount):
 print(timescdb_wcltime)
 if( "timescaledb" in sortlist ):
     
-    ax.barh(xticks+bar_width*2, timescdb_wcltime, height=bar_width, label="timescaledb")
+    ax.barh(xticks+bar_width*2, timescdb_wcltime, height=bar_width, color='darkorange', label="timescaledb")
     for a,b in zip(xticks+bar_width*2,timescdb_wcltime):   #柱子上的数字显示
         plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
     ax.set_yticks(xticks)
     ax.set_yticklabels(tuple(timescdb_querytype))
 if( "influx" in sortlist ):
     print(xticks+bar_width,influx_wcltime)
-    ax.barh(xticks+bar_width, influx_wcltime, height=bar_width, label="influx")   
+    ax.barh(xticks+bar_width, influx_wcltime, height=bar_width, color='mediumvioletred', label="influx")   
     for a,b in zip(xticks+bar_width,influx_wcltime):   #柱子上的数字显示
         plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
     ax.set_yticks(xticks)
     ax.set_yticklabels(tuple(influx_querytype))
 if( "TDengine" in  sortlist ):
-    ax.barh(xticks, tdengine_wcltime, height=bar_width, label="tdengine")   
+    ax.barh(xticks, tdengine_wcltime, height=bar_width, color='b',  label="tdengine")   
     for a,b in zip(xticks,tdengine_wcltime):   #柱子上的数字显示
         plt.text(b,a,'%.2f'%b,ha='left',va='center',fontsize=8);
     ax.set_yticks(xticks)

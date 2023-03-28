@@ -34,6 +34,8 @@ BATCH_SIZE=${BATCH_SIZE:-"50000"}
 
 #reset loading data
 RESTLOAD=${RESTLOAD:-"true"}
+QUERY_TYPES=${QUERY_TYPES:-"all"}
+echo "${RESTLOAD},${QUERY_TYPES}"
 
 # All available for generation query types (sorted alphabetically)
  QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
@@ -174,11 +176,16 @@ for FORMAT in ${FORMATS}; do
             echo `date +%Y_%m%d_%H%M%S`
             sleep 10s
             if [ ${USE_CASE} != "iot" ] ;then
-                QUERY_TYPES=${QUERY_TYPES_ALL}
+                if [[ "${QUERY_TYPES}"  == "all" ]] ;then 
+                    QUERY_TYPES=${QUERY_TYPES_ALL}
+                else
+                    QUERY_TYPES=${QUERY_TYPES}
+                fi
             else
                 QUERY_TYPES=${QUERY_TYPES_IOT_ALL}
             fi
             #  restart taosd
+            echo "${RESTLOAD},${QUERY_TYPES},123"
 
             if [  ${FORMAT} == "TDengine" ];then
                 echo `date +%Y_%m%d_%H%M%S`":restart taosd and checck taosd status "
@@ -188,6 +195,7 @@ for FORMAT in ${FORMATS}; do
 
             for QUERY_TYPE in ${QUERY_TYPES}; do
                 for NUM_WORKER in ${NUM_WORKERS}; do
+                    echo "${QUERY_TYPE}"
                     echo " DATABASE_HOST=${DATABASE_HOST} BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR} BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES}  TS_START=${TS_START}  TS_END=${QUERY_TS_END} QUERIES=${QUERIES} FORMAT=${FORMAT} USE_CASE=${USE_CASE} QUERY_TYPE=${QUERY_TYPE} SCALE=${SCALE} FORMATAISA=${FORMATAISA}  NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_query.sh "
                     DATABASE_HOST=${DATABASE_HOST} \
                     BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR} \

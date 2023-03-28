@@ -129,7 +129,7 @@ if [ ${caseType} != "userdefined" ];then
     echo "python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png"
     python3 ${scriptDir}/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png
 
-    echo "${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png"
+    echo "python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png"
     python3 ${scriptDir}/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png
 fi
 }
@@ -146,6 +146,9 @@ elif [ ${caseType} == "iot" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "iot" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
 elif [ ${caseType} == "userdefined" ];then
     load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_scales}" "${case}" "${load_number_wokers}" "${load_batchsizes}" "${load_formats}"
+elif [ ${caseType} == "quicktest" ];then
+    load_testcase ${serverHost} ${serverPass}   "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "${load_scales}" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "${load_formats}"
+
 else  
     echo "please set correct testcase type"
 fi
