@@ -95,6 +95,7 @@ if [ "${installEnvAll}" == "true" ];then
     echo "install basic env"
     cmdInstall python3.8
     cmdInstall python3-pip
+    cmdInstall ssh
     pip3 install matplotlib pandas
 
     if [ "${installDB}" == "true" ] ;then

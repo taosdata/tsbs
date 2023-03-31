@@ -156,14 +156,14 @@ function install_tsbs {
   go get github.com/timescale/tsbs
   cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
 
-  # # clone taosdata repo and  compile
-  # cd ${installPath} 
-  # if [ -d "${installPath}/tsbs" ];then 
-  #   cd ${installPath}/tsbs/
-  #   git checkout -f master && git pull origin master
-  # else
-  #   git clone https://github.com/taosdata/tsbs.git 
-  # fi
+  # clone taosdata repo and  compile
+  cd ${installPath} 
+  if [ -d "${installPath}/tsbs" ];then 
+    cd ${installPath}/tsbs/
+    git checkout -f feat/quickstart
+  else
+    git clone https://github.com/taosdata/tsbs.git && cd tsbs && git checkout -f feat/quickstart
+  fi
 
   [ -d "${GOPATH}/bin" ] || mkdir ${GOPATH}/bin/
 

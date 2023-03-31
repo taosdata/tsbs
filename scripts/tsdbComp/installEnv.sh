@@ -229,6 +229,7 @@ function install_TDengine {
   if [ -d "debug/" ];then
       rm -rf debug 
   fi
+  sed -i  "s/\-Werror / /g" cmake/cmake.define
   mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
   systemctl status taosd
   taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
