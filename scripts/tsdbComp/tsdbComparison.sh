@@ -116,6 +116,8 @@ if [ "${installEnvAll}" == "true" ];then
 
     # configure sshd 
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
+    sed -i '$a \PermitRootLogin yes'   /etc/ssh/sshd_config  
+
     service sshd restart
 
     echo "========== intallation of client:${clientIP}  completed ========"
