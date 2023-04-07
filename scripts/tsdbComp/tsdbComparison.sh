@@ -155,6 +155,7 @@ time=`date +%Y_%m%d_%H%M%S`
 cd ${scriptDir}
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
+mkdir -p log
 echo "./loadAllcases.sh &> log/testload${time}.log "
 ./loadAllcases.sh  &> log/testload${time}.log 
 
