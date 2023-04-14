@@ -216,7 +216,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		s.tableMap[subTable] = nothing
 	}
 
-	fmt.Fprintf(w, "%c,%s,%d,(%d,%s)\n", Insert, subTable, len(fieldValues), p.TimestampInUnixMs(), strings.Join(fieldValues, ","))
+	fmt.Fprintf(w, "%c,%s,%d,(%d,%s)\n", Insert, subTable, len(fieldValues), p.Timestamp().UTC().UnixNano(), strings.Join(fieldValues, ","))
 	return nil
 }
 
