@@ -143,7 +143,7 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 // AvgDailyDrivingSession finds the average driving session without stopping per driver per day.
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 	//    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings WHERE name is not null AND ts > 1451637149138 AND ts < 1451637749138 partition by name interval(10m))partition BY name ) WHERE difka!=0 order by ts) partition BY name order by ts ) WHERE dif = -2   partition BY name order by ts )  partition BY name  interval(1d);
-	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
+	interval := i.Interval
 	sql := fmt.Sprintf(" select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > %d AND ts < %d   partition by name interval(10m))partition BY name ) WHERE difka!=0   order by ts) partition BY name order by ts ) WHERE dif = -2   partition BY name order by ts )  partition BY name  interval(1d);", interval.StartUnixMillis(), interval.EndUnixMillis())
 	humanLabel := "TDengine average driver driving session without stopping per day"
 	humanDesc := humanLabel
