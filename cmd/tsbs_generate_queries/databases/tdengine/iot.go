@@ -87,8 +87,8 @@ func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 // StationaryTrucks finds all trucks that have low average velocity in a time window.
 func (i *IoT) StationaryTrucks(qi query.Query) {
 	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-	//select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > '2016-01-01T15:07:21Z' AND ts <= '2016-01-01T16:17:21Z' partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE fleet = 'West' AND mean_velocity < 1 ;
-	sql := fmt.Sprintf("select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > %d AND ts <= %d partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE fleet = '%s' AND mean_velocity < 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
+	//select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > '2016-01-01T15:07:21Z' AND ts <= '2016-01-01T16:17:21Z' AND fleet = 'West' partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE  mean_velocity < 1 ;
+	sql := fmt.Sprintf("select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > %d AND ts <= %d AND fleet = '%s'  partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE mean_velocity < 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
 	humanLabel := "TDengine stationary trucks"
 	humanDesc := fmt.Sprintf("%s: with low avg velocity in last 10 minutes", humanLabel)
 
@@ -142,9 +142,9 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 
 // AvgDailyDrivingSession finds the average driving session without stopping per driver per day.
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
-	//    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka  FROM (SELECT ts,name,diff(mv) AS difka  FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > '2016-01-01T00:00:00Z' AND ts < '2016-01-05T00:00:01Z'   partition by name interval(10m))partition BY name ) WHERE difka!=0   partition BY name ) partition BY name ) WHERE dif = -2   partition BY name )  partition BY name  interval(1d);
-	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-	sql := fmt.Sprintf("    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka  FROM (SELECT ts,name,diff(mv) AS difka  FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > %d AND ts < %d   partition by name interval(10m))partition BY name ) WHERE difka!=0   partition BY name ) partition BY name ) WHERE dif = -2   partition BY name )  partition BY name  interval(1d);", interval.StartUnixMillis(), interval.EndUnixMillis())
+	//    select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings WHERE name is not null AND ts > 1451637149138 AND ts < 1451637749138 partition by name interval(10m))partition BY name ) WHERE difka!=0 order by ts) partition BY name order by ts ) WHERE dif = -2   partition BY name order by ts )  partition BY name  interval(1d);
+	interval := i.Interval
+	sql := fmt.Sprintf(" select _wstart as ts,name,avg(ela) from (select ts,name,ela from (SELECT ts,name, diff(difka) as dif, diff(cast(ts as bigint)) as ela FROM (SELECT ts,name,difka FROM (SELECT ts,name,diff(mv) AS difka FROM (SELECT _wstart as ts,name,cast(cast(floor(avg(velocity)/5) as bool) as int) AS mv FROM readings   WHERE name is not null  AND ts > %d AND ts < %d   partition by name interval(10m))partition BY name ) WHERE difka!=0   order by ts) partition BY name order by ts ) WHERE dif = -2   partition BY name order by ts )  partition BY name  interval(1d);", interval.StartUnixMillis(), interval.EndUnixMillis())
 	humanLabel := "TDengine average driver driving session without stopping per day"
 	humanDesc := humanLabel
 
