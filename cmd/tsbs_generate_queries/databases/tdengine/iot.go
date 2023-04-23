@@ -76,7 +76,8 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 //TrucksWithHighLoad finds all trucks that have load over 90%.
 func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity);
-	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
+	//pre sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
+	sql := fmt.Sprintf("SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' and current_load>= (0.9 * load_capacity) partition by name,driver", i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with high load"
 	humanDesc := fmt.Sprintf("%s: over 90 percent", humanLabel)
@@ -87,10 +88,9 @@ func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 // StationaryTrucks finds all trucks that have low average velocity in a time window.
 func (i *IoT) StationaryTrucks(qi query.Query) {
 	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-	//select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > '2016-01-01T15:07:21Z' AND ts <= '2016-01-01T16:17:21Z' AND fleet = 'West' partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE  mean_velocity < 1 ;
-	//sql := fmt.Sprintf("select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > %d AND ts <= %d AND fleet = '%s'  partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE mean_velocity < 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
-	//sql := fmt.Sprintf("select name,driver from (SELECT name,driver,avg(velocity) as mean_velocity FROM readings WHERE ts > %d AND ts <= %d AND fleet = '%s'  partition BY name,driver interval(10m) LIMIT 1) WHERE mean_velocity < 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
-	sql := fmt.Sprintf("SELECT name,driver FROM readings WHERE ts > %d AND ts <= %d AND fleet = '%s' group BY name,driver having(avg(velocity) < 1);", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
+	//select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > '2016-01-01T15:07:21Z' AND ts <= '2016-01-01T16:17:21Z' partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE fleet = 'West' AND mean_velocity < 1 ;
+	//pre sql := fmt.Sprintf("select name,driver from (SELECT name,driver,fleet ,avg(velocity) as mean_velocity FROM readings WHERE ts > %d AND ts <= %d partition BY name,driver,fleet interval(10m) LIMIT 1) WHERE fleet = '%s' AND mean_velocity < 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
+	sql := fmt.Sprintf("SELECT name,driver FROM readings WHERE ts > %d AND ts <= %d and fleet = '%s' partition BY name,driver,fleet interval(10m) having (avg(velocity) < 1) LIMIT 1;", interval.StartUnixMillis(), interval.EndUnixMillis(), i.GetRandomFleet())
 	humanLabel := "TDengine stationary trucks"
 	humanDesc := fmt.Sprintf("%s: with low avg velocity in last 10 minutes", humanLabel)
 
@@ -101,7 +101,8 @@ func (i *IoT) StationaryTrucks(qi query.Query) {
 func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 	interval := i.Interval.MustRandWindow(iot.LongDrivingSessionDuration)
 	//SELECT name,driver FROM(SELECT _wstart as ts,name,driver,avg(velocity) as mean_velocity FROM readings WHERE fleet ="West" AND ts > '2016-01-03T13:46:34Z' AND ts <= '2016-01-03T17:46:34Z' partition BY name,driver interval(10m)) WHERE mean_velocity > 1 GROUP BY name,driver having count(*) > 22
-	sql := fmt.Sprintf("SELECT name,driver FROM(SELECT _wstart as ts,name,driver,avg(velocity) as mean_velocity FROM readings WHERE fleet =\"%s\" AND ts > %d AND ts <= %d partition BY name,driver interval(10m)) WHERE mean_velocity > 1 GROUP BY name,driver having count(*) > %d", i.GetRandomFleet(), interval.StartUnixMillis(), interval.EndUnixMillis(), tenMinutePeriods(5, iot.LongDrivingSessionDuration))
+	//pre sql := fmt.Sprintf("SELECT name,driver FROM(SELECT _wstart as ts,name,driver,avg(velocity) as mean_velocity FROM readings WHERE fleet =\"%s\" AND ts > %d AND ts <= %d partition BY name,driver interval(10m)) WHERE mean_velocity > 1 GROUP BY name,driver having count(*) > %d", i.GetRandomFleet(), interval.StartUnixMillis(), interval.EndUnixMillis(), tenMinutePeriods(5, iot.LongDrivingSessionDuration))
+	sql := fmt.Sprintf("SELECT name,driver FROM(SELECT name,driver,avg(velocity) as mean_velocity FROM readings WHERE fleet =\"%s\" AND ts > %d AND ts <= %d partition BY name,driver interval(10m)) WHERE mean_velocity > 1 GROUP BY name,driver having count(*) > %d", i.GetRandomFleet(), interval.StartUnixMillis(), interval.EndUnixMillis(), tenMinutePeriods(5, iot.LongDrivingSessionDuration))
 	humanLabel := "TDengine trucks with longer driving sessions"
 	humanDesc := fmt.Sprintf("%s: stopped less than 20 mins in 4 hour period", humanLabel)
 
