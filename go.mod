@@ -25,7 +25,7 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/jackc/pgx/v4 v4.8.0
 	github.com/jmoiron/sqlx v1.2.1-0.20190826204134-d7d95172beb5
-	github.com/klauspost/compress v1.13.1 // indirect
+	github.com/json-iterator/go v1.1.12
 	github.com/kshvakov/clickhouse v1.3.11
 	github.com/lib/pq v1.3.0
 	github.com/magiconair/properties v1.8.5 // indirect
@@ -49,11 +49,9 @@ require (
 	github.com/timescale/promscale v0.0.0-20201006153045-6a66a36f5c84
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/transceptor-technology/go-qpack v0.0.0-20190116123619-49a14b216a45
-	github.com/valyala/fasthttp v1.15.1
+	github.com/valyala/fasthttp v1.44.0
 	go.uber.org/atomic v1.7.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
-	golang.org/x/net v0.0.0-20210610132358-84b48f89b13b
-	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365 // indirect
+	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/genproto v0.0.0-20210921142501-181ce0d877f6 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
