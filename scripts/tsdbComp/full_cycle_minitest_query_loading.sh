@@ -139,9 +139,15 @@ elif [[ `echo $CHUNK_TIME|grep d` != "" ]];then
     compressChunkTime="$(echo $CHUNK_TIME|grep d | sed -e 's/d$//') days"
 fi
 
-# use different load scripts of db to load data , add supported databases 
-if [[ "${FORMAT}" =~ "timescaledb" ]];then
 
+# use different load scripts of db to load data , add supported databases 
+if [[ "${SCALE}" == "100" ]];then
+    VGROUPS="1"
+elif  [[ "${SCALE}" == "4000" ]];then
+    VGROUPS="6"
+fi
+
+if [[ "${FORMAT}" =~ "timescaledb" ]];then
 sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
     systemctl restart postgresql
     sleep 1
@@ -227,7 +233,7 @@ elif [  ${FORMAT} == "TDengine" ];then
     exit
 eeooff
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
-    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
+    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE} "VGROUPS":${VGROUPS}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
     echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
