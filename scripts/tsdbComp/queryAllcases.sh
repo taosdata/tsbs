@@ -121,7 +121,7 @@ TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
 DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
 BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
 BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
-NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 \
+NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 VGROUPS="$vgroups" \
 QUERY_DEBUG="false" RESTLOAD="true" QUERIES=${10} \
 SCALES=$6 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
 
