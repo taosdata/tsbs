@@ -178,13 +178,13 @@ for FORMAT in ${FORMATS}; do
             else
                 QUERY_TYPES=${QUERY_TYPES_IOT_ALL}
             fi
-            #  restart taosd
+            # #  restart taosd
 
-            if [  ${FORMAT} == "TDengine" ];then
-                echo `date +%Y_%m%d_%H%M%S`":restart taosd and checck taosd status "
-                sshpass -p ${SERVER_PASSWORD}  ssh  root@$DATABASE_HOST "systemctl restart taosd && systemctl status taosd --no-pager  && sleep 5 && exit "
-                sleep 5
-            fi
+            # if [  ${FORMAT} == "TDengine" ];then
+            #     echo `date +%Y_%m%d_%H%M%S`":restart taosd and checck taosd status "
+            #     sshpass -p ${SERVER_PASSWORD}  ssh  root@$DATABASE_HOST "systemctl restart taosd && systemctl status taosd --no-pager  && sleep 5 && exit "
+            #     sleep 5
+            # fi
 
             for QUERY_TYPE in ${QUERY_TYPES}; do
                 for NUM_WORKER in ${NUM_WORKERS}; do
