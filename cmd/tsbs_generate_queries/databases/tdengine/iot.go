@@ -77,7 +77,7 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 	//SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = 'South' partition by name,driver) WHERE current_load>= (0.9 * load_capacity);
 	//pre sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
-	sql := fmt.Sprintf("SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' and current_load>= (0.9 * load_capacity) partition by name,driver", i.GetRandomFleet())
+	sql := fmt.Sprintf("SELECT ts,name,driver,current_load,load_capacity FROM (SELECT last_row(ts) as ts,name,driver, current_load,load_capacity FROM diagnostics WHERE fleet = '%s' partition by name,driver) WHERE current_load>= (0.9 * load_capacity)", i.GetRandomFleet())
 
 	humanLabel := "TDengine trucks with high load"
 	humanDesc := fmt.Sprintf("%s: over 90 percent", humanLabel)
