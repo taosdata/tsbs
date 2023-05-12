@@ -33,7 +33,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	sql := fmt.Sprintf("create database %s precision 'ms'", dbName)
+	sql := fmt.Sprintf("create database %s precision 'ns'", dbName)
 	if d.opts.Buffer > 0 {
 		sql += " buffer " + strconv.Itoa(d.opts.Buffer)
 	}
