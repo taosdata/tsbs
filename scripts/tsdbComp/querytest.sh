@@ -75,17 +75,18 @@ RESTLOAD=${RESTLOAD:-"true"}
 #lastpoint "}
 
 QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
-daily-activity \
-breakdown-frequency \
-avg-vs-projected-fuel-consumption \
-avg-daily-driving-duration \
-avg-load \
 last-loc \
 low-fuel \
 high-load \
 stationary-trucks \
 long-driving-sessions \
-long-daily-sessions "}     
+long-daily-sessions \
+avg-vs-projected-fuel-consumption \
+avg-daily-driving-duration \
+avg-daily-driving-session \
+avg-load \
+daily-activity \
+breakdown-frequency "}     
 
 
 # QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
