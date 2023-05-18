@@ -171,7 +171,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
             fi
             tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
             echo ${disk_usage_after},${tempCompressNum},${timesHours}
-            if [ "${tempCompressNum}" -gt "${timesHours}" ];then
+            if [ "${tempCompressNum}" -ge "${timesHours}" ];then
                 break
             fi
         done
