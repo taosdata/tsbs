@@ -169,8 +169,6 @@ if [ "${FORMAT}" == "timescaledb" ];then
             else
                 timesHours="12"
             fi
-            # timesHours=$(( timesHours + 1 ))
-            # tempCompressNum=$(( tempCompressNum + 1 ))
             tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
             echo ${disk_usage_after},${tempCompressNum},${timesHours}
             if [ "${tempCompressNum}" -gt "${timesHours}" ];then
