@@ -143,6 +143,8 @@ if [ "${FORMAT}" == "timescaledb" ];then
                 PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "ALTER TABLE readings SET (timescaledb.compress, timescaledb.compress_orderby = 'time DESC,latitude',  timescaledb.compress_segmentby = 'tags_id');"
                 PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "SELECT add_compression_policy('diagnostics', INTERVAL '12 hours');"              
                 PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "SELECT add_compression_policy('readings', INTERVAL '12 hours');"     
+                # PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "call run_job(1000) ;"                     
+                # PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "call run_job(1001) ;"     
             fi
         else
             echo "it has already been enabled native compression on TimescaleDB,"
@@ -152,7 +154,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     echo `date +%Y_%m%d_%H%M%S`":timescaledb data is being compressed"
-    if [ "${USE_CASE}" == "cpu-only" ];then
+    if [[ "${USE_CASE}" == "cpu-only" ]] || [[ "${USE_CASE}" == "iot" ]];then
         while true
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
@@ -162,12 +164,16 @@ if [ "${FORMAT}" == "timescaledb" ];then
             if  [[ ${CASE_TYPE} == "userdefined" ]] || [[ ${CASE_TYPE} == "cputest" ]] ;then
                 timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
                 timesHours=`ceil $timesHours`
+            elif [[ ${USE_CASE} == "iot" ]];then
+                timesHours="24"
             else
                 timesHours="12"
             fi
-            echo ${tempCompressNum}
-            echo ${disk_usage_after}
-            if [ "${tempCompressNum}" == "(${timesHours}" ];then
+            # timesHours=$(( timesHours + 1 ))
+            # tempCompressNum=$(( tempCompressNum + 1 ))
+            tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
+            echo ${disk_usage_after},${tempCompressNum},${timesHours}
+            if [ "${tempCompressNum}" -gt "${timesHours}" ];then
                 break
             fi
         done
