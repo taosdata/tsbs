@@ -250,6 +250,9 @@ eeooff
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     if [ ${SCALE} -ge 100000 ];then
         TRIGGER="8"
+        if [ ${SCALE} -ge 1000000 ] ;then
+            TRIGGER="16"
+        fi
     fi
     echo `date +%Y_%m%d_%H%M%S`":start to load TDengine Data "
     echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
