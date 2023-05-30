@@ -250,7 +250,7 @@ eeooff
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     if [ ${SCALE} -ge 100000 ];then
         TRIGGER="8"
-        if [ ${SCALE} -ge 1000000 ] ;then
+        if [ ${SCALE} -ge 1000000 ] && [ ${USE_CASE} == "iot" ] ;then
             TRIGGER="16"
         fi
     fi
