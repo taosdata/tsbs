@@ -152,8 +152,9 @@ function install_tsbs {
   go env -w GOPROXY=https://goproxy.cn,direct
   export GO111MODULE=on
   echo ${GOPATH}
-
+  
   go get github.com/timescale/tsbs
+  go mod tidy
   cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
 
   # # clone taosdata repo and  compile
