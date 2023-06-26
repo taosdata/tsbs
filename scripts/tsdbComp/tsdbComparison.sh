@@ -117,7 +117,7 @@ if [ "${installEnvAll}" == "true" ];then
 
     echo "========== intallation of client:${clientIP}  completed ========"
 
-    if [ "${clientIP}" == "${serverIP}" ];then
+    if [ "${clientIP}" != "${serverIP}" ];then
         echo "========== start to install server:${serverIP} environment and databases ========"
 
         sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
