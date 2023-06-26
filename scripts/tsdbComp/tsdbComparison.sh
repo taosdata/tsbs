@@ -91,7 +91,7 @@ cmdInstall python3.8
 cmdInstall python3-pip
 pip3 install matplotlib pandas
 
-if [ "installEnvAll" == "true" ];then
+if [ "${installEnvAll}" == "true" ];then
     # install clinet env 
     echo "========== install client:${clientIP} basic environment and tsbs ========"
 
