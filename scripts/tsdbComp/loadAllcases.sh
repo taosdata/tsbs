@@ -141,9 +141,9 @@ if [ ${caseType} == "cputest" ];then
 elif [ ${caseType} == "cpu" ];then
     load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "cpu-only" "${load_number_wokers}" "${load_batchsizes}" "TDengine timescaledb influx" 
 elif [ ${caseType} == "devops" ];then
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000"  "devops" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000"  "devops" "${load_number_wokers}" "${load_batchsizes}" "TDengine timescaledb influx"
 elif [ ${caseType} == "iot" ];then
-    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "iot" "${load_number_wokers}" "${load_batchsizes}" "TDengine influx timescaledb"
+    load_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z"  "100 4000 100000 1000000 10000000" "iot" "${load_number_wokers}" "${load_batchsizes}" "TDengine timescaledb influx"
 elif [ ${caseType} == "userdefined" ];then
     load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_scales}" "${case}" "${load_number_wokers}" "${load_batchsizes}" "${load_formats}"
 else  
