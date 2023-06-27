@@ -78,7 +78,10 @@ for USE_CASE in ${USE_CASES}; do
                 TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
                 echo "generate input data"
                 CHUNK_TIME="12h"
-            fi            
+            fi
+            if [ ${USE_CASE} == "iot" ];then
+                VGROUPS="12"
+            fi
             for BATCH_SIZE in ${BATCH_SIZES};do 
                 for NUM_WORKER in ${NUM_WORKERS};do
                     echo `date +%Y_%m%d_%H%M%S`
