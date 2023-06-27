@@ -248,9 +248,6 @@ eeooff
     disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    if [ ${USE_CASE} == "iot" ];then
-        VGROUPS="12"
-    fi
     if [ ${SCALE} -ge 100000 ];then
         TRIGGER="8"
         if [ ${SCALE} -ge 1000000 ] ;then
