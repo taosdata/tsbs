@@ -45,7 +45,14 @@ VGROUPS=${VGROUPS:-"24"}
 # batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
 # scalelen=`echo  ${SCALES}| awk  '{print NF}' `
 
-# rm -rf ${BULK_DATA_DIR}/*
+datadir_space=`du ${BULK_DATA_DIR} -s |awk '{print $1}'  `
+echo ${BULK_DATA_DIR} "disk usage is" ${datadir_space}
+if [ ${datadir_space} -lt 30000  ];then
+    rm -rf ${BULK_DATA_DIR}/*
+else
+    echo "data dir is not empty, it starts to load data"
+fi
+
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 
 for USE_CASE in ${USE_CASES}; do
