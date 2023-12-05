@@ -59,6 +59,10 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 		walLevel := viper.GetInt("wal_level")
 		opts.WalLevel = &walLevel
 	}
+	if viper.IsSet("maxrows") {
+		maxRows := viper.GetInt("maxrows")
+		opts.MaxRows = &maxRows
+	}
 	loaderConf.HashWorkers = true
 	loaderConf.NoFlowControl = true
 	loaderConf.ChannelCapacity = 50

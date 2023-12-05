@@ -29,6 +29,7 @@ func (t *tdengineTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.F
 	flagSet.Int(flagPrefix+"stt_trigger", 0, "TDengine DB stt_trigger")
 	flagSet.Int(flagPrefix+"wal_fsync_period", 3000, "TDengine DB wal_fsync_period")
 	flagSet.Int(flagPrefix+"wal_level", 1, "TDengine DB wal_level")
+	flagSet.Int(flagPrefix+"maxrows", 4096, "TDengine DB maxrows")
 }
 
 func (t *tdengineTarget) TargetName() string {
