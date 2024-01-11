@@ -39,7 +39,7 @@ load_ts_end="2016-01-02T00:00:00Z"
 load_number_wokers="12"
 load_batchsizes="10000"
 load_scales="100 4000 100000 1000000 10000000"
-load_formats="TDengine influx timescaledb"
+load_formats="TDengine"
 load_test_scales="200"
 load_fsync="0"
 vgroups="24"
@@ -53,7 +53,7 @@ query_load_number_wokers="12"
 query_number_wokers="12"
 query_times="10000"
 query_scales="100 4000 100000 1000000 10000000"
-query_formats="TDengine influx timescaledb"
+query_formats="TDengine"
 
 # while getopts "hs:p:o:g:d:c:t:" arg
 # do
