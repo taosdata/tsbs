@@ -201,23 +201,23 @@ eeooff
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     echo `date +%Y_%m%d_%H%M%S`":influxdb data is being compressed"
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=true
-    while ${ioStatusPa}
-    do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
-        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
-        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        echo "${iotempstatus},${cputempstatus}"
-        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
-            echo "io and cpu are free"
-            ioStatusPa=false
-            break
-        else 
-            echo "io and cpu are busy"
-            ioStatusPa=true
-        fi
-    done
+    # ioStatusPa=true
+    # while ${ioStatusPa}
+    # do
+    #     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+    #     sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+    #     iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     echo "${iotempstatus},${cputempstatus}"
+    #     if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+    #         echo "io and cpu are free"
+    #         ioStatusPa=false
+    #         break
+    #     else 
+    #         echo "io and cpu are busy"
+    #         ioStatusPa=true
+    #     fi
+    # done
     echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
@@ -266,22 +266,22 @@ eeooff
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=false
-    while ${ioStatusPa}
-    do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
-        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
-        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        echo "${iotempstatus},${cputempstatus}"
-        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
-            echo "io and cpu are free"
-            ioStatusPa=false
-            break
-        else 
-            echo "io and cpu are busy"
-            ioStatusPa=true
-        fi
+    # ioStatusPa=false
+    # while ${ioStatusPa}
+    # do
+    #     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+    #     sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+    #     iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     echo "${iotempstatus},${cputempstatus}"
+    #     if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+    #         echo "io and cpu are free"
+    #         ioStatusPa=false
+    #         break
+    #     else 
+    #         echo "io and cpu are busy"
+    #         ioStatusPa=true
+    #     fi
        
     done
     echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
