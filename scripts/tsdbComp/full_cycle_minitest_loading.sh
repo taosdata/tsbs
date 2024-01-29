@@ -283,7 +283,7 @@ eeooff
     #         ioStatusPa=true
     #     fi
        
-    done
+    # done
     echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
