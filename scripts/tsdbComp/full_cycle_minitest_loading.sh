@@ -110,14 +110,14 @@ WAL_LEVEL=${WAL_LEVEL:-"2"}
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
-echo "---------------  Clean  -----------------"
-sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-echo 1 > /proc/sys/vm/drop_caches
-systemctl restart influxd
-systemctl restart postgresql
-sleep 1
-exit
-eeooff
+# echo "---------------  Clean  -----------------"
+# sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
+# echo 1 > /proc/sys/vm/drop_caches
+# systemctl restart influxd
+# systemctl restart postgresql
+# sleep 1
+# exit
+# eeooff
 
 
 # use different load scripts of db to load data , add supported databases 
@@ -283,7 +283,7 @@ eeooff
     #         ioStatusPa=true
     #     fi
        
-    done
+    # done
     echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
