@@ -293,6 +293,8 @@ eeooff
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     # pid=`ps aux|grep taosd|grep -v  grep |awk '{print $2}'`
     # echo ${pid}
+    echo redirect data to ${BULK_DATA_DIR_RES_LOAD}/load_input.csv 
+    echo "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     echo "it don't support format"
