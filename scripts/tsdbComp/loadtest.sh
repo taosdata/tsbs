@@ -112,7 +112,6 @@ for USE_CASE in ${USE_CASES}; do
                    WALFSYNCPERIOD=${WALFSYNCPERIOD} \
                    VGROUPS=${VGROUPS} \
                    TRIGGER=${TRIGGER} ./full_cycle_minitest_loading.sh
-                   sleep 60s
                 done
             done
         done
