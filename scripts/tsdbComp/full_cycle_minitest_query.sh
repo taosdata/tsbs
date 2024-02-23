@@ -216,7 +216,7 @@ elif [  ${FORMAT} == "TDengine" ]; then
         | tee ${OUT_FULL_FILE_NAME}
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g"`
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
-        echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} > ${BULK_DATA_DIR_RUN_RES}/query_input.csv
+        echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
         echo " TDengine query finish:"`date +%Y_%m%d_%H%M%S`
 else
     echo "it don't support format"
