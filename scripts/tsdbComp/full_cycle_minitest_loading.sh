@@ -110,14 +110,14 @@ WAL_LEVEL=${WAL_LEVEL:-"2"}
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
-echo "---------------  Clean  -----------------"
-sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-echo 1 > /proc/sys/vm/drop_caches
-systemctl restart influxd
-systemctl restart postgresql
-sleep 1
-exit
-eeooff
+# echo "---------------  Clean  -----------------"
+# sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
+# echo 1 > /proc/sys/vm/drop_caches
+# systemctl restart influxd
+# systemctl restart postgresql
+# sleep 1
+# exit
+# eeooff
 
 
 # use different load scripts of db to load data , add supported databases 
@@ -201,23 +201,23 @@ eeooff
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     echo `date +%Y_%m%d_%H%M%S`":influxdb data is being compressed"
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=true
-    while ${ioStatusPa}
-    do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
-        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
-        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        echo "${iotempstatus},${cputempstatus}"
-        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
-            echo "io and cpu are free"
-            ioStatusPa=false
-            break
-        else 
-            echo "io and cpu are busy"
-            ioStatusPa=true
-        fi
-    done
+    # ioStatusPa=true
+    # while ${ioStatusPa}
+    # do
+    #     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+    #     sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+    #     iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     echo "${iotempstatus},${cputempstatus}"
+    #     if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+    #         echo "io and cpu are free"
+    #         ioStatusPa=false
+    #         break
+    #     else 
+    #         echo "io and cpu are busy"
+    #         ioStatusPa=true
+    #     fi
+    # done
     echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
@@ -266,24 +266,24 @@ eeooff
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=true
-    while ${ioStatusPa}
-    do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
-        sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
-        iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-        echo "${iotempstatus},${cputempstatus}"
-        if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
-            echo "io and cpu are free"
-            ioStatusPa=false
-            break
-        else 
-            echo "io and cpu are busy"
-            ioStatusPa=true
-        fi
+    # ioStatusPa=false
+    # while ${ioStatusPa}
+    # do
+    #     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+    #     sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
+    #     iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
+    #     echo "${iotempstatus},${cputempstatus}"
+    #     if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
+    #         echo "io and cpu are free"
+    #         ioStatusPa=false
+    #         break
+    #     else 
+    #         echo "io and cpu are busy"
+    #         ioStatusPa=true
+    #     fi
        
-    done
+    # done
     echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
     sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
@@ -293,6 +293,8 @@ eeooff
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     # pid=`ps aux|grep taosd|grep -v  grep |awk '{print $2}'`
     # echo ${pid}
+    echo redirect data to ${BULK_DATA_DIR_RES_LOAD}/load_input.csv 
+    echo "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     echo "it don't support format"
