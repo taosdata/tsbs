@@ -10,17 +10,15 @@ import (
 	"github.com/taosdata/tsbs/pkg/data"
 )
 
-type Serializer struct {
-	tmpBuf     *bytes.Buffer
-	tableMap   map[string]struct{}
-	superTable map[string]*Table
-}
-
 var nothing = struct{}{}
 
 type Table struct {
-	columns map[string]struct{}
-	tags    map[string]struct{}
+	sortColumns map[string]int
+	sortTags    map[string]int
+	valueBase   []string
+	tagBase     []string
+	columns     map[string]struct{}
+	tags        map[string]struct{}
 }
 
 func FastFormat(buf *bytes.Buffer, v interface{}) string {

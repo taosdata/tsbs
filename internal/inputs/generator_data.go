@@ -2,11 +2,14 @@ package inputs
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/taosdata/tsbs/pkg/data"
 	"github.com/taosdata/tsbs/pkg/data/serialize"
@@ -83,7 +86,10 @@ func (g *DataGenerator) Generate(config common.GeneratorConfig, target targets.I
 	if err != nil {
 		return err
 	}
-
+	concurrentSerializer, ok := serializer.(serialize.PointSerializerConcurrent)
+	if ok && concurrentSerializer.Supported(g.config.Use) {
+		return g.runSimulatorBatch(sim, concurrentSerializer, g.config)
+	}
 	return g.runSimulator(sim, serializer, g.config)
 }
 
@@ -127,6 +133,85 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 	return nil
 }
 
+func (g *DataGenerator) runSimulatorBatch(sim common.Simulator, serializer serialize.PointSerializerConcurrent, dgc *common.DataGeneratorConfig) error {
+	defer g.bufOut.Flush()
+	batchSize := 32767
+	preData := serializer.PrePare(dgc.Use)
+	g.bufOut.WriteString(preData)
+	points := make([]*data.Point, batchSize)
+	for i := 0; i < batchSize; i++ {
+		points[i] = data.NewPoint()
+	}
+	index := 0
+	workerCount := runtime.NumCPU() * 2
+	worker := make([]chan []*data.Point, workerCount)
+	workerDataTemp := make([][]*data.Point, workerCount)
+	highLevelDataBuf := &bytes.Buffer{}
+	normalDataBuf := &bytes.Buffer{}
+	dataLocker := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	for i := 0; i < batchSize; i++ {
+		ha := i % workerCount
+		workerDataTemp[ha] = append(workerDataTemp[ha], points[i])
+	}
+	for i := 0; i < workerCount; i++ {
+		worker[i] = make(chan []*data.Point, 1)
+		i := i
+		go func() {
+			for {
+				select {
+				case d := <-worker[i]:
+					normalData, highLevelData, err := serializer.SerializeConcurrent(d)
+					if err != nil {
+						panic(err)
+					}
+					dataLocker.Lock()
+					highLevelDataBuf.Write(highLevelData)
+					normalDataBuf.Write(normalData)
+					dataLocker.Unlock()
+					wg.Done()
+				}
+			}
+		}()
+	}
+	var doPostData = func() error {
+		for i := 0; i < workerCount; i++ {
+			wg.Add(1)
+			worker[i] <- workerDataTemp[i]
+		}
+		wg.Wait()
+		highLevelDataBuf.WriteTo(g.bufOut)
+		normalDataBuf.WriteTo(g.bufOut)
+		for i := 0; i < index; i++ {
+			points[i].Reset()
+		}
+		return nil
+	}
+
+	for !sim.Finished() {
+		write := sim.Next(points[index])
+		if !write {
+			points[index].Reset()
+			continue
+		}
+		index += 1
+		if index == batchSize {
+			err := doPostData()
+			if err != nil {
+				return err
+			}
+			index = 0
+		}
+	}
+	if index != 0 {
+		err := doPostData()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.ImplementedTarget) (serialize.PointSerializer, error) {
 	switch target.TargetName() {
 	case constants.FormatCrateDB:
@@ -139,7 +224,7 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 	return target.Serializer(), nil
 }
 
-//TODO should be implemented in targets package
+// TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 
