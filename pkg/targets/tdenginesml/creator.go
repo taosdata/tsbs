@@ -49,6 +49,9 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if d.opts.WalLevel != nil {
 		sql += " wal_level " + strconv.Itoa(*d.opts.WalLevel)
 	}
+	if d.opts.DBParameters != "" {
+		sql += " " + d.opts.DBParameters
+	}
 	return async.GlobalAsync.TaosExecWithoutResult(d.db.TaosConnection, sql)
 }
 
