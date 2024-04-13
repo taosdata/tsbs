@@ -59,6 +59,9 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 		walLevel := viper.GetInt("wal_level")
 		opts.WalLevel = &walLevel
 	}
+	if viper.IsSet("db_parameters") {
+		opts.DBParameters = viper.GetString("db_parameters")
+	}
 	loaderConf.HashWorkers = true
 	loaderConf.NoFlowControl = true
 	loaderConf.ChannelCapacity = 50

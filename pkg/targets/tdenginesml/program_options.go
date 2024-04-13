@@ -11,4 +11,5 @@ type LoadingOptions struct {
 	SttTrigger     int
 	WalFsyncPeriod *int
 	WalLevel       *int
+	DBParameters   string
 }

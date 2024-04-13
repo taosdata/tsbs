@@ -58,6 +58,9 @@ func initProgramOptions() (*tdenginesml.LoadingOptions, load.BenchmarkRunner, *l
 		walLevel := viper.GetInt("wal_level")
 		opts.WalLevel = &walLevel
 	}
+	if viper.IsSet("db_parameters") {
+		opts.DBParameters = viper.GetString("db_parameters")
+	}
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf
 }
