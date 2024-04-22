@@ -39,7 +39,7 @@ load_ts_end="2016-01-02T00:00:00Z"
 load_number_wokers="12"
 load_batchsizes="10000"
 load_scales="100 4000 100000 1000000 10000000"
-load_formats="TDengine influx timescaledb"
+load_formats="TDengine"
 load_test_scales="200"
 
 #query test parameters
@@ -50,7 +50,7 @@ query_load_number_wokers="12"
 query_number_wokers="12"
 query_times="10000"
 query_scales="100 4000 100000 1000000 10000000"
-query_formats="TDengine influx timescaledb"
+query_formats="TDengine"
 
 # while getopts "hs:p:o:g:d:c:t:" arg
 # do
@@ -106,10 +106,10 @@ function query_testcase {
 echo "testcase scenarios $5"
 load_executeTime=`date +%Y_%m%d_%H%M%S`
 load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/" 
-load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
+load_resultDir="${loadRsultRootDir}/log/" 
 
 query_dataDir="${queryDataRootDir}/query_data_${caseType}/" 
-query_resultDir="${queryRsultRootDir}/query_result_${caseType}_${load_executeTime}/" 
+query_resultDir="${queryRsultRootDir}log/" 
 
 # excute testcase
 # this two para can be set，the default is all query type。
@@ -125,94 +125,37 @@ NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 VGROUPS="$vgroups" \
 QUERY_DEBUG="false" RESTLOAD="true" QUERIES=${10} \
 SCALES=$6 DATABASE_NAME="benchmark$caseType" ./querytest.sh 
 
-if [ ${caseType} != "userdefined" ];then
-    # generate png 
-    echo "python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png ${10} "
-    echo "python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png  ${10}"
+# if [ ${caseType} != "userdefined" ];then
+#     # generate png 
+#     echo "python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png ${10} "
+#     echo "python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png  ${10}"
 
-    python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png   ${10}
-    python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png ${10}
-fi
+#     python3 ${scriptDir}/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png   ${10}
+#     python3 ${scriptDir}/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png ${10}
+# fi
 }
 
 # caseType [cputest | cpu| devops | iot ]
 if [ ${caseType} == "cputest" ];then
-    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "TDengine influx timescaledb" "10" "
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "TDengine influx timescaledb" "10"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "${query_formats}" "10" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "cpu-only" "${query_number_wokers}"  "${query_formats}" "10"
 elif [ ${caseType} == "cpu" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "TDengine timescaledb influx " "${query_times}"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "TDengine timescaledb influx" "${query_times}"
-
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "${query_formats}" "${query_times}"
 elif [ ${caseType} == "devops" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "TDengine influx timescaledb" "${query_times}"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "TDengine influx timescaledb" "${query_times}"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "${query_formats}" "${query_times}"
 elif [ ${caseType} == "iot" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "iot" "4"  "TDengine timescaledb influx"  "10000"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "iot" "4" "TDengine timescaledb influx"  "500"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "iot" "4"  "${query_formats}"  "10000" "
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "iot" "4"  "${query_formats}"  "10000"
+    echo "query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "iot" "4" "${query_formats}"  "500""
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "iot" "4" "${query_formats}"  "500"
 elif [ ${caseType} == "userdefined" ];then
     query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" "${query_times}"
 else
     echo "please set correct testcase type"
 fi
-
-# #  testcaset---cpu-only
-# # need define data and result path
-# new=`date +%Y_%m%d_%H%M%S`
-
-# BULK_DATA_QUERY_DIR="/data2/bulk_data_query_cpu-only" 
-# BULK_DATA_DIR_RUN_RES="/data2/bulk_result_query_cpu-only_${new}/" 
-
-# BULK_DATA_DIR=${BULK_DATA_DIR:-"/data2/bulk_data_cpu-only"}
-# BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/data2/bulk_result_load_${new}/"}
-
-
-
-# # excute testcase（batchsize=50000）
-# TS_START="2016-01-01T00:00:00Z" QUERY_TS_END="2016-01-01T12:00:01Z" \
-# LOAD_TS_END="2016-01-05T00:00:00Z"  \
-# DATABASE_HOST="${serverHost}" BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES} \
-# BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR}  NUM_WORKERS="14"  SERVER_PASSWORD="${serverPass}" \
-# BULK_DATA_DIR=${BULK_DATA_DIR} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
-# USE_CASES="cpu-only" FORMATS="TDengine timescaledb influx"   \
-# SCALES="110" DATABASE_NAME="benchmarkcpu"  ./querytest.sh 
-
-# # generate png 
-# awk -F ',' -v OFS=','  '{if($4==100)print$0}' ${BULK_DATA_DIR_RUN_RES}/query_input.csv > ${BULK_DATA_DIR_RUN_RES}/100query_input.csv 
-# awk -F ',' -v OFS=','  '{if($4==4000)print$0}' ${BULK_DATA_DIR_RUN_RES}/query_input.csv > ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv
-# python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/100query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_bar_100.png
-# python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_bar_4000.png
-# python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/100query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio_100.png
-# python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio_4000.png
-
-
-# #  testcaset---iot
-# # need define data and result path
-# new=`date +%Y_%m%d_%H%M%S`
-
-# BULK_DATA_QUERY_DIR="/data2/bulk_data_query_iot" 
-# BULK_DATA_DIR_RUN_RES="/data2/bulk_result_query_iot_${new}/" 
-
-# BULK_DATA_DIR=${BULK_DATA_DIR:-"/data2/bulk_data_iot_0412"}
-# BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/data2/bulk_result_load_iot_${new}/"}
-
-
-# # QUERY_TYPES_ALL="cpu-max-all-1 single-groupby-5-8-1" \
-# # QUERY_TYPES_IOT_ALL="last-loc avg-load" \
-
-# # excute testcase（batchsize=50000）
-# TS_START="2016-01-01T00:00:00Z" QUERY_TS_END="2016-01-05T00:00:01Z" \
-# LOAD_TS_END="2016-01-05T00:00:00Z" QUERY_DEBUG="false" \
-# DATABASE_HOST="${serverHost}" BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES} \
-# BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR}  NUM_WORKERS="14"  SERVER_PASSWORD="${serverPass}" \
-# BULK_DATA_DIR=${BULK_DATA_DIR} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
-# USE_CASES="iot" FORMATS="TDengine influx timescaledb"  QUERIES="1000" \
-# SCALES="4000 100" DATABASE_NAME="benchmarkiot" RESTLOAD="true" ./querytest.sh 
-
-# # generate png 
-# awk -F ',' -v OFS=','  '{if($4==100)print$0}' ${BULK_DATA_DIR_RUN_RES}/query_input.csv > ${BULK_DATA_DIR_RUN_RES}/100query_input.csv 
-# awk -F ',' -v OFS=','  '{if($4==4000)print$0}' ${BULK_DATA_DIR_RUN_RES}/query_input.csv > ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv
-# python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/100query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_bar_100.png
-# python3 ${scriptDir}/queryResultBarh.py  ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_bar_4000.png
-# python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/100query_input.csv queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio_100.png
-# python3 ${scriptDir}/queryRatioBarh.py  ${BULK_DATA_DIR_RUN_RES}/4000query_input.csv  queryType  ${BULK_DATA_DIR_RUN_RES}/test_query_barRatio_4000.png
-
