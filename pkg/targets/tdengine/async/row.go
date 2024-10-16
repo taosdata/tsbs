@@ -6,6 +6,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common/parser"
 	tErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/thread"
@@ -22,7 +23,7 @@ func NewAsync(handlerPool *HandlerPool) *Async {
 	return &Async{HandlerPool: handlerPool}
 }
 
-func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat wrapper.FormatTimeFunc) (*ExecResult, error) {
+func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat parser.FormatTimeFunc) (*ExecResult, error) {
 	handler := a.HandlerPool.Get()
 	defer a.HandlerPool.Put(handler)
 	result, err := a.TaosQuery(taosConnect, sql, handler)
@@ -68,7 +69,7 @@ func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat wrap
 		} else {
 			res = result.Res
 			block := wrapper.TaosGetRawBlock(res)
-			values := wrapper.ReadBlockWithTimeFormat(block, result.N, rowsHeader.ColTypes, precision, timeFormat)
+			values := parser.ReadBlockWithTimeFormat(block, result.N, rowsHeader.ColTypes, precision, timeFormat)
 			execResult.Data = append(execResult.Data, values...)
 		}
 	}

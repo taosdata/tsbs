@@ -1,35 +1,47 @@
-package tdengine
+package tdenginestmt2
 
+import "C"
 import (
-	"bytes"
 	"math"
 
 	"github.com/taosdata/tsbs/pkg/data/source"
 	"github.com/taosdata/tsbs/pkg/targets"
+	"github.com/taosdata/tsbs/pkg/targets/tdengine"
 )
 
-func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+func NewBenchmark(dbName string, opts *tdengine.LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
 	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
 		ds = newFileDataSource(dataSourceConfig.File.Location)
+		useCase, scale := ds.(*fileDataSource).Init()
+		switch useCase {
+		case CpuCase:
+			C.malloc(C.size_t(20 * scale))
+		case IoTCase:
+		default:
+			fatal("invalid use case: %d", useCase)
+		}
+		return &benchmark{
+			opts:       opts,
+			dataSource: ds,
+			dbName:     dbName,
+			factory:    NewBatchFactory(useCase),
+			useCase:    useCase,
+			scale:      scale,
+		}, nil
 	} else {
 		panic("not implement")
 	}
-
-	return &benchmark{
-		opts:       opts,
-		dataSource: ds,
-		dbName:     dbName,
-		factory:    NewBatchFactory(),
-	}, nil
 }
 
 type benchmark struct {
-	opts       *LoadingOptions
+	opts       *tdengine.LoadingOptions
 	dataSource targets.DataSource
 	dbName     string
 	batchSize  uint
 	factory    *BatchFactory
+	useCase    byte
+	scale      uint32
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
@@ -52,15 +64,25 @@ func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 			}
 		}
 		prefix := []byte("1." + b.dbName + ".")
-		return &indexer{buffer: &bytes.Buffer{}, prefix: prefix, hashEndGroups: hashEndGroups, partitions: int(maxPartitions), tmp: map[string]uint{}}
+		return NewIndexer(prefix, int(maxPartitions), hashEndGroups, b.useCase, b.scale)
+
 	}
 	return &targets.ConstantIndexer{}
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return newProcessor(b.opts, b.dbName)
+	return newProcessor(b.opts, b.dbName, b.batchSize, b.factory.pool, b.useCase, b.scale)
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &DbCreator{Opts: b.opts}
+	return &DbCreator{
+		DbCreator: tdengine.DbCreator{Opts: b.opts},
+		useCase:   b.useCase,
+		ds:        b.dataSource.(*fileDataSource),
+	}
+}
+
+func (b *benchmark) SetConfig(batchSize uint, workers uint) {
+	b.batchSize = batchSize
+	b.dataSource.(*fileDataSource).maxCache = int(batchSize * workers * 10)
 }
