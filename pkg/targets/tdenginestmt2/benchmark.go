@@ -13,19 +13,12 @@ func NewBenchmark(dbName string, opts *tdengine.LoadingOptions, dataSourceConfig
 	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
 		ds = newFileDataSource(dataSourceConfig.File.Location)
-		useCase, scale := ds.(*fileDataSource).Init()
-		switch useCase {
-		case CpuCase:
-			C.malloc(C.size_t(20 * scale))
-		case IoTCase:
-		default:
-			fatal("invalid use case: %d", useCase)
-		}
+		useCase, scale := ds.(*fileDataSource).readHeader()
 		return &benchmark{
 			opts:       opts,
 			dataSource: ds,
 			dbName:     dbName,
-			factory:    NewBatchFactory(useCase),
+			factory:    NewBatchFactory(),
 			useCase:    useCase,
 			scale:      scale,
 		}, nil
@@ -35,13 +28,16 @@ func NewBenchmark(dbName string, opts *tdengine.LoadingOptions, dataSourceConfig
 }
 
 type benchmark struct {
-	opts       *tdengine.LoadingOptions
-	dataSource targets.DataSource
-	dbName     string
-	batchSize  uint
-	factory    *BatchFactory
-	useCase    byte
-	scale      uint32
+	opts            *tdengine.LoadingOptions
+	dataSource      targets.DataSource
+	dbName          string
+	batchSize       uint
+	factory         targets.BatchFactory
+	indexer         targets.PointIndexer
+	useCase         byte
+	scale           uint32
+	tableOffset     [3][]uint32
+	partitionTables [3][][]uint32
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
@@ -53,25 +49,11 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 }
 
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if maxPartitions > 1 {
-		interval := uint32(math.MaxUint32 / maxPartitions)
-		hashEndGroups := make([]uint32, maxPartitions)
-		for i := 0; i < int(maxPartitions); i++ {
-			if i == int(maxPartitions)-1 {
-				hashEndGroups[i] = math.MaxUint32
-			} else {
-				hashEndGroups[i] = interval*uint32(i+1) - 1
-			}
-		}
-		prefix := []byte("1." + b.dbName + ".")
-		return NewIndexer(prefix, int(maxPartitions), hashEndGroups, b.useCase, b.scale)
-
-	}
-	return &targets.ConstantIndexer{}
+	return b.indexer
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return newProcessor(b.opts, b.dbName, b.batchSize, b.factory.pool, b.useCase, b.scale)
+	return newProcessor(b.opts, b.dbName, b.batchSize, b.useCase, b.scale, b.partitionTables, b.tableOffset)
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
@@ -84,5 +66,40 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 
 func (b *benchmark) SetConfig(batchSize uint, workers uint) {
 	b.batchSize = batchSize
-	b.dataSource.(*fileDataSource).maxCache = int(batchSize * workers * 10)
+
+	b.dataSource.(*fileDataSource).SetMaxCache(int(batchSize * workers * 5))
+	factory := b.factory.(*BatchFactory)
+	factory.batchSize = batchSize
+	if workers > 1 {
+		interval := uint32(math.MaxUint32 / workers)
+		hashEndGroups := make([]uint32, workers)
+		for i := 0; i < int(workers); i++ {
+			if i == int(workers)-1 {
+				hashEndGroups[i] = math.MaxUint32
+			} else {
+				hashEndGroups[i] = interval*uint32(i+1) - 1
+			}
+		}
+		prefix := []byte("1." + b.dbName + ".")
+		idx, tableOffset, hostTableIndex, readingsTableIndex, diagnosticsTableIndex := NewIndexer(prefix, int(workers), hashEndGroups, b.useCase, b.scale)
+		b.tableOffset = tableOffset
+		b.partitionTables = [3][][]uint32{hostTableIndex, readingsTableIndex, diagnosticsTableIndex}
+		b.indexer = idx
+	} else {
+		b.indexer = &targets.ConstantIndexer{}
+		tmp := make([]uint32, b.scale+1)
+		for i := uint32(0); i < b.scale+1; i++ {
+			tmp[i] = i
+		}
+		switch b.useCase {
+		case CpuCase:
+			b.partitionTables[SuperTableHost] = [][]uint32{tmp}
+			b.tableOffset[SuperTableHost] = tmp
+		case IoTCase:
+			b.partitionTables[SuperTableReadings] = [][]uint32{tmp}
+			b.tableOffset[SuperTableReadings] = tmp
+			b.partitionTables[SuperTableDiagnostics] = [][]uint32{tmp}
+			b.tableOffset[SuperTableDiagnostics] = tmp
+		}
+	}
 }

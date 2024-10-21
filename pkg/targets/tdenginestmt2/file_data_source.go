@@ -2,14 +2,13 @@ package tdenginestmt2
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"log"
-	"sync"
-	"unsafe"
+	"os"
 
-	"github.com/taosdata/tsbs/load"
 	"github.com/taosdata/tsbs/pkg/data"
 	"github.com/taosdata/tsbs/pkg/data/usecases/common"
 	"github.com/taosdata/tsbs/pkg/targets"
@@ -18,16 +17,55 @@ import (
 var fatal = log.Fatalf
 
 func newFileDataSource(fileName string) targets.DataSource {
-	br := load.GetBufferedReader(fileName)
-	return &fileDataSource{br: br, tmpBuf: &bytes.Buffer{}}
+	//br := GetBufferedReader(fileName)
+	f := GetFile(fileName)
+	return &fileDataSource{f: f, exchange: make(chan struct{}, 1), exchangeStatus: make(chan int, 1)}
+}
+
+const (
+	defaultReadSize = 4 << 20 // 4 MB
+)
+
+func GetFile(fileName string) *os.File {
+	if len(fileName) == 0 {
+		return os.Stdin
+	}
+	file, err := os.Open(fileName)
+	if err != nil {
+		fatal("cannot open file for read %s: %v", fileName, err)
+		return nil
+	}
+	return file
+}
+
+func GetBufferedReader(fileName string) *bufio.Reader {
+	if len(fileName) == 0 {
+		// Read from STDIN
+		return bufio.NewReaderSize(os.Stdin, defaultReadSize)
+	}
+	// Read from specified file
+	file, err := os.Open(fileName)
+	if err != nil {
+		fatal("cannot open file for read %s: %v", fileName, err)
+		return nil
+	}
+	return bufio.NewReaderSize(file, defaultReadSize)
 }
 
 type fileDataSource struct {
-	br        *bufio.Reader
-	tmpBuf    *bytes.Buffer
-	cacheData []*point
-	scale     int
-	maxCache  int
+	f   *os.File
+	buf []byte
+	r   int
+	w   int
+	err error
+
+	readCache      [][]byte
+	writeCache     [][]byte
+	exchange       chan struct{}
+	exchangeStatus chan int
+	readDirect     bool
+	scale          int
+	maxCache       int
 }
 
 /*
@@ -37,9 +75,9 @@ type fileDataSource struct {
 
 */
 
-func (d *fileDataSource) Init() (byte, uint32) {
+func (d *fileDataSource) readHeader() (byte, uint32) {
 	buf := make([]byte, 6)
-	_, err := io.ReadFull(d.br, buf)
+	_, err := io.ReadFull(d.f, buf)
 	if err != nil {
 		fatal("cannot read header: %v", err)
 	}
@@ -51,118 +89,34 @@ func (d *fileDataSource) Init() (byte, uint32) {
 	return buf[1], scale
 }
 
-func (d *fileDataSource) PreReadCreateTable() []*point {
-	var commandType byte
-	var err error
-	var createTableSqls []*point
+func (d *fileDataSource) SetMaxCache(max int) {
+	d.maxCache = max
+	d.readCache = make([][]byte, 0, max)
+	d.writeCache = make([][]byte, 0, max)
+}
+
+func (d *fileDataSource) FillCache() [][]byte {
+	var createTableSqls [][]byte
 	for {
-		if len(createTableSqls) == d.scale || len(d.cacheData) >= d.maxCache {
+		if len(d.readCache) >= d.maxCache {
 			break
 		}
-		commandType, err = d.br.ReadByte()
-		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				fatal("cannot read command type: %v", err)
-			}
+		p := d.readData()
+		if p == nil {
+			d.readCache = append(d.readCache, p)
+			return createTableSqls
 		}
-		switch commandType {
+		switch p[0] {
 		case CreateTable:
-			p := d.parseCreateTableCommand()
-			createTableSqls = append(createTableSqls, p)
+			sql := p[6:]
+			createTableSqls = append(createTableSqls, sql)
 		case InsertData:
-			p := d.parseInsertDataCommand()
-			d.cacheData = append(d.cacheData, p)
+			d.readCache = append(d.readCache, p)
 		default:
-			fatal("invalid command type:%d", commandType)
+			fatal("invalid command type:%d", p[0])
 		}
 	}
 	return createTableSqls
-}
-
-var bytesPool = sync.Pool{
-	New: func() interface{} {
-		return make([]byte, 95)
-	},
-}
-
-/*
-
-  create table sql
-
-  | type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql length (2 bytes,uint16) | sql buffer |
-*/
-
-func (d *fileDataSource) parseCreateTableCommand() *point {
-	// table type
-	tableType, err := d.br.ReadByte()
-	if err != nil {
-		panic(err)
-	}
-	var tableIndex uint32
-	err = binary.Read(d.br, binary.LittleEndian, &tableIndex)
-	if err != nil {
-		panic(err)
-	}
-	// sql
-	var sqlLen uint16
-	err = binary.Read(d.br, binary.LittleEndian, &sqlLen)
-	if err != nil {
-		panic(err)
-	}
-	sql := make([]byte, sqlLen)
-	_, err = io.ReadFull(d.br, sql)
-	if err != nil {
-		panic(err)
-	}
-	p := getPoint()
-	p.commandType = CreateTable
-	p.tableType = tableType
-	p.tableIndex = tableIndex
-	p.data = sql
-	return p
-}
-
-/*
-  insert data
-  | type (1 byte,2) | table type(1 byte) | table index (uint32 4 bytes)
-  | duplicate (bool 1 byte)
-  | is null bit | column data|
-*/
-
-func (d *fileDataSource) parseInsertDataCommand() *point {
-	// table type
-	tableType, err := d.br.ReadByte()
-	if err != nil {
-		panic(err)
-	}
-	bufLength := 0
-	switch tableType {
-	case SuperTableHost:
-		bufLength = 95
-	case SuperTableReadings:
-		bufLength = 70
-	case SuperTableDiagnostics:
-		bufLength = 38
-	default:
-		panic("invalid table type")
-	}
-	buf := bytesPool.Get().([]byte)
-	buf = buf[:bufLength]
-	_, err = io.ReadFull(d.br, buf)
-	if err != nil {
-		panic(err)
-	}
-	// table index
-	tableIndex := *(*uint32)(unsafe.Pointer(&buf[0]))
-	p := getPoint()
-	p.commandType = InsertData
-	p.tableType = tableType
-	p.tableIndex = tableIndex
-	p.duplicate = buf[4] == 1
-	p.data = buf
-	return p
 }
 
 func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
@@ -170,26 +124,199 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 }
 
 func (d *fileDataSource) NextItem() data.LoadedPoint {
-	if len(d.cacheData) > 0 {
-		p := d.cacheData[0]
-		d.cacheData = d.cacheData[1:]
+	if len(d.readCache) > 0 {
+		p := d.readCache[0]
+		d.readCache = d.readCache[1:]
+		if p == nil {
+			return data.NewLoadedPoint(nil)
+		}
 		return data.NewLoadedPoint(p)
 	}
-	commandType, err := d.br.ReadByte()
-	if err != nil {
-		if err == io.EOF {
-			return data.LoadedPoint{}
+	if d.readDirect {
+		p := d.readData()
+		if p == nil {
+			return data.NewLoadedPoint(nil)
 		}
-		panic(err)
+		return data.NewLoadedPoint(p)
 	}
-	var p *point
-	switch commandType {
-	case CreateTable:
-		p = d.parseCreateTableCommand()
-	case InsertData:
-		p = d.parseInsertDataCommand()
-	default:
-		log.Fatalf("invalid command type:%d", commandType)
+	d.exchange <- struct{}{}
+	exchangeStatus := <-d.exchangeStatus
+	if exchangeStatus == ExchangeStatusDone {
+		p := d.readCache[0]
+		d.readCache = d.readCache[1:]
+		if p == nil {
+			return data.NewLoadedPoint(nil)
+		}
+		return data.NewLoadedPoint(p)
 	}
-	return data.NewLoadedPoint(p)
+	if exchangeStatus == ExchangeStatusConsumeTooFast {
+		d.readDirect = true
+		p := d.readData()
+		if p == nil {
+			return data.NewLoadedPoint(nil)
+		}
+		return data.NewLoadedPoint(p)
+	}
+	if exchangeStatus == ExchangeStatusFinish {
+		d.readDirect = true
+		p := d.readCache[0]
+		d.readCache = d.readCache[1:]
+		if p == nil {
+			return data.NewLoadedPoint(nil)
+		}
+		return data.NewLoadedPoint(p)
+	}
+	return data.NewLoadedPoint(nil)
+}
+
+const (
+	ExchangeStatusDone           = 0
+	ExchangeStatusConsumeTooFast = 1
+	ExchangeStatusFinish         = 2
+)
+
+func (d *fileDataSource) startLoop() {
+	go func() {
+		for {
+			select {
+			case <-d.exchange:
+				if len(d.writeCache) == 0 {
+					d.exchangeStatus <- ExchangeStatusConsumeTooFast
+					return
+				}
+				d.readCache = d.writeCache
+				d.writeCache = make([][]byte, 0, d.maxCache)
+				d.exchangeStatus <- ExchangeStatusDone
+			default:
+				if len(d.writeCache) == d.maxCache {
+					<-d.exchange
+					d.readCache = d.writeCache
+					d.writeCache = make([][]byte, 0, d.maxCache)
+					d.exchangeStatus <- ExchangeStatusDone
+				}
+				rowData := d.readData()
+				if rowData == nil {
+					d.writeCache = append(d.writeCache, nil)
+					<-d.exchange
+					d.readCache = d.writeCache
+					d.writeCache = nil
+					d.exchangeStatus <- ExchangeStatusFinish
+					return
+				}
+				d.writeCache = append(d.writeCache, rowData)
+			}
+		}
+	}()
+}
+
+var errNegativeRead = errors.New("reader returned negative count from Read")
+
+func (d *fileDataSource) readData() []byte {
+	var n int
+	if d.r == d.w {
+		if d.err != nil {
+			return nil
+		}
+		d.r = 0
+		d.w = 0
+		buf := make([]byte, defaultReadSize)
+		n, d.err = d.f.Read(buf)
+		if n < 0 {
+			panic(errNegativeRead)
+		}
+		if n == 0 {
+			if d.err == io.EOF {
+				return nil
+			}
+			panic(d.err)
+		}
+		d.w = n
+		d.buf = buf[:d.w]
+	}
+	u8length := d.buf[d.r]
+	d.r++
+	if u8length < 128 {
+		if d.r+int(u8length) > d.w {
+			buf := make([]byte, defaultReadSize)
+			n = copy(buf, d.buf[d.r:d.w])
+			d.r = 0
+			d.w = n
+			for {
+				n, d.err = d.f.Read(buf[d.w:])
+				if n < 0 {
+					panic(errNegativeRead)
+				}
+				if n == 0 {
+					if d.err == io.EOF {
+						break
+					}
+					panic(d.err)
+				}
+				d.w += n
+				if d.w >= int(u8length) {
+					break
+				}
+			}
+			d.buf = buf[:d.w]
+		}
+		end := d.r + int(u8length)
+		ret := d.buf[d.r:end]
+		d.r += int(u8length)
+		if ret[0] != 1 && ret[0] != 2 {
+			fmt.Println("readData", ret)
+		}
+		return ret
+	} else {
+		if d.r == d.w {
+			if d.err != nil {
+				return nil
+			}
+			d.r = 0
+			d.w = 0
+			buf := make([]byte, defaultReadSize)
+			n, d.err = d.f.Read(buf)
+			if n < 0 {
+				panic(errNegativeRead)
+			}
+			if n == 0 {
+				if d.err == io.EOF {
+					return nil
+				}
+				panic(d.err)
+			}
+			d.w = n
+			d.buf = buf[:d.w]
+		}
+		u16Length := int(u8length&0x7f) + int(d.buf[d.r]<<7)
+		d.r++
+		if d.r+u16Length > d.w {
+			buf := make([]byte, defaultReadSize)
+			n = copy(buf, d.buf[d.r:d.w])
+			d.r = 0
+			d.w = n
+			for {
+				n, d.err = d.f.Read(buf[d.w:])
+				if n < 0 {
+					panic(errNegativeRead)
+				}
+				if n == 0 {
+					if d.err == io.EOF {
+						break
+					}
+					panic(d.err)
+				}
+				d.w += n
+				if d.w >= u16Length {
+					break
+				}
+			}
+			d.buf = buf[:d.w]
+		}
+		ret := d.buf[d.r : d.r+u16Length]
+		d.r += u16Length
+		if ret[0] != 1 && ret[0] != 2 {
+			fmt.Println("readData", ret)
+		}
+		return ret
+	}
 }

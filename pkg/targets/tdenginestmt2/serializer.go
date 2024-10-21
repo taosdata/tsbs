@@ -42,24 +42,24 @@ type Table struct {
 }
 
 func FastFormat(buf *bytes.Buffer, v interface{}) {
-	switch v.(type) {
+	switch v := v.(type) {
 	case int:
-		buf.WriteString(strconv.Itoa(v.(int)))
+		buf.WriteString(strconv.Itoa(v))
 	case int64:
-		buf.WriteString(strconv.FormatInt(v.(int64), 10))
+		buf.WriteString(strconv.FormatInt(v, 10))
 	case float64:
-		buf.WriteString(strconv.FormatFloat(v.(float64), 'f', -1, 64))
+		buf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
 	case float32:
-		buf.WriteString(strconv.FormatFloat(float64(v.(float32)), 'f', -1, 32))
+		buf.WriteString(strconv.FormatFloat(float64(v), 'f', -1, 32))
 	case bool:
-		buf.WriteString(strconv.FormatBool(v.(bool)))
+		buf.WriteString(strconv.FormatBool(v))
 	case []byte:
 		buf.WriteByte('\'')
-		buf.WriteString(string(v.([]byte)))
+		buf.Write(v)
 		buf.WriteByte('\'')
 	case string:
 		buf.WriteByte('\'')
-		buf.WriteString(v.(string))
+		buf.WriteString(v)
 		buf.WriteByte('\'')
 	case nil:
 		buf.WriteString("null")
@@ -294,12 +294,13 @@ const (
 /*
 
   create table sql
-
-  | type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql length (2 bytes,uint16) | sql buffer |
+  | length (1 or 2 byte)
+  | type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql buffer |
 */
 
 /*
   insert data
+  | length (1 byte)
   | type (1 byte,2) | table type(1 byte) | table index (uint32 4 bytes)
   | duplicate (bool 1 byte)|
   | is null bit | column data|
@@ -394,11 +395,20 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 				tmpBuf.WriteByte(',')
 			}
 		}
-		//| type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql length (2 bytes,uint16) | sql buffer |
+		//|length | type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql buffer |
 
 		sqlBuf := fmt.Sprintf("create table %s using %s tags (%s)", subTable, superTable, tmpBuf.Bytes())
 		s.writeBuf.Reset()
 		tmpBuf.Reset()
+		length := 6 + len(sqlBuf)
+
+		if length < 128 {
+			s.writeBuf.WriteByte(byte(length))
+		} else {
+			s.writeBuf.WriteByte(byte(length&0x7f | 0x80))
+			s.writeBuf.WriteByte(byte(length >> 7))
+		}
+
 		// type
 		s.writeBuf.WriteByte(CreateTable)
 		// table type
@@ -408,13 +418,11 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		binary.LittleEndian.PutUint32(bs, tbNameIndex)
 		s.writeBuf.Write(bs)
 		// sql length
-		err := binary.Write(s.writeBuf, binary.LittleEndian, uint16(len(sqlBuf)))
+		s.writeBuf.WriteString(sqlBuf)
+		_, err := w.Write(s.writeBuf.Bytes())
 		if err != nil {
 			return err
 		}
-		s.writeBuf.WriteString(sqlBuf)
-		_, err = w.Write(s.writeBuf.Bytes())
-
 	}
 	nullBit := make([]byte, len(stable.nullBit))
 	copy(nullBit, stable.nullBit)
@@ -451,10 +459,16 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		nullBit[pos] = BMUnSetNull(nullBit[pos], colIndex)
 	}
 	//insert data
+	//| length (1 byte)
 	//| type (1 byte,2) | table type(1 byte) | table index (uint32 4 bytes)
 	//| duplicate (bool 1 byte)|
 	//| is null bit | column data|
 	s.writeBuf.Reset()
+	length := 7 + len(nullBit) + len(colBuffer)
+	if length >= 128 {
+		log.Fatalf("length %d is too large", length)
+	}
+	s.writeBuf.WriteByte(byte(length))
 	// type
 	s.writeBuf.WriteByte(InsertData)
 	// table type

@@ -3,7 +3,7 @@ package tdenginestmt2
 import (
 	"bytes"
 	"fmt"
-	"sync"
+	"unsafe"
 
 	"github.com/spaolacci/murmur3"
 	"github.com/taosdata/tsbs/pkg/data"
@@ -15,12 +15,28 @@ type indexer struct {
 	cache [3][]uint
 }
 
-func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase byte, scale uint32) *indexer {
+func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase byte, scale uint32) (_ *indexer, _ [3][]uint32, hostTableIndex [][]uint32, readingsTableIndex [][]uint32, diagnosticsTableIndex [][]uint32) {
 	cache := [3][]uint{}
 	buf := &bytes.Buffer{}
+	var idx uint32
 	switch useCase {
 	case CpuCase:
 		cache[SuperTableHost] = make([]uint, scale+1)
+		hostTableIndex = make([][]uint32, partitions)
+		//partitionIndex := make([]uint32, partitions)
+		tableOffset := make([]uint32, scale+1)
+		buf.Write(prefix)
+		buf.WriteString("host_null")
+		hash := murmur3.Sum32WithSeed(buf.Bytes(), 0x12345678)
+		buf.Reset()
+		for j := 0; j < partitions; j++ {
+			if hash <= hashEndGroups[j] {
+				cache[SuperTableHost][0] = uint(j)
+				tableOffset[0] = uint32(len(hostTableIndex[j]))
+				hostTableIndex[j] = append(hostTableIndex[j], 0)
+				break
+			}
+		}
 		tbPrefix := append(prefix, []byte("host_")...)
 		for i := uint32(0); i < scale; i++ {
 			buf.Write(tbPrefix)
@@ -28,17 +44,43 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 			if err != nil {
 				panic(err)
 			}
-			hash := murmur3.Sum32WithSeed(buf.Bytes(), 0x12345678)
+			hash = murmur3.Sum32WithSeed(buf.Bytes(), 0x12345678)
 			buf.Reset()
 			for j := 0; j < partitions; j++ {
 				if hash <= hashEndGroups[j] {
-					cache[SuperTableHost][i+1] = uint(j)
+					idx = i + 1
+					cache[SuperTableHost][idx] = uint(j)
+					tableOffset[idx] = uint32(len(hostTableIndex[j]))
+					hostTableIndex[j] = append(hostTableIndex[j], idx)
 					break
 				}
 			}
 		}
+		return &indexer{
+				cache: cache,
+			},
+			[3][]uint32{
+				tableOffset,
+			},
+			hostTableIndex,
+			nil,
+			nil
 	case IoTCase:
 		cache[SuperTableReadings] = make([]uint, scale+1)
+		readingsTableIndex = make([][]uint32, partitions)
+		rTableOffset := make([]uint32, scale+1)
+		buf.Write(prefix)
+		buf.WriteString("r_truck_null")
+		hash := murmur3.Sum32WithSeed(buf.Bytes(), 0x12345678)
+		buf.Reset()
+		for j := 0; j < partitions; j++ {
+			if hash <= hashEndGroups[j] {
+				cache[SuperTableReadings][0] = uint(j)
+				rTableOffset[0] = uint32(len(readingsTableIndex[j]))
+				readingsTableIndex[j] = append(readingsTableIndex[j], 0)
+				break
+			}
+		}
 		tbPrefix := append(prefix, []byte("r_truck_")...)
 		for i := uint32(0); i < scale; i++ {
 			buf.Write(tbPrefix)
@@ -50,12 +92,30 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 			buf.Reset()
 			for j := 0; j < partitions; j++ {
 				if hash <= hashEndGroups[j] {
-					cache[SuperTableReadings][i+1] = uint(j)
+					idx = i + 1
+					cache[SuperTableReadings][idx] = uint(j)
+					rTableOffset[idx] = uint32(len(readingsTableIndex[j]))
+					readingsTableIndex[j] = append(readingsTableIndex[j], idx)
 					break
 				}
 			}
 		}
+
 		cache[SuperTableDiagnostics] = make([]uint, scale+1)
+		diagnosticsTableIndex = make([][]uint32, partitions)
+		dTableOffset := make([]uint32, scale+1)
+		buf.Write(prefix)
+		buf.WriteString("d_truck_null")
+		hash = murmur3.Sum32WithSeed(buf.Bytes(), 0x12345678)
+		buf.Reset()
+		for j := 0; j < partitions; j++ {
+			if hash <= hashEndGroups[j] {
+				cache[SuperTableDiagnostics][0] = uint(j)
+				dTableOffset[0] = uint32(len(diagnosticsTableIndex[j]))
+				diagnosticsTableIndex[j] = append(diagnosticsTableIndex[j], 0)
+				break
+			}
+		}
 		tbPrefix = append(prefix, []byte("d_truck_")...)
 		for i := uint32(0); i < scale; i++ {
 			buf.Write(tbPrefix)
@@ -67,50 +127,39 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 			buf.Reset()
 			for j := 0; j < partitions; j++ {
 				if hash <= hashEndGroups[j] {
-					cache[SuperTableDiagnostics][i+1] = uint(j)
+					idx = i + 1
+					cache[SuperTableDiagnostics][idx] = uint(j)
+					dTableOffset[idx] = uint32(len(diagnosticsTableIndex[j]))
+					diagnosticsTableIndex[j] = append(diagnosticsTableIndex[j], idx)
 					break
 				}
 			}
 		}
+
+		return &indexer{
+				cache: cache,
+			},
+			[3][]uint32{
+				nil,
+				rTableOffset,
+				dTableOffset,
+			},
+			nil,
+			readingsTableIndex,
+			diagnosticsTableIndex
 	default:
-		fatal("invalid use case: %d", useCase)
-	}
-	return &indexer{
-		cache: cache,
+		panic(fmt.Sprintf("invalid use case: %d", useCase))
 	}
 }
 
 func (i *indexer) GetIndex(item data.LoadedPoint) uint {
-	p := item.Data.(*point)
-	return i.cache[p.tableType][p.tableIndex]
-}
-
-type point struct {
-	commandType byte
-	tableType   byte
-	tableIndex  uint32
-	duplicate   bool
-	data        []byte
-}
-
-var pointPool = sync.Pool{
-	New: func() interface{} {
-		return &point{}
-	},
-}
-
-func getPoint() *point {
-	return pointPool.Get().(*point)
-}
-
-func putPoint(p *point) {
-	p.data = nil
-	pointPool.Put(p)
+	p := item.Data.([]byte)
+	return i.cache[p[1]][*(*uint32)(unsafe.Pointer(&p[2]))]
 }
 
 type hypertableArr struct {
-	createSql   []*point
-	data        [3]map[uint32][][]byte
+	data        [][]byte
+	createSql   [][]byte
 	totalMetric uint64
 	cnt         uint
 }
@@ -120,80 +169,37 @@ func (ha *hypertableArr) Len() uint {
 }
 
 func (ha *hypertableArr) Append(item data.LoadedPoint) {
-	p := item.Data.(*point)
-	if p.commandType == InsertData {
-		switch p.tableType {
+	p := item.Data.([]byte)
+	if p[0] == InsertData {
+		if p[6] != 1 {
+			ha.data = append(ha.data, p)
+		}
+		switch p[1] {
 		case SuperTableHost:
-			if !p.duplicate {
-				ha.data[SuperTableHost][p.tableIndex] = append(ha.data[SuperTableHost][p.tableIndex], p.data)
-			}
 			ha.totalMetric += 10
 		case SuperTableReadings:
-			if !p.duplicate {
-				ha.data[SuperTableReadings][p.tableIndex] = append(ha.data[SuperTableReadings][p.tableIndex], p.data)
-			}
 			ha.totalMetric += 7
 		case SuperTableDiagnostics:
-			if !p.duplicate {
-				ha.data[SuperTableDiagnostics][p.tableIndex] = append(ha.data[SuperTableDiagnostics][p.tableIndex], p.data)
-			}
 			ha.totalMetric += 3
 		default:
-			fatal("invalid table type:%d", p.tableType)
+			fatal("invalid table type:%d", p[1])
 		}
 		ha.cnt++
-		putPoint(p)
 	} else {
-		ha.createSql = append(ha.createSql, p)
+		ha.createSql = append(ha.createSql, p[6:])
 	}
-}
-
-func (ha *hypertableArr) reset() {
-	for i := 0; i < 3; i++ {
-		for _, rows := range ha.data[i] {
-			for j := 0; j < len(rows); j++ {
-				bytesPool.Put(rows[j])
-			}
-		}
-		ha.data[i] = make(map[uint32][][]byte)
-	}
-	ha.cnt = 0
-	ha.totalMetric = 0
-	ha.createSql = ha.createSql[:0]
 }
 
 type BatchFactory struct {
-	pool *sync.Pool
+	batchSize uint
 }
 
 func (b *BatchFactory) New() targets.Batch {
-	return b.pool.Get().(*hypertableArr)
+	return &hypertableArr{
+		data: make([][]byte, 0, b.batchSize),
+	}
 }
 
-func NewBatchFactory(useCase byte) *BatchFactory {
-	switch useCase {
-	case CpuCase:
-		pool := &sync.Pool{New: func() interface{} {
-			return &hypertableArr{
-				data: [3]map[uint32][][]byte{
-					make(map[uint32][][]byte),
-				},
-			}
-		}}
-		return &BatchFactory{pool: pool}
-	case IoTCase:
-		pool := &sync.Pool{New: func() interface{} {
-			return &hypertableArr{
-				data: [3]map[uint32][][]byte{
-					nil,
-					make(map[uint32][][]byte),
-					make(map[uint32][][]byte),
-				},
-			}
-		}}
-		return &BatchFactory{pool: pool}
-	default:
-		fatal("invalid use case: %d", useCase)
-		return nil
-	}
+func NewBatchFactory() targets.BatchFactory {
+	return &BatchFactory{}
 }

@@ -1,6 +1,8 @@
 package tdenginestmt2
 
 /*
+#cgo CFLAGS: -I/usr/include
+#cgo linux LDFLAGS: -L/usr/lib -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,19 +32,31 @@ type Ctx struct {
 }
 
 type processor struct {
-	cBuffers              [3]*bufferPointer
-	tableNamePointerCache [3][]unsafe.Pointer
-	stmt2CHandle          [3]unsafe.Pointer
-	stmt2CBHandle         [3]*async.Handler
-	_db                   *commonpool.Conn
-	pool                  *sync.Pool
-	wg                    *sync.WaitGroup
-	opts                  *tdengine.LoadingOptions
-	dbName                string
-	tableNameCBuffer      unsafe.Pointer
-	useCase               int
-	batchSize             uint
-	scale                 uint32
+	tableSlot                   [3][]uint32
+	cBuffers                    [3]*bufferPointer
+	tableNamePointerCache       [3][]unsafe.Pointer
+	stmt2CHandle                [3]unsafe.Pointer
+	stmt2CBHandle               [3]*async.Handler
+	hostTableNameCBuffer        unsafe.Pointer
+	readingsTableNameCBuffer    unsafe.Pointer
+	diagnosticsTableNameCBuffer unsafe.Pointer
+	hostSlot                    [][][]byte
+	readingsSlot                [][][]byte
+	diagnosticsSlot             [][][]byte
+	hostBatchIndexer            []uint32
+	readingsBatchIndexer        []uint32
+	diagnosticsBatchIndexer     []uint32
+
+	_db            *commonpool.Conn
+	wg             *sync.WaitGroup
+	opts           *tdengine.LoadingOptions
+	dbName         string
+	useCase        int
+	batchSize      uint
+	scale          uint32
+	partitionTable [3][][]uint32
+	inTime         time.Time
+	outTime        time.Time
 }
 
 type bufferPointer struct {
@@ -53,31 +67,16 @@ type bufferPointer struct {
 	isNullP    []unsafe.Pointer
 }
 
-func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, pool *sync.Pool, useCase byte, scale uint32) *processor {
+func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, useCase byte, scale uint32, partitionTable [3][][]uint32, tableOffset [3][]uint32) *processor {
 	p := &processor{
-		opts:      opts,
-		dbName:    dbName,
-		batchSize: batchSize,
-		pool:      pool,
-		wg:        &sync.WaitGroup{},
-		useCase:   int(useCase),
-		scale:     scale,
-	}
-	switch useCase {
-	case CpuCase:
-		p.tableNamePointerCache = [3][]unsafe.Pointer{
-			make([]unsafe.Pointer, scale+1),
-			nil,
-			nil,
-		}
-	case IoTCase:
-		p.tableNamePointerCache = [3][]unsafe.Pointer{
-			nil,
-			make([]unsafe.Pointer, scale+1),
-			make([]unsafe.Pointer, scale+1),
-		}
-	default:
-		panic(fmt.Sprintf("invalid use case: %d", useCase))
+		tableSlot:      tableOffset,
+		partitionTable: partitionTable,
+		opts:           opts,
+		dbName:         dbName,
+		batchSize:      batchSize,
+		wg:             &sync.WaitGroup{},
+		useCase:        int(useCase),
+		scale:          scale,
 	}
 	return p
 }
@@ -110,20 +109,7 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 	// max table name 23
 	switch p.useCase {
 	case CpuCase:
-		p.tableNameCBuffer = C.calloc(C.size_t(24*(p.scale+1)), 1)
-		cursor := p.tableNameCBuffer
-		tableNameNull := []byte("host_null")
-		C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
-		p.tableNamePointerCache[SuperTableHost][0] = cursor
-		cursor = unsafe.Pointer(uintptr(cursor) + 24)
-		prefix := []byte("host_")
-		for i := uint64(0); i < uint64(p.scale); i++ {
-			tableNameBytes := strconv.AppendUint(prefix, i, 10)
-			C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
-			p.tableNamePointerCache[SuperTableHost][i+1] = cursor
-			cursor = unsafe.Pointer(uintptr(cursor) + 24)
-		}
-
+		// init stmt2
 		handler := async.GlobalAsync.HandlerPool.Get()
 		prepareSql := "insert into ? values(?,?,?,?,?,?,?,?,?,?,?)"
 		stmt2Pointer := wrapper.TaosStmt2Init(p._db.TaosConnection, int64(1<<56|id), true, true, handler.Handler)
@@ -135,7 +121,29 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 			errMsg := wrapper.TaosStmt2Error(stmt2Pointer)
 			panic(fmt.Errorf("failed to prepare stmt2: %s", errMsg))
 		}
-		cBuffer := allocBuffer(int(p.batchSize), int(p.batchSize), []int{
+
+		// init table name c buffer
+		hostTableIndex := p.partitionTable[SuperTableHost][id]
+		p.tableNamePointerCache[SuperTableHost] = make([]unsafe.Pointer, len(hostTableIndex))
+		p.tableNamePointerCache[SuperTableHost] = make([]unsafe.Pointer, len(hostTableIndex))
+		p.hostTableNameCBuffer = C.calloc(C.size_t(24*(len(hostTableIndex))), 1)
+		cursor := p.hostTableNameCBuffer
+		prefix := []byte("host_")
+		var tableNameBytes []byte
+		for i := uint64(0); i < uint64(len(hostTableIndex)); i++ {
+			if hostTableIndex[i] == 0 {
+				tableNameNull := []byte("host_null")
+				C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
+			} else {
+				tableNameBytes = strconv.AppendUint(prefix, uint64(hostTableIndex[i]-1), 10)
+				C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
+			}
+			p.tableNamePointerCache[SuperTableHost][i] = cursor
+			cursor = unsafe.Pointer(uintptr(cursor) + 24)
+		}
+
+		// crate stmt2 bind buffer
+		cBuffer := allocBuffer(len(hostTableIndex), int(p.batchSize), []int{
 			8,
 			8,
 			8,
@@ -164,32 +172,15 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 		p.stmt2CHandle[CpuHandleIndex] = stmt2Pointer
 		p.stmt2CBHandle[CpuHandleIndex] = handler
 
-	case IoTCase:
-		p.tableNameCBuffer = C.calloc(C.size_t(24*(p.scale+1)*2), 1)
-		cursor := p.tableNameCBuffer
-		tableNameNull := []byte("r_truck_null")
-		C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
-		p.tableNamePointerCache[SuperTableReadings][0] = cursor
-		cursor = unsafe.Pointer(uintptr(cursor) + 24)
-		prefix := []byte("r_truck_")
-		for i := uint64(0); i < uint64(p.scale); i++ {
-			tableNameBytes := strconv.AppendUint(prefix, i, 10)
-			C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
-			p.tableNamePointerCache[SuperTableReadings][i+1] = cursor
-			cursor = unsafe.Pointer(uintptr(cursor) + 24)
+		// init slot
+		p.hostSlot = make([][][]byte, len(hostTableIndex))
+		for i := 0; i < len(hostTableIndex); i++ {
+			p.hostSlot[i] = make([][]byte, 0, 10)
 		}
-		tableNameNull = []byte("d_truck_null")
-		C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
-		p.tableNamePointerCache[SuperTableDiagnostics][0] = cursor
-		cursor = unsafe.Pointer(uintptr(cursor) + 24)
-		prefix = []byte("d_truck_")
-		for i := uint64(0); i < uint64(p.scale); i++ {
-			tableNameBytes := strconv.AppendUint(prefix, i, 10)
-			C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
-			p.tableNamePointerCache[SuperTableDiagnostics][i+1] = cursor
-			cursor = unsafe.Pointer(uintptr(cursor) + 24)
-		}
+		p.hostBatchIndexer = make([]uint32, 0, p.batchSize)
 
+	case IoTCase:
+		// init stmt2
 		handlerReading := async.GlobalAsync.HandlerPool.Get()
 		prepareReadingSql := "insert into ? values(?,?,?,?,?,?,?,?)"
 		stmt2ReadingPointer := wrapper.TaosStmt2Init(p._db.TaosConnection, int64(2<<56|id), true, true, handlerReading.Handler)
@@ -201,7 +192,57 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 			errMsg := wrapper.TaosStmt2Error(stmt2ReadingPointer)
 			panic(fmt.Errorf("failed to prepare stmt2: %s", errMsg))
 		}
-		cBuffer := allocBuffer(int(p.batchSize), int(p.batchSize), []int{
+
+		handlerDiagnostics := async.GlobalAsync.HandlerPool.Get()
+		prepareDiagnosticsSql := "insert into ? values(?,?,?,?)"
+		stmt2DiagnosticsPointer := wrapper.TaosStmt2Init(p._db.TaosConnection, int64(3<<56|id), true, true, handlerDiagnostics.Handler)
+		if stmt2DiagnosticsPointer == nil {
+			panic(fmt.Errorf("failed to create stmt2"))
+		}
+		code = wrapper.TaosStmt2Prepare(stmt2DiagnosticsPointer, prepareDiagnosticsSql)
+		if code != 0 {
+			errMsg := wrapper.TaosStmt2Error(stmt2DiagnosticsPointer)
+			panic(fmt.Errorf("failed to prepare stmt2: %s", errMsg))
+		}
+
+		// init table name c buffer
+		readingsTableIndex := p.partitionTable[SuperTableReadings][id]
+		p.tableNamePointerCache[SuperTableReadings] = make([]unsafe.Pointer, len(readingsTableIndex))
+		p.readingsTableNameCBuffer = C.calloc(C.size_t(24*len(readingsTableIndex)), 1)
+		cursor := p.readingsTableNameCBuffer
+		prefix := []byte("r_truck_")
+		var tableNameBytes []byte
+		for i := uint64(0); i < uint64(len(readingsTableIndex)); i++ {
+			if readingsTableIndex[i] == 0 {
+				tableNameNull := []byte("r_truck_null")
+				C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
+			} else {
+				tableNameBytes = strconv.AppendUint(prefix, uint64(readingsTableIndex[i]-1), 10)
+				C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
+			}
+			p.tableNamePointerCache[SuperTableReadings][i] = cursor
+			cursor = unsafe.Pointer(uintptr(cursor) + 24)
+		}
+
+		diagnosticsTableIndex := p.partitionTable[SuperTableDiagnostics][id]
+		p.tableNamePointerCache[SuperTableDiagnostics] = make([]unsafe.Pointer, len(diagnosticsTableIndex))
+		p.diagnosticsTableNameCBuffer = C.calloc(C.size_t(24*len(diagnosticsTableIndex)), 1)
+		cursor = p.diagnosticsTableNameCBuffer
+		prefix = []byte("d_truck_")
+		for i := uint64(0); i < uint64(len(diagnosticsTableIndex)); i++ {
+			if diagnosticsTableIndex[i] == 0 {
+				tableNameNull := []byte("d_truck_null")
+				C.memcpy(cursor, unsafe.Pointer(&tableNameNull[0]), C.size_t(len(tableNameNull)))
+			} else {
+				tableNameBytes = strconv.AppendUint(prefix, uint64(diagnosticsTableIndex[i]-1), 10)
+				C.memcpy(cursor, unsafe.Pointer(&tableNameBytes[0]), C.size_t(len(tableNameBytes)))
+			}
+			p.tableNamePointerCache[SuperTableDiagnostics][i] = cursor
+			cursor = unsafe.Pointer(uintptr(cursor) + 24)
+		}
+
+		// crate stmt2 bind buffer
+		cBuffer := allocBuffer(len(readingsTableIndex), int(p.batchSize), []int{
 			8,
 			8,
 			8,
@@ -223,18 +264,8 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 		p.cBuffers[ReadingsHandleIndex] = cBuffer
 		p.stmt2CHandle[ReadingsHandleIndex] = stmt2ReadingPointer
 		p.stmt2CBHandle[ReadingsHandleIndex] = handlerReading
-		handlerDiagnostics := async.GlobalAsync.HandlerPool.Get()
-		prepareDiagnosticsSql := "insert into ? values(?,?,?,?)"
-		stmt2DiagnosticsPointer := wrapper.TaosStmt2Init(p._db.TaosConnection, int64(3<<56|id), true, true, handlerDiagnostics.Handler)
-		if stmt2DiagnosticsPointer == nil {
-			panic(fmt.Errorf("failed to create stmt2"))
-		}
-		code = wrapper.TaosStmt2Prepare(stmt2DiagnosticsPointer, prepareDiagnosticsSql)
-		if code != 0 {
-			errMsg := wrapper.TaosStmt2Error(stmt2DiagnosticsPointer)
-			panic(fmt.Errorf("failed to prepare stmt2: %s", errMsg))
-		}
-		cBuffer = allocBuffer(int(p.batchSize), int(p.batchSize), []int{
+
+		cBuffer = allocBuffer(len(diagnosticsTableIndex), int(p.batchSize), []int{
 			8,
 			8,
 			8,
@@ -248,6 +279,19 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 		p.cBuffers[DiagnosticsHandleIndex] = cBuffer
 		p.stmt2CHandle[DiagnosticsHandleIndex] = stmt2DiagnosticsPointer
 		p.stmt2CBHandle[DiagnosticsHandleIndex] = handlerDiagnostics
+
+		// init slot
+		p.readingsSlot = make([][][]byte, len(readingsTableIndex))
+		for i := 0; i < len(readingsTableIndex); i++ {
+			p.readingsSlot[i] = make([][]byte, 0, 10)
+		}
+		p.readingsBatchIndexer = make([]uint32, 0, p.batchSize)
+
+		p.diagnosticsSlot = make([][][]byte, len(diagnosticsTableIndex))
+		for i := 0; i < len(diagnosticsTableIndex); i++ {
+			p.diagnosticsSlot[i] = make([][]byte, 0, 10)
+		}
+		p.diagnosticsBatchIndexer = make([]uint32, 0, p.batchSize)
 	}
 }
 
@@ -269,13 +313,17 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 const BindVSize = uintptr(C.sizeof_struct_TAOS_STMT2_BINDV)
 const BindSize = uintptr(C.sizeof_struct_TAOS_STMT2_BIND)
 
-func allocBuffer(maxTable int, maxRow int, colSize []int, colTypes []int) *bufferPointer {
+func allocBuffer(partitionTables int, batchSize int, colSize []int, colTypes []int) *bufferPointer {
 	colCount := len(colSize)
 	bufferSize := 0
 	for i := 0; i < colCount; i++ {
 		bufferSize += colSize[i]
 	}
-
+	bindTables := partitionTables
+	if bindTables > batchSize {
+		bindTables = batchSize
+	}
+	maxRow := batchSize
 	/*
 
 		| TAOS_STMT2_BINDV      |
@@ -289,11 +337,11 @@ func allocBuffer(maxTable int, maxRow int, colSize []int, colTypes []int) *buffe
 		// TAOS_STMT2_BINDV
 		BindVSize +
 			// table name pointer
-			wrapper.PointerSize*uintptr(maxTable) +
+			wrapper.PointerSize*uintptr(bindTables) +
 			// bind_cols pointer
-			wrapper.PointerSize*uintptr(maxTable*colCount) +
+			wrapper.PointerSize*uintptr(bindTables*colCount) +
 			// bind_cols TAOS_STMT2_BIND
-			BindSize*uintptr(maxTable*colCount)
+			BindSize*uintptr(bindTables*colCount)
 
 	dataSize := uintptr(bufferSize*maxRow) + 1
 	isNullSize := uintptr(maxRow*colCount) + 1
@@ -310,16 +358,16 @@ func allocBuffer(maxTable int, maxRow int, colSize []int, colTypes []int) *buffe
 	bindV.tbnames = (**C.char)(tableNamesPointer)
 
 	// bind_cols pointer
-	bindStructsPointerPointer := unsafe.Pointer(uintptr(tableNamesPointer) + uintptr(maxTable)*wrapper.PointerSize)
+	bindStructsPointerPointer := unsafe.Pointer(uintptr(tableNamesPointer) + uintptr(bindTables)*wrapper.PointerSize)
 	bindV.bind_cols = (**C.TAOS_STMT2_BIND)(bindStructsPointerPointer)
 
 	// TAOS_STMT2_BIND
-	bindStructsPointer := unsafe.Pointer(uintptr(bindStructsPointerPointer) + uintptr(maxTable*colCount)*wrapper.PointerSize)
+	bindStructsPointer := unsafe.Pointer(uintptr(bindStructsPointerPointer) + uintptr(bindTables*colCount)*wrapper.PointerSize)
 
-	tableNamesPointers := make([]unsafe.Pointer, maxTable)
-	bindPointers := make([][]unsafe.Pointer, maxTable)
+	tableNamesPointers := make([]unsafe.Pointer, bindTables)
+	bindPointers := make([][]unsafe.Pointer, bindTables)
 	var bind *C.TAOS_STMT2_BIND
-	for tableIndex := 0; tableIndex < maxTable; tableIndex++ {
+	for tableIndex := 0; tableIndex < bindTables; tableIndex++ {
 		// table name pointer
 		tableNamesPointers[tableIndex] = tableNamesPointer
 		tableNamesPointer = unsafe.Pointer(uintptr(tableNamesPointer) + wrapper.PointerSize)
@@ -365,6 +413,10 @@ var dtotalGenerateTime time.Duration
 var dtotalCTime time.Duration
 
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
+	// p.inTime = time.Now()
+	// if !p.outTime.IsZero() {
+	//fmt.Printf("time: %s\n", p.inTime.Sub(p.outTime))
+	// }
 	batches := b.(*hypertableArr)
 	metricCnt := batches.totalMetric
 	if !doLoad {
@@ -372,17 +424,16 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	}
 	rowCount = uint64(batches.cnt)
 	if len(batches.createSql) > 0 {
-		pointsArray := splitPoints(batches.createSql, runtime.NumCPU())
+		pointsArray := SplitBytes(batches.createSql, runtime.NumCPU())
 		p.wg.Add(len(pointsArray))
 		for i := 0; i < len(pointsArray); i++ {
-			go func(points []*point) {
+			go func(points [][]byte) {
 				for j := 0; j < len(points); j++ {
 					createP := points[j]
-					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(createP.data))
+					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(createP))
 					if err != nil {
 						panic(err)
 					}
-					putPoint(createP)
 				}
 				p.wg.Done()
 			}(pointsArray[i])
@@ -393,43 +444,55 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	switch p.useCase {
 	case CpuCase:
 		//s := time.Now()
-		var bind *C.TAOS_STMT2_BIND
-		hostTableIndex := 0
-		hostCBuffers := p.cBuffers[CpuHandleIndex]
-		var nullByte byte
-		var currentRowData []byte
-		var dataPointer unsafe.Pointer
-		currentIsNullPointer := [11]unsafe.Pointer{
-			hostCBuffers.isNullP[0],
-			hostCBuffers.isNullP[1],
-			hostCBuffers.isNullP[2],
-			hostCBuffers.isNullP[3],
-			hostCBuffers.isNullP[4],
-			hostCBuffers.isNullP[5],
-			hostCBuffers.isNullP[6],
-			hostCBuffers.isNullP[7],
-			hostCBuffers.isNullP[8],
-			hostCBuffers.isNullP[9],
-			hostCBuffers.isNullP[10],
-		}
-		currentDataPointer := [11]unsafe.Pointer{
-			hostCBuffers.colP[0],
-			hostCBuffers.colP[1],
-			hostCBuffers.colP[2],
-			hostCBuffers.colP[3],
-			hostCBuffers.colP[4],
-			hostCBuffers.colP[5],
-			hostCBuffers.colP[6],
-			hostCBuffers.colP[7],
-			hostCBuffers.colP[8],
-			hostCBuffers.colP[9],
-			hostCBuffers.colP[10],
-		}
-		if len(batches.data[SuperTableHost]) > 0 {
-			for tableIndex, rowData := range batches.data[SuperTableHost] {
+		if len(batches.data) > 0 {
+			var bind *C.TAOS_STMT2_BIND
+			hostTableIndex := 0
+			hostCBuffers := p.cBuffers[CpuHandleIndex]
+			var nullByte byte
+			var currentRowData []byte
+			var dataPointer unsafe.Pointer
+			currentIsNullPointer := [11]unsafe.Pointer{
+				hostCBuffers.isNullP[0],
+				hostCBuffers.isNullP[1],
+				hostCBuffers.isNullP[2],
+				hostCBuffers.isNullP[3],
+				hostCBuffers.isNullP[4],
+				hostCBuffers.isNullP[5],
+				hostCBuffers.isNullP[6],
+				hostCBuffers.isNullP[7],
+				hostCBuffers.isNullP[8],
+				hostCBuffers.isNullP[9],
+				hostCBuffers.isNullP[10],
+			}
+			currentDataPointer := [11]unsafe.Pointer{
+				hostCBuffers.colP[0],
+				hostCBuffers.colP[1],
+				hostCBuffers.colP[2],
+				hostCBuffers.colP[3],
+				hostCBuffers.colP[4],
+				hostCBuffers.colP[5],
+				hostCBuffers.colP[6],
+				hostCBuffers.colP[7],
+				hostCBuffers.colP[8],
+				hostCBuffers.colP[9],
+				hostCBuffers.colP[10],
+			}
+			var row []byte
+			for i := 0; i < len(batches.data); i++ {
+				row = batches.data[i]
+				slotID := p.tableSlot[SuperTableHost][*(*uint32)(unsafe.Pointer(&row[2]))]
+				p.hostBatchIndexer = append(p.hostBatchIndexer, slotID)
+				p.hostSlot[slotID] = append(p.hostSlot[slotID], row)
+			}
+			for _, slotID := range p.hostBatchIndexer {
+				rowData := p.hostSlot[slotID]
+				if len(rowData) == 0 {
+					continue
+				}
+				p.hostSlot[slotID] = p.hostSlot[slotID][:0]
 				rowLen := len(rowData)
 				for i := 0; i < len(rowData); i++ {
-					currentRowData = rowData[i][5:]
+					currentRowData = rowData[i][7:]
 					nullByte = currentRowData[0]
 					dataPointer = unsafe.Pointer(&currentRowData[2])
 
@@ -467,14 +530,15 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 						}
 					}
 				}
-				*(**C.char)(hostCBuffers.tableNameP[hostTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableHost][tableIndex])
+				*(**C.char)(hostCBuffers.tableNameP[hostTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableHost][slotID])
 				hostTableIndex += 1
 			}
+			p.hostBatchIndexer = p.hostBatchIndexer[:0]
 			//s2 := time.Now()
 
 			// stmt2 bind
 			bindv := (*C.TAOS_STMT2_BINDV)(hostCBuffers.bindVP)
-			bindv.count = C.int(len(batches.data[SuperTableHost]))
+			bindv.count = C.int(hostTableIndex)
 			handler := p.stmt2CHandle[CpuHandleIndex]
 			//bv, err := parseStmt2Bindv(*bindv, 4, 0)
 			//if err != nil {
@@ -503,40 +567,59 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}
 
 	case IoTCase:
+		var row []byte
+		for i := 0; i < len(batches.data); i++ {
+			row = batches.data[i]
+			if row[1] == SuperTableReadings {
+				slotID := p.tableSlot[SuperTableReadings][*(*uint32)(unsafe.Pointer(&row[2]))]
+				p.readingsBatchIndexer = append(p.readingsBatchIndexer, slotID)
+				p.readingsSlot[slotID] = append(p.readingsSlot[slotID], row)
+			} else {
+				slotID := p.tableSlot[SuperTableDiagnostics][*(*uint32)(unsafe.Pointer(&row[2]))]
+				p.diagnosticsBatchIndexer = append(p.diagnosticsBatchIndexer, slotID)
+				p.diagnosticsSlot[slotID] = append(p.diagnosticsSlot[slotID], row)
+			}
+		}
 		p.wg.Add(2)
 		go func() {
 			//s := time.Now()
-			var bind *C.TAOS_STMT2_BIND
-			readingTableIndex := 0
-			readingCBuffers := p.cBuffers[ReadingsHandleIndex]
-			var nullByte byte
-			var currentRowData []byte
-			var dataPointer unsafe.Pointer
-			currentIsNullPointer := [8]unsafe.Pointer{
-				readingCBuffers.isNullP[0],
-				readingCBuffers.isNullP[1],
-				readingCBuffers.isNullP[2],
-				readingCBuffers.isNullP[3],
-				readingCBuffers.isNullP[4],
-				readingCBuffers.isNullP[5],
-				readingCBuffers.isNullP[6],
-				readingCBuffers.isNullP[7],
-			}
-			currentDataPointer := [8]unsafe.Pointer{
-				readingCBuffers.colP[0],
-				readingCBuffers.colP[1],
-				readingCBuffers.colP[2],
-				readingCBuffers.colP[3],
-				readingCBuffers.colP[4],
-				readingCBuffers.colP[5],
-				readingCBuffers.colP[6],
-				readingCBuffers.colP[7],
-			}
-			if len(batches.data[SuperTableReadings]) > 0 {
-				for tableIndex, rowData := range batches.data[SuperTableReadings] {
+			if len(p.readingsBatchIndexer) > 0 {
+				var bind *C.TAOS_STMT2_BIND
+				readingTableIndex := 0
+				readingCBuffers := p.cBuffers[ReadingsHandleIndex]
+				var nullByte byte
+				var currentRowData []byte
+				var dataPointer unsafe.Pointer
+				currentIsNullPointer := [8]unsafe.Pointer{
+					readingCBuffers.isNullP[0],
+					readingCBuffers.isNullP[1],
+					readingCBuffers.isNullP[2],
+					readingCBuffers.isNullP[3],
+					readingCBuffers.isNullP[4],
+					readingCBuffers.isNullP[5],
+					readingCBuffers.isNullP[6],
+					readingCBuffers.isNullP[7],
+				}
+				currentDataPointer := [8]unsafe.Pointer{
+					readingCBuffers.colP[0],
+					readingCBuffers.colP[1],
+					readingCBuffers.colP[2],
+					readingCBuffers.colP[3],
+					readingCBuffers.colP[4],
+					readingCBuffers.colP[5],
+					readingCBuffers.colP[6],
+					readingCBuffers.colP[7],
+				}
+
+				for _, slotID := range p.readingsBatchIndexer {
+					rowData := p.readingsSlot[slotID]
+					if len(rowData) == 0 {
+						continue
+					}
+					p.readingsSlot[slotID] = p.readingsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][5:]
+						currentRowData = rowData[i][7:]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -568,9 +651,10 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 							}
 						}
 					}
-					*(**C.char)(readingCBuffers.tableNameP[readingTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableReadings][tableIndex])
+					*(**C.char)(readingCBuffers.tableNameP[readingTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableReadings][slotID])
 					readingTableIndex += 1
 				}
+				p.readingsBatchIndexer = p.readingsBatchIndexer[:0]
 				//s2 := time.Now()
 				bindv := (*C.TAOS_STMT2_BINDV)(readingCBuffers.bindVP)
 				bindv.count = C.int(readingTableIndex)
@@ -604,29 +688,35 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}()
 		go func() {
 			//s := time.Now()
-			var bind *C.TAOS_STMT2_BIND
-			diagnosticsTableIndex := 0
-			diagnosticsCBuffers := p.cBuffers[DiagnosticsHandleIndex]
-			var nullByte byte
-			var currentRowData []byte
-			var dataPointer unsafe.Pointer
-			currentIsNullPointer := [4]unsafe.Pointer{
-				diagnosticsCBuffers.isNullP[0],
-				diagnosticsCBuffers.isNullP[1],
-				diagnosticsCBuffers.isNullP[2],
-				diagnosticsCBuffers.isNullP[3],
-			}
-			currentDataPointer := [4]unsafe.Pointer{
-				diagnosticsCBuffers.colP[0],
-				diagnosticsCBuffers.colP[1],
-				diagnosticsCBuffers.colP[2],
-				diagnosticsCBuffers.colP[3],
-			}
-			if len(batches.data[SuperTableDiagnostics]) > 0 {
-				for tableIndex, rowData := range batches.data[SuperTableDiagnostics] {
+			if len(p.diagnosticsBatchIndexer) > 0 {
+				var bind *C.TAOS_STMT2_BIND
+				diagnosticsTableIndex := 0
+				diagnosticsCBuffers := p.cBuffers[DiagnosticsHandleIndex]
+				var nullByte byte
+				var currentRowData []byte
+				var dataPointer unsafe.Pointer
+				currentIsNullPointer := [4]unsafe.Pointer{
+					diagnosticsCBuffers.isNullP[0],
+					diagnosticsCBuffers.isNullP[1],
+					diagnosticsCBuffers.isNullP[2],
+					diagnosticsCBuffers.isNullP[3],
+				}
+				currentDataPointer := [4]unsafe.Pointer{
+					diagnosticsCBuffers.colP[0],
+					diagnosticsCBuffers.colP[1],
+					diagnosticsCBuffers.colP[2],
+					diagnosticsCBuffers.colP[3],
+				}
+
+				for _, slotID := range p.diagnosticsBatchIndexer {
+					rowData := p.diagnosticsSlot[slotID]
+					if len(rowData) == 0 {
+						continue
+					}
+					p.diagnosticsSlot[slotID] = p.diagnosticsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][5:]
+						currentRowData = rowData[i][7:]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -676,9 +766,10 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 							}
 						}
 					}
-					*(**C.char)(diagnosticsCBuffers.tableNameP[diagnosticsTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableDiagnostics][tableIndex])
+					*(**C.char)(diagnosticsCBuffers.tableNameP[diagnosticsTableIndex]) = (*C.char)(p.tableNamePointerCache[SuperTableDiagnostics][slotID])
 					diagnosticsTableIndex += 1
 				}
+				p.diagnosticsBatchIndexer = p.diagnosticsBatchIndexer[:0]
 				//s2 := time.Now()
 				bindv := (*C.TAOS_STMT2_BINDV)(diagnosticsCBuffers.bindVP)
 				bindv.count = C.int(diagnosticsTableIndex)
@@ -713,10 +804,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}()
 		p.wg.Wait()
 	}
-	go func() {
-		batches.reset()
-		p.pool.Put(batches)
-	}()
+	// go func() {
+	// 	batches.reset()
+	// 	p.pool.Put(batches)
+	// }()
+	// p.outTime = time.Now()
 	return metricCnt, rowCount
 }
 
@@ -734,8 +826,14 @@ func (p *processor) Close(doLoad bool) {
 				C.free(p.cBuffers[i].isNullP[0])
 			}
 		}
-		if p.tableNameCBuffer != nil {
-			C.free(p.tableNameCBuffer)
+		if p.hostTableNameCBuffer != nil {
+			C.free(p.hostTableNameCBuffer)
+		}
+		if p.readingsTableNameCBuffer != nil {
+			C.free(p.readingsTableNameCBuffer)
+		}
+		if p.diagnosticsTableNameCBuffer != nil {
+			C.free(p.diagnosticsTableNameCBuffer)
 		}
 		p._db.Put()
 	}
