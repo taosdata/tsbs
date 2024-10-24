@@ -10,9 +10,9 @@ package tdenginestmt2
 */
 import "C"
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -48,6 +48,7 @@ type processor struct {
 	diagnosticsBatchIndexer     []uint32
 
 	_db            *commonpool.Conn
+	buf            *bytes.Buffer
 	wg             *sync.WaitGroup
 	opts           *tdengine.LoadingOptions
 	dbName         string
@@ -67,6 +68,8 @@ type bufferPointer struct {
 	isNullP    []unsafe.Pointer
 }
 
+const Size1M = 1 << 20
+
 func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, useCase byte, scale uint32, partitionTable [3][][]uint32, tableOffset [3][]uint32) *processor {
 	p := &processor{
 		tableSlot:      tableOffset,
@@ -77,7 +80,9 @@ func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, 
 		wg:             &sync.WaitGroup{},
 		useCase:        int(useCase),
 		scale:          scale,
+		buf:            &bytes.Buffer{},
 	}
+	p.buf.Grow(Size1M)
 	return p
 }
 
@@ -424,22 +429,33 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	}
 	rowCount = uint64(batches.cnt)
 	if len(batches.createSql) > 0 {
-		pointsArray := SplitBytes(batches.createSql, runtime.NumCPU())
-		p.wg.Add(len(pointsArray))
-		for i := 0; i < len(pointsArray); i++ {
-			go func(points [][]byte) {
-				for j := 0; j < len(points); j++ {
-					createP := points[j]
-					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(createP))
-					if err != nil {
-						panic(err)
-					}
+		p.buf.Reset()
+		p.buf.WriteString("create table")
+		for i := range batches.createSql {
+			create := (*batches.createSql[i])[6:]
+			if p.buf.Len()+len(create) > Size1M {
+				err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(p.buf.Bytes()))
+				if err != nil {
+					panic(err)
 				}
-				p.wg.Done()
-			}(pointsArray[i])
+				p.buf.Reset()
+				p.buf.WriteString("create table")
+			}
+			p.buf.Write(create)
 		}
-		p.wg.Wait()
+		if p.buf.Len() > 12 {
+			err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(p.buf.Bytes()))
+			if err != nil {
+				fmt.Println(BytesToString(p.buf.Bytes()))
+				panic(err)
+			}
+		}
 	}
+	//go func() {
+	//	for i := range batches.createSql {
+	//		globalSlicePool.Put(batches.createSql)
+	//	}
+	//}()
 
 	switch p.useCase {
 	case CpuCase:
@@ -477,9 +493,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				hostCBuffers.colP[9],
 				hostCBuffers.colP[10],
 			}
-			var row []byte
 			for i := 0; i < len(batches.data); i++ {
-				row = batches.data[i]
+				row := *(batches.data[i])
 				slotID := p.tableSlot[SuperTableHost][*(*uint32)(unsafe.Pointer(&row[2]))]
 				p.hostBatchIndexer = append(p.hostBatchIndexer, slotID)
 				p.hostSlot[slotID] = append(p.hostSlot[slotID], row)
@@ -492,7 +507,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				p.hostSlot[slotID] = p.hostSlot[slotID][:0]
 				rowLen := len(rowData)
 				for i := 0; i < len(rowData); i++ {
-					currentRowData = rowData[i][7:]
+					tmp := rowData[i]
+					currentRowData = tmp[7:len(tmp):len(tmp)]
 					nullByte = currentRowData[0]
 					dataPointer = unsafe.Pointer(&currentRowData[2])
 
@@ -503,20 +519,20 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 					// set col data and is_null
 					for colIndex := 1; colIndex < 11; colIndex++ {
-
 						if colIndex == 8 {
 							nullByte = currentRowData[1]
 						}
-
+						isNullP := currentIsNullPointer[colIndex]
+						dataP := currentDataPointer[colIndex]
 						if nullByte&(1<<(7-(colIndex&7))) != 0 {
 							*(*C.char)(currentIsNullPointer[colIndex]) = C.char(0)
 						} else {
-							*(*C.char)(currentIsNullPointer[colIndex]) = C.char(0)
-							*(*C.int64_t)(currentDataPointer[colIndex]) = *(*C.int64_t)(dataPointer)
+							*(*C.char)(isNullP) = C.char(0)
+							*(*C.int64_t)(dataP) = *(*C.int64_t)(dataPointer)
 						}
 
-						currentIsNullPointer[colIndex] = unsafe.Pointer(uintptr(currentIsNullPointer[colIndex]) + 1)
-						currentDataPointer[colIndex] = unsafe.Pointer(uintptr(currentDataPointer[colIndex]) + 8)
+						currentIsNullPointer[colIndex] = unsafe.Pointer(uintptr(isNullP) + 1)
+						currentDataPointer[colIndex] = unsafe.Pointer(uintptr(dataP) + 8)
 						dataPointer = unsafe.Pointer(uintptr(dataPointer) + 8)
 					}
 
@@ -569,7 +585,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	case IoTCase:
 		var row []byte
 		for i := 0; i < len(batches.data); i++ {
-			row = batches.data[i]
+			row = *batches.data[i]
 			if row[1] == SuperTableReadings {
 				slotID := p.tableSlot[SuperTableReadings][*(*uint32)(unsafe.Pointer(&row[2]))]
 				p.readingsBatchIndexer = append(p.readingsBatchIndexer, slotID)
@@ -619,7 +635,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					p.readingsSlot[slotID] = p.readingsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][7:]
+						tmp := rowData[i]
+						currentRowData = tmp[7:len(tmp):len(tmp)]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -716,7 +733,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					p.diagnosticsSlot[slotID] = p.diagnosticsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][7:]
+						tmp := rowData[i]
+						currentRowData = tmp[7:len(tmp):len(tmp)]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -804,6 +822,9 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}()
 		p.wg.Wait()
 	}
+	go func() {
+		globalSlicePool.Put(batches.data)
+	}()
 	// go func() {
 	// 	batches.reset()
 	// 	p.pool.Put(batches)
@@ -936,4 +957,20 @@ func parseStmt2Binds(fields []*C.TAOS_STMT2_BIND, fieldCount int) ([][]*Bind, er
 		binds[tableIndex] = colBinds
 	}
 	return binds, nil
+}
+func SplitBytes(arr []*[]byte, n int) [][]*[]byte {
+	if n <= 0 {
+		return nil
+	}
+	subArraySize := (len(arr) + n - 1) / n
+	result := make([][]*[]byte, 0, n)
+	for i := 0; i < len(arr); i += subArraySize {
+		end := i + subArraySize
+		if end > len(arr) {
+			end = len(arr)
+		}
+		result = append(result, arr[i:end])
+	}
+
+	return result
 }
