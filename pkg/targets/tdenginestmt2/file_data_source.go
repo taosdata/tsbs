@@ -90,7 +90,7 @@ var globalSlicePool *SlicePool
 func NewSlicePool(worker, batchSize, scale int) *SlicePool {
 	totalItem := (worker*batchSize)*500 + scale*2 + 2
 	arrayLen := worker * 2
-	pool := make(chan []*[]byte, arrayLen)
+	pool := make(chan []*[]byte, arrayLen*50)
 	totalBytes := make([]*[]byte, totalItem)
 	for i := 0; i < totalItem; i++ {
 		bs := make([]byte, 0, 256)
@@ -104,17 +104,21 @@ func NewSlicePool(worker, batchSize, scale int) *SlicePool {
 }
 
 func (p *SlicePool) Get() []*[]byte {
-	return <-p.smallPool
-	//select {
-	//case b := <-p.smallPool:
-	//	return b
-	//default:
-	//	panic("no more slice")
-	//}
+	//return <-p.smallPool
+	select {
+	case b := <-p.smallPool:
+		return b
+	default:
+		panic("no more slice")
+	}
 }
 
 func (p *SlicePool) Put(b []*[]byte) {
-	p.smallPool <- b
+	select {
+	case p.smallPool <- b:
+	default:
+		return
+	}
 }
 
 func (d *fileDataSource) NextItem() data.LoadedPoint {
@@ -174,4 +178,21 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 		globalLoadedPoint.Data = ptr
 		return globalLoadedPoint
 	}
+}
+
+func SplitBytes(arr []*[]byte, n int) [][]*[]byte {
+	if n <= 0 {
+		return nil
+	}
+	subArraySize := (len(arr) + n - 1) / n
+	result := make([][]*[]byte, 0, n)
+	for i := 0; i < len(arr); i += subArraySize {
+		end := i + subArraySize
+		if end > len(arr) {
+			end = len(arr)
+		}
+		result = append(result, arr[i:end])
+	}
+
+	return result
 }
