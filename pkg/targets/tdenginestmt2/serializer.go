@@ -397,7 +397,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		}
 		//|length | type (1 byte,1) | table type(1 byte) | table index (uint32 4 bytes) | sql buffer |
 
-		sqlBuf := fmt.Sprintf("create table %s using %s tags (%s)", subTable, superTable, tmpBuf.Bytes())
+		sqlBuf := fmt.Sprintf(" %s using %s tags (%s)", subTable, superTable, tmpBuf.Bytes())
 		s.writeBuf.Reset()
 		tmpBuf.Reset()
 		length := 6 + len(sqlBuf)

@@ -67,7 +67,7 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 func (b *benchmark) SetConfig(batchSize uint, workers uint) {
 	b.batchSize = batchSize
 
-	b.dataSource.(*fileDataSource).SetMaxCache(int(batchSize * workers * 5))
+	b.dataSource.(*fileDataSource).SetConfig(int(workers), int(batchSize), int(b.scale))
 	factory := b.factory.(*BatchFactory)
 	factory.batchSize = batchSize
 	if workers > 1 {

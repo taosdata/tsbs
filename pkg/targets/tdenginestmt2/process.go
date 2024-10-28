@@ -7,19 +7,25 @@ package tdenginestmt2
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
+extern void QueryCallback2(void *param,TAOS_RES *,int code);
+void taos_query_a_wrapper2(TAOS *taos,const char *sql, void *param){
+	return taos_query_a(taos,sql,QueryCallback2,param);
+};
 */
 import "C"
 import (
 	"context"
 	"fmt"
-	"runtime"
+	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
 	taosCommon "github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine/async"
@@ -40,23 +46,39 @@ type processor struct {
 	hostTableNameCBuffer        unsafe.Pointer
 	readingsTableNameCBuffer    unsafe.Pointer
 	diagnosticsTableNameCBuffer unsafe.Pointer
-	hostSlot                    [][][]byte
-	readingsSlot                [][][]byte
-	diagnosticsSlot             [][][]byte
-	hostBatchIndexer            []uint32
-	readingsBatchIndexer        []uint32
-	diagnosticsBatchIndexer     []uint32
 
-	_db            *commonpool.Conn
-	wg             *sync.WaitGroup
-	opts           *tdengine.LoadingOptions
-	dbName         string
-	useCase        int
-	batchSize      uint
-	scale          uint32
-	partitionTable [3][][]uint32
-	inTime         time.Time
-	outTime        time.Time
+	hostSlot                [][][]byte
+	readingsSlot            [][][]byte
+	diagnosticsSlot         [][][]byte
+	hostBatchIndexer        []uint32
+	readingsBatchIndexer    []uint32
+	diagnosticsBatchIndexer []uint32
+	wg                      *sync.WaitGroup
+	partitionTable          [3][][]uint32
+
+	_db          *commonpool.Conn
+	bufIndex     int
+	cBufPosition unsafe.Pointer
+	cBuf         unsafe.Pointer
+	caller       *async.Caller
+	hp           unsafe.Pointer
+	handle       cgo.Handle
+
+	hostExecCount        int32
+	readingsExecCount    int32
+	diagnosticsExecCount int32
+	createWg             *sync.WaitGroup
+	opts                 *tdengine.LoadingOptions
+	dbName               string
+	useCase              int
+	batchSize            uint
+	scale                uint32
+
+	inTime   time.Time
+	outTime  time.Time
+	id       int
+	exitSign chan struct{}
+	finishWg *sync.WaitGroup
 }
 
 type bufferPointer struct {
@@ -67,6 +89,8 @@ type bufferPointer struct {
 	isNullP    []unsafe.Pointer
 }
 
+const Size1M = 1 << 20
+
 func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, useCase byte, scale uint32, partitionTable [3][][]uint32, tableOffset [3][]uint32) *processor {
 	p := &processor{
 		tableSlot:      tableOffset,
@@ -75,8 +99,11 @@ func newProcessor(opts *tdengine.LoadingOptions, dbName string, batchSize uint, 
 		dbName:         dbName,
 		batchSize:      batchSize,
 		wg:             &sync.WaitGroup{},
+		createWg:       &sync.WaitGroup{},
 		useCase:        int(useCase),
 		scale:          scale,
+		exitSign:       make(chan struct{}, 1),
+		finishWg:       &sync.WaitGroup{},
 	}
 	return p
 }
@@ -91,6 +118,7 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
+	p.id = id
 	var err error
 	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass, p.opts.Host, p.opts.Port)
 	if err != nil {
@@ -106,6 +134,16 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 			panic(err)
 		}
 	}()
+	p.caller = async.NewCaller()
+	p.handle = cgo.NewHandle(p.caller)
+	p.hp = p.handle.Pointer()
+	p.cBuf = C.malloc(Size1M)
+	createTable := []byte("create table")
+	createTableP := unsafe.Pointer(&createTable[0])
+	C.memcpy(p.cBuf, createTableP, C.size_t(12))
+	p.cBufPosition = p.cBuf
+	p.bufIndex = 0
+
 	// max table name 23
 	switch p.useCase {
 	case CpuCase:
@@ -178,6 +216,7 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 			p.hostSlot[i] = make([][]byte, 0, 10)
 		}
 		p.hostBatchIndexer = make([]uint32, 0, p.batchSize)
+		p.receiveHostExecResult()
 
 	case IoTCase:
 		// init stmt2
@@ -292,7 +331,109 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 			p.diagnosticsSlot[i] = make([][]byte, 0, 10)
 		}
 		p.diagnosticsBatchIndexer = make([]uint32, 0, p.batchSize)
+
+		p.receiveReadingsExecResult()
+		p.receiveDiagnosticsExecResult()
 	}
+}
+
+func (p *processor) receiveHostExecResult() {
+	p.finishWg.Add(1)
+	go func() {
+		defer p.finishWg.Done()
+		stmtHandler := p.stmt2CHandle[CpuHandleIndex]
+		handle := p.stmt2CBHandle[CpuHandleIndex]
+		exitSign := p.exitSign
+		for {
+			select {
+			case result := <-handle.Caller.ExecResult:
+				if result.Code != 0 {
+					errStr := wrapper.TaosStmt2Error(stmtHandler)
+					panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+				}
+				atomic.AddInt32(&p.hostExecCount, -1)
+			case <-exitSign:
+				c := atomic.LoadInt32(&p.hostExecCount)
+				if c == 0 {
+					return
+				}
+				for i := int32(0); i < c; i++ {
+					result := <-handle.Caller.ExecResult
+					if result.Code != 0 {
+						errStr := wrapper.TaosStmt2Error(stmtHandler)
+						panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+					}
+				}
+				return
+			}
+		}
+	}()
+}
+
+func (p *processor) receiveReadingsExecResult() {
+	p.finishWg.Add(1)
+	go func() {
+		defer p.finishWg.Done()
+		stmtHandler := p.stmt2CHandle[ReadingsHandleIndex]
+		handle := p.stmt2CBHandle[ReadingsHandleIndex]
+		exitSign := p.exitSign
+		for {
+			select {
+			case result := <-handle.Caller.ExecResult:
+				if result.Code != 0 {
+					errStr := wrapper.TaosStmt2Error(stmtHandler)
+					panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+				}
+				atomic.AddInt32(&p.readingsExecCount, -1)
+			case <-exitSign:
+				c := atomic.LoadInt32(&p.readingsExecCount)
+				if c == 0 {
+					return
+				}
+				for i := int32(0); i < c; i++ {
+					result := <-handle.Caller.ExecResult
+					if result.Code != 0 {
+						errStr := wrapper.TaosStmt2Error(stmtHandler)
+						panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+					}
+				}
+				return
+			}
+		}
+	}()
+}
+
+func (p *processor) receiveDiagnosticsExecResult() {
+	p.finishWg.Add(1)
+	go func() {
+		defer p.finishWg.Done()
+		stmtHandler := p.stmt2CHandle[DiagnosticsHandleIndex]
+		handle := p.stmt2CBHandle[DiagnosticsHandleIndex]
+		exitSign := p.exitSign
+		for {
+			select {
+			case result := <-handle.Caller.ExecResult:
+				if result.Code != 0 {
+					errStr := wrapper.TaosStmt2Error(stmtHandler)
+					panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+				}
+				atomic.AddInt32(&p.diagnosticsExecCount, -1)
+			case <-exitSign:
+				c := atomic.LoadInt32(&p.diagnosticsExecCount)
+				if c == 0 {
+					return
+				}
+				for i := int32(0); i < c; i++ {
+					result := <-handle.Caller.ExecResult
+					if result.Code != 0 {
+						errStr := wrapper.TaosStmt2Error(stmtHandler)
+						panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+					}
+				}
+				return
+			}
+		}
+	}()
 }
 
 //typedef struct TAOS_STMT2_BINDV {
@@ -404,19 +545,7 @@ func allocBuffer(partitionTables int, batchSize int, colSize []int, colTypes []i
 	return buffer
 }
 
-var totalGenerateTime time.Duration
-var totalCTime time.Duration
-
-var rtotalGenerateTime time.Duration
-var rtotalCTime time.Duration
-var dtotalGenerateTime time.Duration
-var dtotalCTime time.Duration
-
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
-	// p.inTime = time.Now()
-	// if !p.outTime.IsZero() {
-	//fmt.Printf("time: %s\n", p.inTime.Sub(p.outTime))
-	// }
 	batches := b.(*hypertableArr)
 	metricCnt := batches.totalMetric
 	if !doLoad {
@@ -424,26 +553,48 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	}
 	rowCount = uint64(batches.cnt)
 	if len(batches.createSql) > 0 {
-		pointsArray := SplitBytes(batches.createSql, runtime.NumCPU())
-		p.wg.Add(len(pointsArray))
-		for i := 0; i < len(pointsArray); i++ {
-			go func(points [][]byte) {
-				for j := 0; j < len(points); j++ {
-					createP := points[j]
-					err := async.GlobalAsync.TaosExecWithoutResult(p._db.TaosConnection, BytesToString(createP))
-					if err != nil {
-						panic(err)
+		p.createWg.Add(1)
+		go func() {
+			sqls := batches.createSql
+			p.cBufPosition = unsafe.Pointer(uintptr(p.cBuf) + 12)
+			p.bufIndex = 12
+			for i := range sqls {
+				sh := (*reflect.SliceHeader)(unsafe.Pointer(sqls[i]))
+				createSize := sh.Len - 6
+				if p.bufIndex+createSize >= Size1M {
+					*(*C.char)(p.cBufPosition) = C.char(0)
+					C.taos_query_a_wrapper2(p._db.TaosConnection, (*C.char)(p.cBuf), p.hp)
+					res := <-p.caller.QueryResult
+					if res.N != 0 {
+						panic(wrapper.TaosErrorStr(res.Res))
 					}
+					go func(result unsafe.Pointer) {
+						C.taos_free_result(result)
+					}(res.Res)
+					p.cBufPosition = unsafe.Pointer(uintptr(p.cBuf) + 12)
+					p.bufIndex = 12
 				}
-				p.wg.Done()
-			}(pointsArray[i])
-		}
-		p.wg.Wait()
+				C.memcpy(p.cBufPosition, unsafe.Pointer(sh.Data+6), C.size_t(createSize))
+				p.cBufPosition = unsafe.Pointer(uintptr(p.cBufPosition) + uintptr(createSize))
+				p.bufIndex += createSize
+			}
+			if p.bufIndex > 12 {
+				*(*C.char)(p.cBufPosition) = C.char(0)
+				C.taos_query_a_wrapper2(p._db.TaosConnection, (*C.char)(p.cBuf), p.hp)
+				res := <-p.caller.QueryResult
+				if res.N != 0 {
+					panic(wrapper.TaosErrorStr(res.Res))
+				}
+				go func(result unsafe.Pointer) {
+					C.taos_free_result(result)
+				}(res.Res)
+			}
+			p.createWg.Done()
+		}()
 	}
 
 	switch p.useCase {
 	case CpuCase:
-		//s := time.Now()
 		if len(batches.data) > 0 {
 			var bind *C.TAOS_STMT2_BIND
 			hostTableIndex := 0
@@ -477,9 +628,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				hostCBuffers.colP[9],
 				hostCBuffers.colP[10],
 			}
-			var row []byte
 			for i := 0; i < len(batches.data); i++ {
-				row = batches.data[i]
+				row := *(batches.data[i])
 				slotID := p.tableSlot[SuperTableHost][*(*uint32)(unsafe.Pointer(&row[2]))]
 				p.hostBatchIndexer = append(p.hostBatchIndexer, slotID)
 				p.hostSlot[slotID] = append(p.hostSlot[slotID], row)
@@ -492,7 +642,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				p.hostSlot[slotID] = p.hostSlot[slotID][:0]
 				rowLen := len(rowData)
 				for i := 0; i < len(rowData); i++ {
-					currentRowData = rowData[i][7:]
+					tmp := rowData[i]
+					currentRowData = tmp[7:len(tmp):len(tmp)]
 					nullByte = currentRowData[0]
 					dataPointer = unsafe.Pointer(&currentRowData[2])
 
@@ -503,20 +654,20 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 					// set col data and is_null
 					for colIndex := 1; colIndex < 11; colIndex++ {
-
 						if colIndex == 8 {
 							nullByte = currentRowData[1]
 						}
-
+						isNullP := currentIsNullPointer[colIndex]
+						dataP := currentDataPointer[colIndex]
 						if nullByte&(1<<(7-(colIndex&7))) != 0 {
 							*(*C.char)(currentIsNullPointer[colIndex]) = C.char(0)
 						} else {
-							*(*C.char)(currentIsNullPointer[colIndex]) = C.char(0)
-							*(*C.int64_t)(currentDataPointer[colIndex]) = *(*C.int64_t)(dataPointer)
+							*(*C.char)(isNullP) = C.char(0)
+							*(*C.int64_t)(dataP) = *(*C.int64_t)(dataPointer)
 						}
 
-						currentIsNullPointer[colIndex] = unsafe.Pointer(uintptr(currentIsNullPointer[colIndex]) + 1)
-						currentDataPointer[colIndex] = unsafe.Pointer(uintptr(currentDataPointer[colIndex]) + 8)
+						currentIsNullPointer[colIndex] = unsafe.Pointer(uintptr(isNullP) + 1)
+						currentDataPointer[colIndex] = unsafe.Pointer(uintptr(dataP) + 8)
 						dataPointer = unsafe.Pointer(uintptr(dataPointer) + 8)
 					}
 
@@ -534,17 +685,14 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				hostTableIndex += 1
 			}
 			p.hostBatchIndexer = p.hostBatchIndexer[:0]
-			//s2 := time.Now()
 
 			// stmt2 bind
 			bindv := (*C.TAOS_STMT2_BINDV)(hostCBuffers.bindVP)
 			bindv.count = C.int(hostTableIndex)
 			handler := p.stmt2CHandle[CpuHandleIndex]
-			//bv, err := parseStmt2Bindv(*bindv, 4, 0)
-			//if err != nil {
-			//	panic(err)
-			//}
-			//_ = bv
+			if len(batches.createSql) > 0 {
+				p.createWg.Wait()
+			}
 			code := int(C.taos_stmt2_bind_param(handler, bindv, C.int32_t(-1)))
 			if code != 0 {
 				errStr := wrapper.TaosStmt2Error(handler)
@@ -555,21 +703,13 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				errStr := wrapper.TaosStmt2Error(handler)
 				panic(fmt.Errorf("failed to exec stmt2: %d:%s", code, errStr))
 			}
-			result := <-p.stmt2CBHandle[CpuHandleIndex].Caller.ExecResult
-			if result.Code != 0 {
-				errStr := wrapper.TaosStmt2Error(handler)
-				panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
-			}
-			//s3 := time.Now()
-			//totalGenerateTime += s2.Sub(s)
-			//totalCTime += s3.Sub(s2)
-			//fmt.Printf("generate time: %s, c time: %s, rate: %f\n", totalGenerateTime, totalCTime, float64(totalGenerateTime)/float64(totalCTime)*100)
+			atomic.AddInt32(&p.hostExecCount, 1)
 		}
 
 	case IoTCase:
 		var row []byte
 		for i := 0; i < len(batches.data); i++ {
-			row = batches.data[i]
+			row = *batches.data[i]
 			if row[1] == SuperTableReadings {
 				slotID := p.tableSlot[SuperTableReadings][*(*uint32)(unsafe.Pointer(&row[2]))]
 				p.readingsBatchIndexer = append(p.readingsBatchIndexer, slotID)
@@ -582,7 +722,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 		}
 		p.wg.Add(2)
 		go func() {
-			//s := time.Now()
 			if len(p.readingsBatchIndexer) > 0 {
 				var bind *C.TAOS_STMT2_BIND
 				readingTableIndex := 0
@@ -610,7 +749,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					readingCBuffers.colP[6],
 					readingCBuffers.colP[7],
 				}
-
+				//s := time.Now()
 				for _, slotID := range p.readingsBatchIndexer {
 					rowData := p.readingsSlot[slotID]
 					if len(rowData) == 0 {
@@ -619,7 +758,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					p.readingsSlot[slotID] = p.readingsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][7:]
+						tmp := rowData[i]
+						currentRowData = tmp[7:len(tmp):len(tmp)]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -655,15 +795,13 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					readingTableIndex += 1
 				}
 				p.readingsBatchIndexer = p.readingsBatchIndexer[:0]
-				//s2 := time.Now()
 				bindv := (*C.TAOS_STMT2_BINDV)(readingCBuffers.bindVP)
 				bindv.count = C.int(readingTableIndex)
 				handler := p.stmt2CHandle[ReadingsHandleIndex]
-				//bv, err := parseStmt2Bindv(*bindv, 4, 0)
-				//if err != nil {
-				//	panic(err)
-				//}
-				//_ = bv
+				//fmt.Printf("prepare time: %v\n", time.Since(s))
+				if len(batches.createSql) > 0 {
+					p.createWg.Wait()
+				}
 				code := int(C.taos_stmt2_bind_param(handler, bindv, C.int32_t(-1)))
 				if code != 0 {
 					errStr := wrapper.TaosStmt2Error(handler)
@@ -674,20 +812,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					errStr := wrapper.TaosStmt2Error(handler)
 					panic(fmt.Errorf("failed to exec stmt2: %d:%s", code, errStr))
 				}
-				result := <-p.stmt2CBHandle[ReadingsHandleIndex].Caller.ExecResult
-				if result.Code != 0 {
-					errStr := wrapper.TaosStmt2Error(handler)
-					panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
-				}
-				//s3 := time.Now()
-				//rtotalGenerateTime += s2.Sub(s)
-				//rtotalCTime += s3.Sub(s2)
-				//fmt.Printf("r generate time: %s, c time: %s, rate: %f\n", rtotalGenerateTime, rtotalCTime, float64(rtotalGenerateTime)/float64(rtotalCTime)*100)
+				atomic.AddInt32(&p.readingsExecCount, 1)
 			}
 			p.wg.Done()
 		}()
 		go func() {
-			//s := time.Now()
 			if len(p.diagnosticsBatchIndexer) > 0 {
 				var bind *C.TAOS_STMT2_BIND
 				diagnosticsTableIndex := 0
@@ -716,7 +845,8 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					p.diagnosticsSlot[slotID] = p.diagnosticsSlot[slotID][:0]
 					rowLen := len(rowData)
 					for i := 0; i < len(rowData); i++ {
-						currentRowData = rowData[i][7:]
+						tmp := rowData[i]
+						currentRowData = tmp[7:len(tmp):len(tmp)]
 						nullByte = currentRowData[0]
 						dataPointer = unsafe.Pointer(&currentRowData[1])
 
@@ -770,15 +900,12 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					diagnosticsTableIndex += 1
 				}
 				p.diagnosticsBatchIndexer = p.diagnosticsBatchIndexer[:0]
-				//s2 := time.Now()
 				bindv := (*C.TAOS_STMT2_BINDV)(diagnosticsCBuffers.bindVP)
 				bindv.count = C.int(diagnosticsTableIndex)
 				handler := p.stmt2CHandle[DiagnosticsHandleIndex]
-				//bv, err := parseStmt2Bindv(*bindv, 4, 0)
-				//if err != nil {
-				//	panic(err)
-				//}
-				//_ = bv
+				if len(batches.createSql) > 0 {
+					p.createWg.Wait()
+				}
 				code := int(C.taos_stmt2_bind_param(handler, bindv, C.int32_t(-1)))
 				if code != 0 {
 					errStr := wrapper.TaosStmt2Error(handler)
@@ -789,53 +916,31 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					errStr := wrapper.TaosStmt2Error(handler)
 					panic(fmt.Errorf("failed to exec stmt2: %d:%s", code, errStr))
 				}
-				result := <-p.stmt2CBHandle[DiagnosticsHandleIndex].Caller.ExecResult
-				if result.Code != 0 {
-					errStr := wrapper.TaosStmt2Error(handler)
-					panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
-				}
-				//s3 := time.Now()
-				//dtotalGenerateTime += s2.Sub(s)
-				//dtotalCTime += s3.Sub(s2)
-				//fmt.Printf("d generate time: %s, c time: %s, rate: %f\n", dtotalGenerateTime, dtotalCTime, float64(dtotalGenerateTime)/float64(dtotalCTime)*100)
+				atomic.AddInt32(&p.diagnosticsExecCount, 1)
+				//s := time.Now()
+				//result := <-p.stmt2CBHandle[DiagnosticsHandleIndex].Caller.ExecResult
+				//if result.Code != 0 {
+				//	errStr := wrapper.TaosStmt2Error(handler)
+				//	panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
+				//}
+				//fmt.Printf("diagnostics exec time: %v\n", time.Since(s))
 			}
 
 			p.wg.Done()
 		}()
 		p.wg.Wait()
 	}
-	// go func() {
-	// 	batches.reset()
-	// 	p.pool.Put(batches)
-	// }()
-	// p.outTime = time.Now()
+	go func() {
+		globalSlicePool.Put(batches.data)
+	}()
+	//p.outTime = time.Now()
 	return metricCnt, rowCount
 }
 
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
-		for i := 0; i < 3; i++ {
-			if p.stmt2CHandle[i] != nil {
-				wrapper.TaosStmt2Close(p.stmt2CHandle[i])
-				p.stmt2CHandle[i] = nil
-				async.GlobalAsync.HandlerPool.Put(p.stmt2CBHandle[i])
-			}
-			if p.cBuffers[i] != nil {
-				C.free(p.cBuffers[i].bindVP)
-				C.free(p.cBuffers[i].colP[0])
-				C.free(p.cBuffers[i].isNullP[0])
-			}
-		}
-		if p.hostTableNameCBuffer != nil {
-			C.free(p.hostTableNameCBuffer)
-		}
-		if p.readingsTableNameCBuffer != nil {
-			C.free(p.readingsTableNameCBuffer)
-		}
-		if p.diagnosticsTableNameCBuffer != nil {
-			C.free(p.diagnosticsTableNameCBuffer)
-		}
-		p._db.Put()
+		close(p.exitSign)
+		p.finishWg.Wait()
 	}
 }
 

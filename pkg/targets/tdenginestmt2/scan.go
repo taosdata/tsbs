@@ -153,13 +153,13 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 }
 
 func (i *indexer) GetIndex(item data.LoadedPoint) uint {
-	p := item.Data.([]byte)
+	p := *item.Data.(*[]byte)
 	return i.cache[p[1]][*(*uint32)(unsafe.Pointer(&p[2]))]
 }
 
 type hypertableArr struct {
-	data        [][]byte
-	createSql   [][]byte
+	data        []*[]byte
+	createSql   []*[]byte
 	totalMetric uint64
 	cnt         uint
 }
@@ -169,12 +169,14 @@ func (ha *hypertableArr) Len() uint {
 }
 
 func (ha *hypertableArr) Append(item data.LoadedPoint) {
-	p := item.Data.([]byte)
-	if p[0] == InsertData {
-		if p[6] != 1 {
+	p := item.Data.(*[]byte)
+	s := *p
+	_ = s[7]
+	if s[0] == InsertData {
+		if s[6] != 1 {
 			ha.data = append(ha.data, p)
 		}
-		switch p[1] {
+		switch s[1] {
 		case SuperTableHost:
 			ha.totalMetric += 10
 		case SuperTableReadings:
@@ -182,11 +184,11 @@ func (ha *hypertableArr) Append(item data.LoadedPoint) {
 		case SuperTableDiagnostics:
 			ha.totalMetric += 3
 		default:
-			fatal("invalid table type:%d", p[1])
+			fatal("invalid table type:%d", s[1])
 		}
 		ha.cnt++
 	} else {
-		ha.createSql = append(ha.createSql, p[6:])
+		ha.createSql = append(ha.createSql, p)
 	}
 }
 
@@ -196,7 +198,7 @@ type BatchFactory struct {
 
 func (b *BatchFactory) New() targets.Batch {
 	return &hypertableArr{
-		data: make([][]byte, 0, b.batchSize),
+		data: make([]*[]byte, 0, b.batchSize),
 	}
 }
 
