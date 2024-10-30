@@ -10,12 +10,12 @@ import (
 	"github.com/taosdata/tsbs/pkg/targets"
 )
 
-// indexer is used to consistently send the same hostnames to the same worker
-type indexer struct {
+// Indexer is used to consistently send the same hostnames to the same worker
+type Indexer struct {
 	cache [3][]uint
 }
 
-func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase byte, scale uint32) (_ *indexer, _ [3][]uint32, hostTableIndex [][]uint32, readingsTableIndex [][]uint32, diagnosticsTableIndex [][]uint32) {
+func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase byte, scale uint32) (_ *Indexer, _ [3][]uint32, hostTableIndex [][]uint32, readingsTableIndex [][]uint32, diagnosticsTableIndex [][]uint32) {
 	cache := [3][]uint{}
 	buf := &bytes.Buffer{}
 	var idx uint32
@@ -56,7 +56,7 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 				}
 			}
 		}
-		return &indexer{
+		return &Indexer{
 				cache: cache,
 			},
 			[3][]uint32{
@@ -136,7 +136,7 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 			}
 		}
 
-		return &indexer{
+		return &Indexer{
 				cache: cache,
 			},
 			[3][]uint32{
@@ -152,7 +152,7 @@ func NewIndexer(prefix []byte, partitions int, hashEndGroups []uint32, useCase b
 	}
 }
 
-func (i *indexer) GetIndex(item data.LoadedPoint) uint {
+func (i *Indexer) GetIndex(item data.LoadedPoint) uint {
 	p := *item.Data.(*[]byte)
 	return i.cache[p[1]][*(*uint32)(unsafe.Pointer(&p[2]))]
 }

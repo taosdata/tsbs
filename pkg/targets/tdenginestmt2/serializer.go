@@ -68,13 +68,6 @@ func FastFormat(buf *bytes.Buffer, v interface{}) {
 	}
 }
 
-//const (
-//	Insert         = '1'
-//	CreateSTable   = '2'
-//	CreateSubTable = '3'
-//	Modify         = '4'
-//)
-
 type tbNameRule struct {
 	tag      string
 	prefix   string

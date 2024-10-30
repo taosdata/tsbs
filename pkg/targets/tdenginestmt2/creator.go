@@ -32,23 +32,5 @@ func (d *DbCreator) PostCreateDB(dbName string) error {
 			return err
 		}
 	}
-	//points := d.ds.FillCache()
-	//log.Debugf("create table count: %d", len(points))
-	//pointsArray := SplitBytes(points, runtime.NumCPU())
-	//wg := &sync.WaitGroup{}
-	//wg.Add(len(pointsArray))
-	//for i := 0; i < len(pointsArray); i++ {
-	//	go func(points [][]byte) {
-	//		for j := 0; j < len(points); j++ {
-	//			p := points[j]
-	//			err := async.GlobalAsync.TaosExecWithoutResult(d.Db.TaosConnection, BytesToString(p))
-	//			if err != nil {
-	//				panic(err)
-	//			}
-	//		}
-	//		wg.Done()
-	//	}(pointsArray[i])
-	//}
-	//wg.Wait()
 	return nil
 }

@@ -48,7 +48,7 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return b.factory
 }
 
-func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
+func (b *benchmark) GetPointIndexer(uint) targets.PointIndexer {
 	return b.indexer
 }
 

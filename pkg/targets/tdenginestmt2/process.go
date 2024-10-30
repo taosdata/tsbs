@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 	"unsafe"
 
 	taosCommon "github.com/taosdata/driver-go/v3/common"
@@ -74,9 +73,6 @@ type processor struct {
 	batchSize            uint
 	scale                uint32
 
-	inTime   time.Time
-	outTime  time.Time
-	id       int
 	exitSign chan struct{}
 	finishWg *sync.WaitGroup
 }
@@ -118,7 +114,6 @@ func (p *processor) Init(id int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
-	p.id = id
 	var err error
 	p._db, err = commonpool.GetConnection(p.opts.User, p.opts.Pass, p.opts.Host, p.opts.Port)
 	if err != nil {
@@ -749,7 +744,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					readingCBuffers.colP[6],
 					readingCBuffers.colP[7],
 				}
-				//s := time.Now()
+
 				for _, slotID := range p.readingsBatchIndexer {
 					rowData := p.readingsSlot[slotID]
 					if len(rowData) == 0 {
@@ -798,7 +793,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				bindv := (*C.TAOS_STMT2_BINDV)(readingCBuffers.bindVP)
 				bindv.count = C.int(readingTableIndex)
 				handler := p.stmt2CHandle[ReadingsHandleIndex]
-				//fmt.Printf("prepare time: %v\n", time.Since(s))
+
 				if len(batches.createSql) > 0 {
 					p.createWg.Wait()
 				}
@@ -917,13 +912,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					panic(fmt.Errorf("failed to exec stmt2: %d:%s", code, errStr))
 				}
 				atomic.AddInt32(&p.diagnosticsExecCount, 1)
-				//s := time.Now()
-				//result := <-p.stmt2CBHandle[DiagnosticsHandleIndex].Caller.ExecResult
-				//if result.Code != 0 {
-				//	errStr := wrapper.TaosStmt2Error(handler)
-				//	panic(fmt.Errorf("failed to exec stmt2: %d:%s", result.Code, errStr))
-				//}
-				//fmt.Printf("diagnostics exec time: %v\n", time.Since(s))
 			}
 
 			p.wg.Done()
@@ -933,7 +921,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	go func() {
 		globalSlicePool.Put(batches.data)
 	}()
-	//p.outTime = time.Now()
 	return metricCnt, rowCount
 }
 
@@ -942,103 +929,4 @@ func (p *processor) Close(doLoad bool) {
 		close(p.exitSign)
 		p.finishWg.Wait()
 	}
-}
-
-type Bind struct {
-	BufferType int
-	Num        int
-	Length     []int32
-	IsNull     []byte
-	Buffer     [][]byte
-}
-
-type Bindv struct {
-	Count    int
-	TbNames  []string
-	Tags     [][]*Bind
-	BindCols [][]*Bind
-}
-
-func parseStmt2Bindv(cBindv C.TAOS_STMT2_BINDV, colCount int, tagCount int) (*Bindv, error) {
-	bindsV := &Bindv{
-		Count: int(cBindv.count),
-	}
-	if cBindv.tbnames != nil {
-		tbnames := (*[1 << 30]*C.char)(unsafe.Pointer(cBindv.tbnames))[:int(cBindv.count):int(cBindv.count)]
-		for i := 0; i < int(cBindv.count); i++ {
-			bindsV.TbNames = append(bindsV.TbNames, C.GoString(tbnames[i]))
-		}
-	}
-	count := int(cBindv.count)
-	if cBindv.bind_cols != nil {
-		cols := (*[1 << 30]*C.TAOS_STMT2_BIND)(unsafe.Pointer(cBindv.bind_cols))[:count:count]
-		binds, err := parseStmt2Binds(cols, colCount)
-		if err != nil {
-			return nil, err
-		}
-		bindsV.BindCols = binds
-	}
-	if cBindv.tags != nil {
-		tags := (*[1 << 30]*C.TAOS_STMT2_BIND)(unsafe.Pointer(cBindv.tags))[:count:count]
-		binds, err := parseStmt2Binds(tags, tagCount)
-		if err != nil {
-			return nil, err
-		}
-		bindsV.Tags = binds
-	}
-	return bindsV, nil
-}
-
-func parseStmt2Binds(fields []*C.TAOS_STMT2_BIND, fieldCount int) ([][]*Bind, error) {
-	count := len(fields)
-	binds := make([][]*Bind, count)
-	for tableIndex := 0; tableIndex < count; tableIndex++ {
-		tableCols := fields[tableIndex]
-		tableColsSlice := (*[1 << 30]C.TAOS_STMT2_BIND)(unsafe.Pointer(tableCols))[:fieldCount:fieldCount]
-		colBinds := make([]*Bind, fieldCount)
-		for i := 0; i < fieldCount; i++ {
-			col := tableColsSlice[i]
-			num := int(col.num)
-			bufferType := int(col.buffer_type)
-			b := &Bind{
-				BufferType: bufferType,
-				Num:        num,
-			}
-			if col.length != nil {
-				lengthArray := (*[1 << 30]int32)(unsafe.Pointer(col.length))[:num:num]
-				b.Length = lengthArray
-			}
-			if col.is_null != nil {
-				isNull := C.GoBytes(unsafe.Pointer(col.is_null), C.int(num))
-				b.IsNull = isNull
-			}
-			if col.buffer != nil {
-				buffer := make([][]byte, num)
-				offset := 0
-				if b.Length != nil {
-					for j := 0; j < num; j++ {
-						if b.Length[j] == 0 {
-							buffer[j] = nil
-						} else {
-							buffer[j] = C.GoBytes(unsafe.Pointer(uintptr(unsafe.Pointer(col.buffer))+uintptr(offset)), C.int(b.Length[j]))
-							offset += int(b.Length[j])
-						}
-					}
-				} else {
-					bufLength, ok := taosCommon.TypeLengthMap[bufferType]
-					if !ok {
-						return nil, fmt.Errorf("buffer type %d not found", bufferType)
-					}
-					for j := 0; j < num; j++ {
-						buffer[j] = C.GoBytes(unsafe.Pointer(uintptr(unsafe.Pointer(col.buffer))+uintptr(offset)), C.int(bufLength))
-						offset += bufLength
-					}
-				}
-				b.Buffer = buffer
-			}
-			colBinds[i] = b
-		}
-		binds[tableIndex] = colBinds
-	}
-	return binds, nil
 }
