@@ -66,6 +66,9 @@ func (a *Async) TaosExec(taosConnect unsafe.Pointer, sql string, timeFormat pars
 		}
 		if result.N == 0 {
 			return execResult, nil
+		} else if result.N < 0 {
+			errStr := wrapper.TaosErrorStr(result.Res)
+			return nil, tErrors.NewError(result.N, errStr)
 		} else {
 			res = result.Res
 			block := wrapper.TaosGetRawBlock(res)
