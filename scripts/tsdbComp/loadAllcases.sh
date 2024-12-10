@@ -113,13 +113,13 @@ load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/"
 load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
 
 # excute testcase
-echo "TS_START="$3" TS_END="$4"  DATABASE_HOST="$1" SERVER_PASSWORD="$2" BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir}  NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} SCALES="$5" DATABASE_NAME="benchmark$9$caseType"  WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" ./loadtest.sh "
+echo "TS_START="$3" TS_END="$4"  DATABASE_HOST="$1" SERVER_PASSWORD="$2" BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir}  NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} SCALES="$5" DATABASE_NAME="benchmark$caseType"  WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" ./loadtest.sh "
 
 TS_START="$3" TS_END="$4"  \
 DATABASE_HOST="$1" SERVER_PASSWORD="$2"  \
 BULK_DATA_DIR=${load_dataDir} BULK_DATA_DIR_RES_LOAD=${load_resultDir} \
 NUM_WORKERS="$7" USE_CASES="$6" FORMATS="$9" BATCH_SIZES="$8" CASE_TYPE=${caseType} \
-SCALES="$5" DATABASE_NAME="benchmark$9$caseType" WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" TRIGGER=${triggers} ./loadtest.sh 
+SCALES="$5" DATABASE_NAME="benchmark$caseType" WALFSYNCPERIOD="$load_fsync"  VGROUPS="$vgroups" TRIGGER=${triggers} ./loadtest.sh 
 
 
 if [ ${caseType} != "userdefined" ];then
