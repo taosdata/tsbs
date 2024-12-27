@@ -102,7 +102,7 @@ echo "=============timescaledb in centos: remove and install  ============="
   yum remove postgresql-14 -y
   yum remove timescaledb-2-postgresql-14 -y
 #   yum remove postgresql-14 -y
-  yum install timescaledb-2-postgresql-14 -y
+  yum install timescaledb-2-postgresql-14='2.13.0*'  timescaledb-2-loader-postgresql-14='2.13.0*' -y
 
 echo "=============timescaledb in centos: start ============="
   # configure postgresql 
@@ -171,7 +171,7 @@ function install_timescale_ubuntu {
   apt remove postgresql-14 -y
   apt remove timescaledb-2-postgresql-14 -y
   apt install postgresql-14 -y
-  apt install timescaledb-2-postgresql-14 -y 
+  apt install timescaledb-2-postgresql-14='2.13.0*'  --allow-downgrades timescaledb-2-loader-postgresql-14='2.13.0*'  -y 
 
   echo "============timescaledb in ubuntu: configure and start postgresql ============="
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
@@ -224,11 +224,19 @@ function install_TDengine {
   echo "=============reinstall TDengine  in ubuntu ============="
   cd ${installPath}
   sudo apt-get install -y gcc cmake build-essential git libssl-dev
-  git clone https://github.com/taosdata/TDengine.git
-  cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
+  if [ ! -d "TDengine" ];then
+    git clone https://github.com/taosdata/TDengine.git
+  fi
+  if [ caseType == "cpu" ];then
+    cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
+  else 
+    cd TDengine && git checkout 1bea5a53c27e18d19688f4d38596413272484900
+  fi
+
   if [ -d "debug/" ];then
       rm -rf debug 
   fi
+  sed -i "s/\-Werror / /g" cmake/cmake.define
   mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
   systemctl status taosd
   taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
@@ -236,12 +244,14 @@ function install_TDengine {
     echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
   fi
   fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
-  fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
   if [ -z "${fqdnCPar}" ];then
     echo -e  "\n${clientIP} ${clientHost} \n"  >> /etc/hosts
   fi
-  if [ -z "${fqdnSPar}" ];then
-    echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
+  if [ "${clientIP}" != "${serverIP}" ];then
+    fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
+    if [ -z "${fqdnSPar}" ];then
+      echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
+    fi
   fi
 }
 

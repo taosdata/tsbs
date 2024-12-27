@@ -47,12 +47,42 @@ MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
+clientHost=`hostname`
 
 function ceil(){
   floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
   add=`awk -v num1=$floor -v num2=$1 'BEGIN{print(num1<num2)?"1":"0"}'`
   echo `expr $floor  + $add`
 }
+
+echo "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
+function run_command() {
+    local command="$1"
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        eval "$command"
+    else
+        # 远程执行
+        sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST << eeooff
+            $command
+            exit
+eeooff
+    fi
+}
+
+function set_command() {
+    local command=$1
+    local result
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        result=$(eval "$command")
+    else
+        # 远程执行
+         result=`sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST "$command"`
+    fi
+    echo "$result"
+}
+
 
 set -eo pipefail
 # generate data
@@ -110,20 +140,26 @@ WAL_LEVEL=${WAL_LEVEL:-"2"}
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
+
 echo "---------------  Clean  -----------------"
-sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-echo 1 > /proc/sys/vm/drop_caches
-systemctl restart influxd
-systemctl restart postgresql
-sleep 1
-exit
-eeooff
+run_command "echo 1 > /proc/sys/vm/drop_caches
+    systemctl restart influxd
+    systemctl restart postgresql
+    sleep 1
+"
+
+# checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
+if [ ${clientHost} == ${DATABASE_HOST} ];then
+    ioStatusPa=false
+else
+    ioStatusPa=true
+fi
 
 
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " `
+    disk_usage_before=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " )
     echo $disk_usage_before
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
@@ -159,7 +195,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             
-            disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
+            disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
             timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
             if  [[ ${CASE_TYPE} == "userdefined" ]] || [[ ${CASE_TYPE} == "cputest" ]] ;then
                 timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
@@ -177,20 +213,17 @@ if [ "${FORMAT}" == "timescaledb" ];then
         done
     fi
     echo `date +%Y_%m%d_%H%M%S`"timescaledb data compression has been completed"
-    disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
+    disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
     echo "${disk_usage_before} ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ];then
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-    rm -rf ${InfPath}/*
+    run_command "rm -rf ${InfPath}/*
     systemctl restart influxd
-    sleep 1
-    exit
-eeooff
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
+    sleep 1"
+    disk_usage_before=`set_command "du -s ${InfPath}/data | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
@@ -200,11 +233,11 @@ eeooff
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     echo `date +%Y_%m%d_%H%M%S`":influxdb data is being compressed"
-    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=true
+    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
+
     while ${ioStatusPa}
     do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+        set_command "dool -tdc --output /usr/local/src/teststatus.log 5 7"
         sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
         iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
         cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
@@ -219,33 +252,29 @@ eeooff
         fi
     done
     echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
-    disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
+    set_command "rm -rf /usr/local/src/teststatus.log"
+    disk_usage_after=`set_command "du -s ${InfPath}/data | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-    rm -rf ${InfPath}/*
+    run_command "rm -rf ${InfPath}/*
     systemctl restart influxd
-    sleep 1
-    exit
-eeooff
+    sleep 1"
 elif [  ${FORMAT} == "TDengine" ];then
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
-    echo `date +%Y_%m%d_%H%M%S`":start to stop taosd and remove data ${TDPath} "
+    run_command "
+    echo `date +%Y_%m%d_%H%M%S`\":start to stop taosd and remove data ${TDPath}\"
     systemctl stop taosd
     rm -rf ${TDPath}/*
-    echo `date +%Y_%m%d_%H%M%S`":finish  remove data ${TDPath} "
-    echo `date +%Y_%m%d_%H%M%S`":restart taosd "
+    echo `date +%Y_%m%d_%H%M%S`\":finish  remove data ${TDPath} \"
+    echo `date +%Y_%m%d_%H%M%S`\":restart taosd \"
     systemctl start taosd
-    echo `date +%Y_%m%d_%H%M%S`":check status of taosd "
+    echo `date +%Y_%m%d_%H%M%S`\":check status of taosd \"
     systemctl status taosd
-    echo `date +%Y_%m%d_%H%M%S`":restart successfully"
-    sleep 2
-    exit
-eeooff
+    echo `date +%Y_%m%d_%H%M%S`\":restart successfully\"
+    sleep 2"
+
     echo "caculte data size"
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
+    disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     if [ ${SCALE} -ge 100000 ];then
@@ -264,12 +293,11 @@ eeooff
     echo `date +%Y_%m%d_%H%M%S`":TDengine data is being written to disk "
 
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "systemctl restart taosd " 
-    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99
-    ioStatusPa=true
+    set_command "systemctl restart taosd " 
+    # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
     while ${ioStatusPa}
     do
-        sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "dool -tdc --output /usr/local/src/teststatus.log 5 7"
+        set_command "dool -tdc --output /usr/local/src/teststatus.log 5 7"
         sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
         iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
         cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
@@ -285,10 +313,10 @@ eeooff
        
     done
     echo `date +%Y_%m%d_%H%M%S`":TDengine data writing to disk has been completed "
-    sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "rm -rf /usr/local/src/teststatus.log"
-    disk_usage_after=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
+    set_command "rm -rf /usr/local/src/teststatus.log"
+    disk_usage_after=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
-    wal_uasge=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
+    wal_uasge=`set_command "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
     disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     # pid=`ps aux|grep taosd|grep -v  grep |awk '{print $2}'`
