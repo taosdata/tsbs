@@ -152,6 +152,8 @@ function install_tsbs {
   gopathPar=`grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc`
   if [[ -z ${goPar} ]];then
     echo -e  '\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
+  else
+      echo "${GOPATH}/bin is already in PATH"
   fi
 
   export PATH=$GOPATH/bin:$PATH
