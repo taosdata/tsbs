@@ -150,11 +150,12 @@ function install_tsbs {
       echo "go has been installed and GOPATH has been set"
   fi
 
-  if [[ ":$PATH:" != *":$GOPATH/bin:"* ]]; then
+  if ! echo "$PATH" | grep -q "$GOPATH/bin"; then
       export PATH=$PATH:$GOPATH/bin
+      echo -e  '\nexport PATH=$GOPATH/bin:$PATH\n' >> ~/.bashrc
       echo "Added GOPATH/bin to PATH"
   else
-      echo "GOPATH/bin is already in PATH"
+      echo "${GOPATH}/bin is already in PATH"
   fi
 
   go env -w GOPROXY=https://goproxy.cn,direct
