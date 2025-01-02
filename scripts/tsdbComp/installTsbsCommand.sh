@@ -123,7 +123,7 @@ if [[ -z "${GOPATH}" ]];then
     export PATH=$(go env GOPATH)/bin:$PATH
     gopathPar=`grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc`
     if [[ -z ${goPar} ]];then
-      echo -e  '\nexport GOPATH=$(go env GOPATH)\nexport PATH=$GOPATH/bin:$PATH\n' >> ~/.bashrc
+      echo -e  '\nexport GOPATH=$(go env GOPATH)\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
     fi
     source  /root/.bashrc
 else
@@ -149,12 +149,9 @@ function install_tsbs {
       echo "go has been installed and GOPATH has been set"
   fi
 
-  if ! echo "$PATH" | grep -q "$GOPATH/bin"; then
-      echo -e  '\nexport PATH=$GOPATH/bin:$PATH\n' >> ~/.bashrc
-      export PATH=$PATH:$GOPATH/bin
-      echo "Added GOPATH/bin to PATH"
-  else
-      echo "${GOPATH}/bin is already in PATH"
+  gopathPar=`grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc`
+  if [[ -z ${goPar} ]];then
+    echo -e  '\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
   fi
 
   export PATH=$GOPATH/bin:$PATH
