@@ -227,12 +227,14 @@ function install_TDengine {
   if [ ! -d "TDengine" ];then
     git clone https://github.com/taosdata/TDengine.git
   fi
-  if [ caseType == "cpu" ];then
-    cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
-  else 
-    cd TDengine && git checkout 1bea5a53c27e18d19688f4d38596413272484900
-  fi
-
+  # if [ caseType == "cpu" ];then
+  #   cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
+  # else 
+  #   cd TDengine && git checkout 1bea5a53c27e18d19688f4d38596413272484900
+  # fi
+  
+  cd TDengine && git checkout main
+  
   if [ -d "debug/" ];then
       rm -rf debug 
   fi
