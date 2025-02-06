@@ -241,6 +241,10 @@ function install_TDengine {
   sed -i "s/\-Werror / /g" cmake/cmake.define
   mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
   systemctl status taosd
+  
+  # Resolved the issue of failure after three restarts within the default time range (600s)
+  sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
+  
   taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
     echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
