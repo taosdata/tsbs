@@ -244,7 +244,7 @@ function install_TDengine {
   
   # Resolved the issue of failure after three restarts within the default time range (600s)
   sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
-  
+  systemctl daemon-reload 
   taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
   if [ -z "${taosPar}" ];then
     echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
