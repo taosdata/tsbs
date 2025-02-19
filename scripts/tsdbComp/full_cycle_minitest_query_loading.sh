@@ -78,7 +78,20 @@ else
     }
     trap cleanup EXIT
 
-    echo "Generating ${INSERT_DATA_FILE_NAME}:"
+    cat <<EOF
+    Generating ${INSERT_DATA_FILE_NAME}:
+            ${EXE_FILE_NAME_GENERATE_DATA} \
+            --format ${FORMAT} \
+            --use-case ${USE_CASE} \
+            --scale ${SCALE} \
+            --timestamp-start ${TS_START} \
+            --timestamp-end ${TS_END} \
+            --seed ${SEED} \
+            --log-interval ${LOG_INTERVAL} \
+            --max-data-points ${MAX_DATA_POINTS} \
+        | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}
+EOF
+
     ${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
@@ -155,7 +168,12 @@ sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST << eeooff
 eeooff
     sleep 1
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " `
+    if [ -d "${TimePath}" ]; then
+        disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " `
+    else
+        disk_usage_before=0
+    fi
+    
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo "$(date +%Y_%m%d_%H%M%S):start to load "
@@ -209,7 +227,12 @@ elif [  ${FORMAT} == "influx" ];then
     sleep 1
     exit
 eeooff
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
+    if [ -d "${InfPath}" ]; then
+        disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${InfPath}/data | cut -f 1 " `
+    else
+        disk_usage_before=0
+    fi
+    
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
@@ -237,7 +260,11 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`":restart successfully"
     exit
 eeooff
-    disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
+    if [ -d "${TDPath}" ]; then
+        disk_usage_before=`sshpass -p ${SERVER_PASSWORD}  ssh root@$DATABASE_HOST "du -s ${TDPath}/vnode | cut -f 1 " `
+    else
+        disk_usage_before=0
+    fi
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE} "VGROUPS":${VGROUPS}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`

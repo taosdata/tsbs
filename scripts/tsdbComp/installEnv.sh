@@ -171,7 +171,7 @@ function install_timescale_ubuntu {
   apt remove postgresql-14 -y
   apt remove timescaledb-2-postgresql-14 -y
   apt install postgresql-14 -y
-  apt install timescaledb-2-postgresql-14 -y 
+  apt install timescaledb-2-postgresql-14='2.13.0*' -y 
 
   echo "============timescaledb in ubuntu: configure and start postgresql ============="
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
