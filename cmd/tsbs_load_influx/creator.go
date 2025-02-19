@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
+	"bytes"
 )
 
 type dbCreator struct {
@@ -33,7 +32,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) listDatabases() ([]string, error) {
-	u := fmt.Sprintf("%s/query?q=show%%20databases", d.daemonURL)
+	u := fmt.Sprintf("%s/api/v3/configure/database?show_deleted=true&format=csv", d.daemonURL)
 	resp, err := http.Get(u)
 	if err != nil {
 		return nil, fmt.Errorf("listDatabases error: %s", err.Error())
@@ -45,39 +44,44 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 		return nil, err
 	}
 
-	// Do ad-hoc parsing to find existing database names:
-	// {"results":[{"series":[{"name":"databases","columns":["name"],"values":[["_internal"],["benchmark_db"]]}]}]}%
-	type listingType struct {
-		Results []struct {
-			Series []struct {
-				Values [][]string
-			}
-		}
-	}
-	var listing listingType
-	err = json.Unmarshal(body, &listing)
-	if err != nil {
-		return nil, err
-	}
+	// issue: 使用/api/v3/configure/database 接口，指定 format = json，当 database 为空时， 返回的值不正确，返回值是右括号']'。 改为使用 format = csv
+    lines := bytes.Split(body, []byte("\n"))
+    if len(lines) == 1 {
+        // No databases found
+        return []string{}, nil
+    }
 
-	ret := []string{}
-	for _, nestedName := range listing.Results[0].Series[0].Values {
-		name := nestedName[0]
-		// the _internal database is skipped:
-		if name == "_internal" {
-			continue
-		}
-		ret = append(ret, name)
-	}
-	return ret, nil
+    ret := []string{}
+    for _, line := range lines[1:] {
+        if len(line) == 0 {
+            continue
+        }
+        fields := bytes.Split(line, []byte(","))
+        if len(fields) != 2 {
+            return nil, fmt.Errorf("invalid response format")
+        }
+        dbName := string(fields[0])
+        deleted := string(fields[1]) == "true"
+        if !deleted {
+            ret = append(ret, dbName)
+        }
+    }
+    return ret, nil
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	u := fmt.Sprintf("%s/query?q=drop+database+%s", d.daemonURL, dbName)
-	resp, err := http.Post(u, "text/plain", nil)
+	u := fmt.Sprintf("%s/api/v3/configure/database?db=%s", d.daemonURL, dbName)
+	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return fmt.Errorf("drop db error: %s", err.Error())
 	}
+	client := &http.Client{}
+    resp, err := client.Do(req)
+	if err != nil {
+        return fmt.Errorf("drop db error: %s", err.Error())
+    }
+    defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("drop db returned non-200 code: %d", resp.StatusCode)
 	}
@@ -86,22 +90,16 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	u, err := url.Parse(d.daemonURL)
-	if err != nil {
-		return err
-	}
+	u := fmt.Sprintf("%s/api/v3/configure/database?db=%s", d.daemonURL, dbName)
+	// Create the JSON payload
+    payload := fmt.Sprintf(`{"db": "%s"}`, dbName)
+    req, err := http.NewRequest("POST", u, bytes.NewBuffer([]byte(payload)))
+    if err != nil {
+        return err
+    }
 
-	// serialize params the right way:
-	u.Path = "query"
-	v := u.Query()
-	v.Set("consistency", "all")
-	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbName, replicationFactor))
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return err
-	}
+	// Set the content type to application/json
+    req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
