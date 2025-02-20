@@ -126,7 +126,7 @@ for caseType in ${caseTypes}; do
     mkdir -p log
     # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
     # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
-    echo "./loadAllcases.sh &> log/testload${caseType}${time}.log "
+    echo "caseType=${caseType} ./loadAllcases.sh &> log/testload${caseType}${time}.log "
     caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 
 
     current_date=$(date +%Y_%m%d_%H%M%S)
@@ -142,7 +142,7 @@ for caseType in ${caseTypes}; do
     # time=`date +%Y_%m%d_%H%M%S`
     # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
     # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
-    echo "./queryAllcases.sh  &> log/testquery${caseType}${time}.log"
+    echo "caseType=${caseType} ./queryAllcases.sh  &> log/testquery${caseType}${time}.log"
     caseType=${caseType}  ./queryAllcases.sh  > log/testquery${caseType}${time}.log
 
     current_date=$(date +%Y_%m%d_%H%M%S)

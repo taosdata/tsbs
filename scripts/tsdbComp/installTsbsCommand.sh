@@ -31,6 +31,7 @@ function set_go_proxy {
       go env -w GOPROXY=https://goproxy.cn,direct
       export GO111MODULE=on
   else
+      export GO111MODULE=on
       echo "Using international proxy: https://proxy.golang.org"
   fi
 }
