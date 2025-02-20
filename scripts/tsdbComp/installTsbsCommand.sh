@@ -42,11 +42,9 @@ if [[ -z "$go_version" ]]; then
     echo "Go is not installed. Proceeding with installation..."
 else
     echo "Go is already installed. Version: $go_version"
-    # 提取版本号并比较
     installed_version=$(echo "$go_version" | awk '{print $3}' | sed 's/go//')
     required_version="1.17"
 
-    # 比较版本号
     if [[ "$installed_version" < "$required_version" ]]; then
         echo "Installed Go version ($installed_version) is less than the required version ($required_version)."
         echo "Please uninstall the existing Go version and remove Go environment variables before proceeding."
@@ -62,7 +60,12 @@ function install_go_env {
 echo "============= install go and set go env ============="
 check_go_version
 
-echo "install go-1.18.6"
+version="1.17.13"
+go_tar="go${version}.linux-amd64.tar.gz"
+expected_md5="480e02c8c6b425105757282c80b5c9e1"
+
+echo "Installing Go version ${version}"
+
 cd ${installPath}
 if [ "${osType}" == "centos" ];then
   yum install -y  curl wget
@@ -71,10 +74,23 @@ elif [ "${osType}" == "ubuntu" ];then
 else
   echo "osType can't be supported"
 fi    
-if [ ! -f "go1.18.6.linux-amd64.tar.gz"  ] ;then
-    wget https://golang.google.cn/dl/go1.18.6.linux-amd64.tar.gz
+
+if [ ! -f "${go_tar}"  ] ;then
+    wget https://golang.google.cn/dl/${go_tar} || { echo "Failed to download ${go_tar}"; exit 1; }
 fi 
-tar -xf  go1.18.6.linux-amd64.tar.gz
+
+# 计算文件的实际 MD5 值
+actual_md5=$(md5sum "${go_tar}" | awk '{print $1}')
+
+# 比较实际 MD5 值和预期 MD5 值
+if [[ "$actual_md5" != "$expected_md5" ]]; then
+    echo "MD5 check error! actual MD5 :$actual_md5, expect MD5 is: $expected_md5"
+    exit 1  
+else
+    echo "MD5 check successfully, MD5 values match."
+fi
+
+tar -xf "${go_tar}" || { echo "Failed to extract ${go_tar}"; exit 1; }
 
 echo "add go to PATH"
 GO_HOME=${installPath}/go
