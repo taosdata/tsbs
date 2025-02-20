@@ -25,8 +25,8 @@ fi
 }
 
 function set_go_proxy {
-  result=$(curl --max-time 10 -s --head https://proxy.golang.org | grep -q "200 OK")
-  if [ -z "${result}" ]; then
+  curl --max-time 10 --silent --head https://proxy.golang.org | grep "HTTP/2 200"
+  if [ $? -ne 0 ]; then
       echo "Using cn domestic proxy: https://goproxy.cn"
       go env -w GOPROXY=https://goproxy.cn,direct
       export GO111MODULE=on
