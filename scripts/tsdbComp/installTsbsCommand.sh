@@ -1,59 +1,5 @@
 #!/bin/bash
 
-# set -e
-# set parameters by default value
-# [centos | ubuntu]
-osType=ubuntu      
-installPath="/usr/local/src/"
-
-# install env
-installGoEnv=false
-installDB=false
-installTsbs=false
-
-#client and server paras
-cientIP="192.168.0.203"
-clientHost="trd03"
-serverIP="192.168.0.204"
-serverHost="trd04"
-serverPass="taosdata!"
-
-#testcase type
-#[cputest | cpu| devops | iot ]
-caseType=cputest
-case="cpu-only"
-
-# data and result root path
-# datapath is bulk_data_rootDir/bulk_data_${caseType} 
-# executeTime=`date +%Y_%m%d_%H%M%S`
-# resultpath is bulk_data_resultrootdir/load_data_${caseType}_${executeTime}
-loadDataRootDir="/data2/"
-loadRsultRootDir="/data2/"
-queryDataRootDir="/data2/"
-queryRsultRootDir="/data2/"
-
-
-#load test parameters
-load_ts_start="2016-01-01T00:00:00Z"
-load_ts_end="2016-01-02T00:00:00Z"
-load_number_wokers="12"
-load_batchsizes="10000"
-load_scales="100 4000 100000 1000000 10000000"
-load_formats="TDengine influx timescaledb"
-load_test_scales="200"
-
-#query test parameters
-query_ts_start="2016-01-01T00:00:00Z"
-query_load_ts_end="2016-01-05T00:00:00Z"
-query_ts_end="2016-01-05T00:00:01Z"
-query_load_number_wokers="12"
-query_number_wokers="12"
-query_times="10000"
-query_scales="100 4000 100000 1000000 10000000"
-query_formats="TDengine influx timescaledb"
-
-
-# start to install 
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
@@ -78,43 +24,73 @@ else
 fi
 }
 
+function set_go_proxy {
+  result=$(curl --max-time 10 -s --head https://proxy.golang.org | grep -q "200 OK")
+  if [ -z "${result}" ]; then
+      echo "Using cn domestic proxy: https://goproxy.cn"
+      go env -w GOPROXY=https://goproxy.cn,direct
+      export GO111MODULE=on
+  else
+      echo "Using international proxy: https://proxy.golang.org"
+  fi
+}
 
+
+function check_go_version {
+go_version=$(go version 2>/dev/null)
+if [[ -z "$go_version" ]]; then
+    echo "Go is not installed. Proceeding with installation..."
+else
+    echo "Go is already installed. Version: $go_version"
+    # 提取版本号并比较
+    installed_version=$(echo "$go_version" | awk '{print $3}' | sed 's/go//')
+    required_version="1.17"
+
+    # 比较版本号
+    if [[ "$installed_version" < "$required_version" ]]; then
+        echo "Installed Go version ($installed_version) is less than the required version ($required_version)."
+        echo "Please uninstall the existing Go version and remove Go environment variables before proceeding."
+        exit 1
+    else
+        echo "Installed Go version ($installed_version) meets the requirement. No need to reinstall."
+    fi
+fi 
+}
 
 # install go env
 function install_go_env {
 echo "============= install go and set go env ============="
-goenv=`go env`
-if [[ -z ${goenv} ]];then
-    echo "install go "
-    cd ${installPath}
-    if [ "${osType}" == "centos" ];then
-      yum install -y  curl wget
-    elif [ "${osType}" == "ubuntu" ];then
-      apt install wget curl -y
-    else
-      echo "osType can't be supported"
-    fi    
-    if [ ! -f "go1.16.9.linux-amd64.tar.gz"  ] ;then
-        wget https://studygolang.com/dl/golang/go1.16.9.linux-amd64.tar.gz
-    fi 
-    tar -zxvf  go1.16.9.linux-amd64.tar.gz
-    echo "add go to PATH"
-    GO_HOME=${installPath}/go
-    goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
-    export PATH=$GO_HOME/bin:$PATH
-    if [[ -z ${goPar} ]];then
-        echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\n" >> /root/.bashrc
-        echo -e  'export PATH=$GO_HOME/bin:$PATH\n' >> /root/.bashrc
-    else 
-        echo "GOHOME already been add to PATH of /root/.bashrc"    
-    fi 
-    source  /root/.bashrc
-else
-    echo "go has been installed"
-fi
+check_go_version
 
-go env -w GOPROXY=https://goproxy.cn,direct
-export GO111MODULE=on
+echo "install go-1.18.6"
+cd ${installPath}
+if [ "${osType}" == "centos" ];then
+  yum install -y  curl wget
+elif [ "${osType}" == "ubuntu" ];then
+  apt install wget curl -y
+else
+  echo "osType can't be supported"
+fi    
+if [ ! -f "go1.18.6.linux-amd64.tar.gz"  ] ;then
+    wget https://golang.google.cn/dl/go1.18.6.linux-amd64.tar.gz
+fi 
+tar -xf  go1.18.6.linux-amd64.tar.gz
+
+echo "add go to PATH"
+GO_HOME=${installPath}/go
+goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
+export PATH=$GO_HOME/bin:$PATH
+if [[ -z ${goPar} ]];then
+    echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\n" >> /root/.bashrc
+    echo -e  'export PATH=$GO_HOME/bin:$PATH\n' >> /root/.bashrc
+else 
+    echo "GOHOME already been add to PATH of /root/.bashrc"    
+fi 
+source  /root/.bashrc
+
+
+set_go_proxy
+
 
 echo ${GOPATH}
 if [[ -z "${GOPATH}" ]];then
@@ -129,6 +105,7 @@ if [[ -z "${GOPATH}" ]];then
 else
     echo "GOPATH has been added"
 fi
+
 echo $PATH
 echo $(go env)
 
@@ -151,6 +128,7 @@ function install_tsbs {
 
   gopathPar=$(grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc)
   echo "gopathPar is ${gopathPar}"
+
   if [[ -z ${gopathPar} ]];then
     echo -e  '\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
   else
@@ -158,8 +136,8 @@ function install_tsbs {
   fi
 
   export PATH=$GOPATH/bin:$PATH
-  go env -w GOPROXY=https://goproxy.cn,direct
-  export GO111MODULE=on
+  set_go_proxy
+
   echo ${GOPATH}
   
   go get github.com/timescale/tsbs

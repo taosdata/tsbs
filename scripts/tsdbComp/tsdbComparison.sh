@@ -1,53 +1,4 @@
 
-# [centos | ubuntu]
-osType=ubuntu      
-
-# install env
-installEnvAll=false
-installGoEnv=false
-installDB=false
-installTsbs=false
-
-#client and server paras
-clientIP="192.168.0.203"
-clientHost="trd03"
-serverIP="192.168.0.204"
-serverHost="trd04"
-serverPass="taosdata123"
-
-#testcase type
-#[cputest | cpu| devops | iot ]
-caseType=cpu
-case="cpu-only"
-
-# data and result root path
-# datapath is bulk_data_rootDir/bulk_data_${caseType} 
-# executeTime=`date +%Y_%m%d_%H%M%S`
-# resultpath is bulk_data_resultrootdir/load_data_${caseType}_${executeTime}
-loadDataRootDir="/data2/"
-loadRsultRootDir="/data2/"
-queryDataRootDir="/data2/"
-queryRsultRootDir="/data2/"
-
-
-#load test parameters
-load_ts_start="2016-01-01T00:00:00Z"
-load_ts_end="2016-01-02T00:00:00Z"
-load_number_wokers="12"
-load_batchsizes="10000"
-load_scales="100 4000 100000 1000000 10000000"
-load_formats="TDengine influx timescaledb"
-load_test_scales="200"
-
-#query test parameters
-query_ts_start="2016-01-01T00:00:00Z"
-query_load_ts_end="2016-01-05T00:00:00Z"
-query_ts_end="2016-01-05T00:00:01Z"
-query_load_number_wokers="12"
-query_number_wokers="8"
-query_times="4000"
-query_scales="100 4000 100000 1000000 10000000"
-query_formats="TDengine influx timescaledb"
 
 scriptDir=$(dirname $(readlink -f $0))
 
@@ -111,7 +62,7 @@ if [ "${installEnvAll}" == "true" ];then
     pip3 install matplotlib pandas
 
     # install clinet env 
-    echo "========== install client:${clientIP} basic environment and tsbs ========"
+    echo -e "========== install client:${clientIP} basic environment and tsbs ========\n\n"
 
     if [ "${installDB}" == "true" ] ;then
         ./installEnv.sh 
@@ -133,10 +84,10 @@ if [ "${installEnvAll}" == "true" ];then
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
     service sshd restart
 
-    echo "========== intallation of client:${clientIP}  completed ========"
+    echo -e "========== intallation of client:${clientIP}  completed ========\n\n"
 
     if [ "${clientIP}" != "${serverIP}" ];then
-        echo "========== start to install server:${serverIP} environment and databases ========"
+        echo  -e "========== start to install server:${serverIP} environment and databases ========\n\n"
 
         sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
             mkdir -p  ${installPath}
@@ -160,32 +111,41 @@ eeooff
         echo "client and server are the same machine"
     fi
 
-    echo "========== intallation of server:${serverIP}  completed ========"
+    echo -e "========== intallation of server:${serverIP}  completed ========\n\n"
 fi
 
+for caseType in ${caseTypes}; do
+    # execute load tests
+    echo -e "========== caseType: ${caseType} =======\n\n"
+    current_date=$(date +%Y_%m%d_%H%M%S)
+    echo -e "========== ${current_date}: start executing ${caseType} load test ========\n\n"
+                      
+    time=`date +%Y_%m%d_%H%M%S`
 
-# execute load tests
-echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute load test ========"
-time=`date +%Y_%m%d_%H%M%S`
+    cd ${scriptDir}
+    mkdir -p log
+    # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
+    # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
+    echo "./loadAllcases.sh &> log/testload${caseType}${time}.log "
+    caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 
 
-cd ${scriptDir}
-mkdir -p log
-# echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
-# ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
-echo "./loadAllcases.sh &> log/testload${time}.log "
-./loadAllcases.sh > log/testload${time}.log 
+    current_date=$(date +%Y_%m%d_%H%M%S)
+    echo -e "\n\n"
+    echo -e "========== ${current_date}: end executing ${caseType} load test ===========\n\n"
 
-echo "========== "`date +%Y_%m%d_%H%M%S`":load test completed ========"
+    # # execute query tests
+    current_date=$(date +%Y_%m%d_%H%M%S)
+    echo -e "========== ${current_date}: start executing ${caseType} query test ========\n\n"
 
-# # execute query tests
-echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute query test ========"
+    cd ${scriptDir}
+    time=`date +%Y_%m%d_%H%M%S`
+    # time=`date +%Y_%m%d_%H%M%S`
+    # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
+    # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
+    echo "./queryAllcases.sh  &> log/testquery${caseType}${time}.log"
+    caseType=${caseType}  ./queryAllcases.sh  > log/testquery${caseType}${time}.log
 
-cd ${scriptDir}
-time=`date +%Y_%m%d_%H%M%S`
-# time=`date +%Y_%m%d_%H%M%S`
-# # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
-# # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
-echo "./queryAllcases.sh  &> log/testquery${time}.log"
-./queryAllcases.sh  > log/testquery${time}.log
-
-echo "========== "`date +%Y_%m%d_%H%M%S`":query test completed ========"
+    current_date=$(date +%Y_%m%d_%H%M%S)
+    echo -e "\n\n"
+    echo -e "========== ${current_date}: end executing ${caseType} query test ===========\n\n"
+done
