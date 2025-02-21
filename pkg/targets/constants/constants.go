@@ -16,6 +16,7 @@ const (
 	FormatQuestDB         = "questdb"
 	FormatTDengine        = "TDengine"
 	FormatTDengineSML     = "TDengineSML"
+	FormatCsv             = "csv"
 )
 
 func SupportedFormats() []string {
@@ -34,5 +35,6 @@ func SupportedFormats() []string {
 		FormatQuestDB,
 		FormatTDengine,
 		FormatTDengineSML,
+		FormatCsv,
 	}
 }

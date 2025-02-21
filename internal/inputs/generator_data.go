@@ -103,6 +103,12 @@ func (g *DataGenerator) CreateSimulator(config *common.DataGeneratorConfig) (com
 
 func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *common.DataGeneratorConfig) error {
 	defer g.bufOut.Flush()
+	defer func() {
+		closer, ok := serializer.(io.Closer)
+		if ok {
+			closer.Close()
+		}
+	}()
 
 	currGroupID := uint(0)
 	point := data.NewPoint()
@@ -139,7 +145,7 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 	return target.Serializer(), nil
 }
 
-//TODO should be implemented in targets package
+// TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 
