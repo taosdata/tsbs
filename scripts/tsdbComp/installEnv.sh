@@ -186,7 +186,7 @@ function install_TDengine {
       rm -rf debug 
   fi
   sed -i "s/\-Werror / /g" cmake/cmake.define
-  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
+  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make && make install
   systemctl status taosd
   
   # Resolved the issue of failure after three restarts within the default time range (600s)
@@ -255,8 +255,8 @@ fi
 # eg : host    all     all             192.168.0.1/24               md5
 
 trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustSlinkPar}"
+# echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
+# echo "${trustSlinkPar}"
 if [ -z "${trustSlinkPar}" ];then
   echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
 else
@@ -264,8 +264,8 @@ else
 fi
 
 trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustClinkPar}"
+# echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
+# echo "${trustClinkPar}"
 if [ -z "${trustClinkPar}" ];then
   echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
 else

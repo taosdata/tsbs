@@ -11,10 +11,10 @@ function query_testcase {
 echo "testcase scenarios $5"
 load_executeTime=`date +%Y_%m%d_%H%M%S`
 load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/" 
-load_resultDir="${loadRsultRootDir}/load_result_${caseType}_${load_executeTime}/" 
+load_resultDir="${loadResultRootDir}/load_result_${caseType}_${load_executeTime}/" 
 
 query_dataDir="${queryDataRootDir}/query_data_${caseType}/" 
-query_resultDir="${queryRsultRootDir}/query_result_${caseType}_${load_executeTime}/" 
+query_resultDir="${queryResultRootDir}/query_result_${caseType}_${load_executeTime}/" 
 
 # excute testcase
 # this two para can be set，the default is all query type。
