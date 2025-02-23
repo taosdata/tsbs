@@ -84,7 +84,7 @@ function checkout_system {
     memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     memory_kb=$memory
     memory_mb=$((memory_kb / 1024))
-    memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+    memory_gb=$(echo "scale=0; (${memory_mb} / 1024) + (${memory_mb} % 1024 > 0)" | bc)
 
     log_info "Memory size: $memory_gb GB"
 
@@ -93,9 +93,9 @@ function checkout_system {
     min_memory_gb=8
 
     # Check if the minimum hardware requirements are met
-    if [ "$cpu_cores" -lt "$min_cpu_cores" ] || [ "$memory_gb" -lt "$min_memory_gb" ]; then
+    if [ "${cpu_cores}" -lt "${min_cpu_cores}" ] || [ "${memory_gb}" -lt "${min_memory_gb}" ]; then
         log_error "Server hardware configuration does not meet the minimum requirements."
-        log_info "Minimum requirements: $min_cpu_cores CPU cores and $min_memory_gb GB memory"
+        log_info "Minimum requirements: ${min_cpu_cores} CPU cores and ${min_memory_gb} GB memory"
         exit 1
     fi
 

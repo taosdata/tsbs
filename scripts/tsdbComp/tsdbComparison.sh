@@ -85,11 +85,11 @@ if [ "${installEnvAll}" == "true" ]; then
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
 
     if [ "${installDB}" == "true" ]; then
-        ./installEnv.sh 
+        ./installEnv.sh || exit 1
     fi 
 
     if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ]; then
-        ./installTsbsCommand.sh
+        ./installTsbsCommand.sh || exit 1
         GO_HOME=${installPath}/go
         export PATH=$GO_HOME/bin:$PATH
         export GOPATH=$(go env GOPATH)
@@ -121,7 +121,7 @@ eeooff
             sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
                 cd ${installPath}
                 log_info "Install basic env in server ${serverIP}"
-                ./installEnv.sh 
+                ./installEnv.sh || exit 1
                 source /root/.bashrc
                 sleep 1
                 exit
