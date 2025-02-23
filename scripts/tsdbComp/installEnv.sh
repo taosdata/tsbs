@@ -186,7 +186,7 @@ function install_TDengine {
       rm -rf debug 
   fi
   sed -i "s/\-Werror / /g" cmake/cmake.define
-  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make && make install
+  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make && make install || exit 1
   systemctl status taosd
   
   # Resolved the issue of failure after three restarts within the default time range (600s)
