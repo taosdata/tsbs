@@ -77,7 +77,7 @@ else
 fi    
 
 if [ ! -f "${go_tar}"  ] ;then
-    wget https://golang.google.cn/dl/${go_tar} || { echo "Failed to download ${go_tar}"; exit 1; }
+    wget -q https://golang.google.cn/dl/${go_tar} || { echo "Failed to download ${go_tar}"; exit 1; }
 fi 
 
 # 计算文件的实际 MD5 值

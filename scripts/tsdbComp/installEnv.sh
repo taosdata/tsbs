@@ -3,6 +3,7 @@
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
+error_install_file="${scriptDir}/log/install_error.log"
 
 echo "install path: ${installPath}"
 echo "installGoEnv: ${installGoEnv}"
@@ -88,7 +89,7 @@ echo "=============reinstall influx in centos ============="
   cd ${installPath}
   yum install wget
   if [ ! -f "influxdb-1.8.10.x86_64.rpm"  ] ;then
-    wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm
+    wget --quiet https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm  ||  { echo "Download InfluxDB 1.8 package failed"; exit 1; }
   fi
   sudo yum  -y localinstall influxdb-1.8.10.x86_64.rpm
   indexPar1=`grep -w 'index-version = "tsi1"' /etc/influxdb/influxdb.conf `
@@ -150,7 +151,7 @@ function install_influx_ubuntu {
   dpkg -r influxdb
   cd ${installPath}
   if [ ! -f "influxdb_1.8.10_amd64.deb" ] ;then
-     wget https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb
+     wget --quiet https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb  ||  { echo "Download InfluxDB 1.8 package failed"; exit 1; }
   fi
   sudo dpkg -i influxdb_1.8.10_amd64.deb
   indexPar1=`grep -w 'index-version = "tsi1"' /etc/influxdb/influxdb.conf `
@@ -168,44 +169,75 @@ systemctl restart influxd
 
 
 function install_TDengine {
-  echo "=============reinstall TDengine  in ubuntu ============="
-  cd ${installPath}
-  sudo apt-get install -y gcc cmake build-essential git libssl-dev
-  if [ ! -d "TDengine" ];then
-    git clone https://github.com/taosdata/TDengine.git
-  fi
+    echo "=============reinstall TDengine in ubuntu ============="
+    cd ${installPath}
+    sudo apt-get install -y gcc cmake build-essential git libssl-dev
+    if [ ! -d "TDengine" ]; then
+        git clone https://github.com/taosdata/TDengine.git || exit 1
+    fi
   # if [ caseType == "cpu" ];then
   #   cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
   # else 
   #   cd TDengine && git checkout 1bea5a53c27e18d19688f4d38596413272484900
   # fi
   
-  cd TDengine && git checkout main
-  
-  if [ -d "debug/" ];then
-      rm -rf debug 
-  fi
-  sed -i "s/\-Werror / /g" cmake/cmake.define
-  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
-  systemctl status taosd
-  
-  # Resolved the issue of failure after three restarts within the default time range (600s)
-  sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
-  systemctl daemon-reload 
-  taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
-  if [ -z "${taosPar}" ];then
-    echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
-  fi
-  fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
-  if [ -z "${fqdnCPar}" ];then
-    echo -e  "\n${clientIP} ${clientHost} \n"  >> /etc/hosts
-  fi
-  if [ "${clientIP}" != "${serverIP}" ];then
-    fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
-    if [ -z "${fqdnSPar}" ];then
-      echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
+    cd TDengine && git checkout main
+
+    if [ -d "debug/" ]; then
+        rm -rf debug
     fi
-  fi
+    sed -i "s/\-Werror / /g" cmake/cmake.define
+    mkdir -p debug && cd debug
+
+    # Trap any exit signal and log it
+    trap 'echo "TDengine build failed"; exit 1' EXIT
+
+    cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false
+
+    # Detect memory size
+    memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    memory_kb=$memory
+    memory_mb=$((memory_kb / 1024))
+    memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+
+    if [ "${memory_gb}" -ge 12 ]; then
+        echo "using make -j"
+        make -j || exit 1
+    else
+        echo "using make"
+        make || exit 1
+    fi
+
+    make install || exit 1
+
+    # Remove the trap if everything succeeded
+    trap - EXIT
+
+    # Check if taosd and taos commands are available
+    if ! command -v taosd &> /dev/null || ! command -v taos &> /dev/null; then
+        echo "install TDengine failed"
+        exit 1
+    fi
+
+    systemctl status taosd
+
+    # Resolved the issue of failure after three restarts within the default time range (600s)
+    sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
+    systemctl daemon-reload
+    taosPar=$(grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg)
+    if [ -z "${taosPar}" ]; then
+        echo -e "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n" >> /etc/taos/taos.cfg
+    fi
+    fqdnCPar=$(grep -w "${clientIP} ${clientHost}" /etc/hosts)
+    if [ -z "${fqdnCPar}" ];then
+        echo -e "\n${clientIP} ${clientHost} \n" >> /etc/hosts
+    fi
+    if [ "${clientIP}" != "${serverIP}" ]; then
+        fqdnSPar=$(grep -w "${serverIP} ${serverHost}" /etc/hosts)
+        if [ -z "${fqdnSPar}" ]; then
+            echo -e "\n${serverIP} ${serverHost} \n" >> /etc/hosts
+        fi
+    fi
 }
 
 
@@ -218,8 +250,9 @@ cmdInstall build-essential
 cmdInstall libssl-dev
 
 cd ${installPath}
-wget https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz
-tar vxf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
+wget --quiet https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz  ||  { echo "Download dool 1.1 package failed"; exit 1; }
+
+tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
 # install db  
 if [ "${installDB}" == "true" ];then
@@ -255,8 +288,8 @@ fi
 # eg : host    all     all             192.168.0.1/24               md5
 
 trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustSlinkPar}"
+# echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
+# echo "${trustSlinkPar}"
 if [ -z "${trustSlinkPar}" ];then
   echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
 else
@@ -264,8 +297,8 @@ else
 fi
 
 trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustClinkPar}"
+# echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
+# echo "${trustClinkPar}"
 if [ -z "${trustClinkPar}" ];then
   echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
 else
