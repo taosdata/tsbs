@@ -11,7 +11,7 @@ BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
 
 # cleat data
 rm -rf ${BULK_DATA_QUERY_DIR}/*
-rm -rf ${BULK_DATA_DIR_RUN_RES}/*
+# rm -rf ${BULK_DATA_DIR_RUN_RES}/*
 
 
 # common paramaters
