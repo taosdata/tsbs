@@ -50,29 +50,6 @@ var cpuTable = &Table{
 		"service_version",
 		"service_environment",
 	},
-	FieldInfo: map[string]*Field{
-		"ts":                  {Id: 0},
-		"usage_user":          {Id: 1},
-		"usage_system":        {Id: 2},
-		"usage_idle":          {Id: 3},
-		"usage_nice":          {Id: 4},
-		"usage_iowait":        {Id: 5},
-		"usage_irq":           {Id: 6},
-		"usage_softirq":       {Id: 7},
-		"usage_steal":         {Id: 8},
-		"usage_guest":         {Id: 9},
-		"usage_guest_nice":    {Id: 10},
-		"hostname":            {Id: 11},
-		"region":              {Id: 12},
-		"datacenter":          {Id: 13},
-		"rack":                {Id: 14},
-		"os":                  {Id: 15},
-		"arch":                {Id: 16},
-		"team":                {Id: 17},
-		"service":             {Id: 18},
-		"service_version":     {Id: 19},
-		"service_environment": {Id: 20},
-	},
 	FileName: "cpu.csv.gz",
 	MetaName: "cpu_meta.json",
 }
@@ -96,24 +73,6 @@ var readingsTable = &Table{
 		"fuel_capacity",
 		"nominal_fuel_consumption",
 	},
-	FieldInfo: map[string]*Field{
-		"ts":                       {Id: 0},
-		"latitude":                 {Id: 1},
-		"longitude":                {Id: 2},
-		"elevation":                {Id: 3},
-		"velocity":                 {Id: 4},
-		"heading":                  {Id: 5},
-		"grade":                    {Id: 6},
-		"fuel_consumption":         {Id: 7},
-		"name":                     {Id: 8},
-		"fleet":                    {Id: 9},
-		"driver":                   {Id: 10},
-		"model":                    {Id: 11},
-		"device_version":           {Id: 12},
-		"load_capacity":            {Id: 13},
-		"fuel_capacity":            {Id: 14},
-		"nominal_fuel_consumption": {Id: 15},
-	},
 	FileName: "readings.csv.gz",
 	MetaName: "readings_meta.json",
 }
@@ -132,20 +91,6 @@ var diagnosticsTable = &Table{
 		"load_capacity",
 		"fuel_capacity",
 		"nominal_fuel_consumption",
-	},
-	FieldInfo: map[string]*Field{
-		"ts":                       {Id: 0},
-		"fuel_state":               {Id: 1},
-		"current_load":             {Id: 2},
-		"status":                   {Id: 3},
-		"name":                     {Id: 4},
-		"fleet":                    {Id: 5},
-		"driver":                   {Id: 6},
-		"model":                    {Id: 7},
-		"device_version":           {Id: 8},
-		"load_capacity":            {Id: 9},
-		"fuel_capacity":            {Id: 10},
-		"nominal_fuel_consumption": {Id: 11},
 	},
 	FileName: "diagnostics.csv.gz",
 	MetaName: "diagnostics_meta.json",
@@ -474,4 +419,20 @@ func (s *Serializer) open(measurement int) error {
 
 func ToUnsafeString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func init() {
+	// init field info
+	cpuTable.FieldInfo = make(map[string]*Field, len(cpuTable.Fields))
+	for i, field := range cpuTable.Fields {
+		cpuTable.FieldInfo[field] = &Field{Id: i}
+	}
+	readingsTable.FieldInfo = make(map[string]*Field, len(readingsTable.Fields))
+	for i, field := range readingsTable.Fields {
+		readingsTable.FieldInfo[field] = &Field{Id: i}
+	}
+	diagnosticsTable.FieldInfo = make(map[string]*Field, len(diagnosticsTable.Fields))
+	for i, field := range diagnosticsTable.Fields {
+		diagnosticsTable.FieldInfo[field] = &Field{Id: i}
+	}
 }
