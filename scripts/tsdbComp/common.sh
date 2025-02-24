@@ -27,18 +27,20 @@ function cmdInstall {
 }
 
 # Check if pip3 package exists and install it if not
+# Check if pip3 packages exist and install them if not
 function pip3_define_install {
-    local comd=$1
-    if pip3 show ${comd} &> /dev/null; then
-        log_info "${comd} is already installed"
-    else
-        log_info "Installing ${comd} using pip3"
-        if pip3 install ${comd} 2>> ${error_install_file}; then
-            log_info "${comd} installed successfully"
+    for comd in "$@"; do
+        if pip3 show ${comd} &> /dev/null; then
+            log_info "${comd} is already installed"
         else
-            log_error "Failed to install ${comd} using pip3"
+            log_info "Installing ${comd} using pip3"
+            if pip3 install ${comd} 2>> ${error_install_file}; then
+                log_info "${comd} installed successfully"
+            else
+                log_error "Failed to install ${comd} using pip3"
+            fi
         fi
-    fi
+    done
 }
 
 # Detect system type and version
