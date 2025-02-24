@@ -18,6 +18,7 @@ import (
 	"github.com/taosdata/tsbs/pkg/targets/siridb"
 	"github.com/taosdata/tsbs/pkg/targets/tdengine"
 	"github.com/taosdata/tsbs/pkg/targets/tdenginesml"
+	"github.com/taosdata/tsbs/pkg/targets/tdenginestmt2"
 	"github.com/taosdata/tsbs/pkg/targets/timescaledb"
 	"github.com/taosdata/tsbs/pkg/targets/timestream"
 	"github.com/taosdata/tsbs/pkg/targets/victoriametrics"
@@ -51,6 +52,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return questdb.NewTarget()
 	case constants.FormatTDengine:
 		return tdengine.NewTarget()
+	case constants.FormatTDengineStmt2:
+		return tdenginestmt2.NewTarget()
 	case constants.FormatTDengineSML:
 		return tdenginesml.NewTarget()
 	case constants.FormatCsv:

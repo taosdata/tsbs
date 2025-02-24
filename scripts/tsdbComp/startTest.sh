@@ -95,6 +95,7 @@ sudo systemctl stop taosd
 
 # configure sshd and 
 sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
+sed -i '$a \PermitRootLogin yes' /etc/ssh/sshd_config
 service sshd restart
 sshpass -p  ${serverPass} scp ${envfile} root@$serverHost:${installPath}
    

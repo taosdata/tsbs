@@ -75,23 +75,41 @@ mkdir -p log/
 installPath="/usr/local/src/"
 envfile="installEnv.sh"
 cfgfile="test.ini"
+source ./${cfgfile}
+
+if [ ${clientIP} == ${serverIP} ];then
+    clientHost=`hostname`
+    clientIP=`ip address | grep inet | grep -v inet6 |grep -v docker| grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}'`
+
+    sed -i "s/clientIP=.*/clientIP=\"${clientIP}\"/g" ${cfgfile}
+    sed -i "s/clientHost=.*/clientHost=\"${clientHost}\"/g" ${cfgfile}
+    sed -i "s/serverIP=.*/serverIP=\"${clientIP}\"/g" ${cfgfile}
+    sed -i "s/serverHost=.*/serverHost=\"${clientHost}\"/g" ${cfgfile}
+fi
 
 # enable configure :test.ini
 source ./${cfgfile}
-echo ${cientIP}
+
+
+# print 
+echo "====all test parameters===="
+
+echo -e  "client:${clientIP} \r\nserver:${serverIP} \r\ninstallEnvAll: ${installEnvAll}  \r\n   installGoEnv: ${installGoEnv} installDB: ${installDB} installTsbs: ${installTsbs} \r\ncase: ${caseType}\r\nLoad config \r\n  load_scales: ${load_scales}\r\n  load_formats: ${load_formats}\r\n  load_number_wokers: ${load_number_wokers}\r\nQuery config \r\n  query_scales: ${query_scales}\r\n  restload: ${restload} \r\n  query_number_wokers: ${query_number_wokers}\r\n  query_formats: ${query_formats} \r\n  query_times: ${query_times}\r\n  query_types: ${query_types}"
+
 echo "====now we start to test===="
 echo "start to install env in ${installPath}"
 mkdir -p ${installPath}
 # copy configure to installPath
 cp ${scriptDir}/${cfgfile} ${installPath}
 
-# install  basic env, and you should have python3 and pip3 environment
-echo "install basic env"
-cmdInstall python3.8
-cmdInstall python3-pip
-pip3 install matplotlib pandas
 
 if [ "${installEnvAll}" == "true" ];then
+    # install  basic env, and you should have python3 and pip3 environment
+    echo "install basic env"
+    cmdInstall python3.8
+    cmdInstall python3-pip
+    pip3 install matplotlib pandas
+
     # install clinet env 
     echo "========== install client:${clientIP} basic environment and tsbs ========"
 
@@ -138,6 +156,8 @@ eeooff
 eeooff
 
         fi 
+    else
+        echo "client and server are the same machine"
     fi
 
     echo "========== intallation of server:${serverIP}  completed ========"
@@ -149,8 +169,10 @@ echo "========== "`date +%Y_%m%d_%H%M%S`":start to execute load test ========"
 time=`date +%Y_%m%d_%H%M%S`
 
 cd ${scriptDir}
+mkdir -p log
 # echo "./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log "
 # ./loadAllcases.sh -s ${serverHost} -p ${serverPass}  -c ${caseType} > testload${time}.log 
+echo "./loadAllcases.sh &> log/testload${time}.log "
 ./loadAllcases.sh > log/testload${time}.log 
 
 echo "========== "`date +%Y_%m%d_%H%M%S`":load test completed ========"
@@ -163,6 +185,7 @@ time=`date +%Y_%m%d_%H%M%S`
 # time=`date +%Y_%m%d_%H%M%S`
 # # echo "./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log"
 # # ./queryAllcases.sh -s ${serverHost} -p ${serverPass} -c ${caseType} > testquery${time}.log
+echo "./queryAllcases.sh  &> log/testquery${time}.log"
 ./queryAllcases.sh  > log/testquery${time}.log
 
 echo "========== "`date +%Y_%m%d_%H%M%S`":query test completed ========"
