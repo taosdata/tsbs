@@ -208,8 +208,7 @@ function install_TDengine {
         make || exit 1
     fi
 
-    #  make || exit 1
-    #  make install || exit 1
+    make install || exit 1
 
     # Remove the trap if everything succeeded
     trap - EXIT
