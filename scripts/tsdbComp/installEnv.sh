@@ -194,22 +194,22 @@ function install_TDengine {
 
     cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false
 
-    # # Detect memory size
-    # memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    # memory_kb=$memory
-    # memory_mb=$((memory_kb / 1024))
-    # memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+    # Detect memory size
+    memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    memory_kb=$memory
+    memory_mb=$((memory_kb / 1024))
+    memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+    core_number=$(nproc)
+    if [ "${memory_gb}" -ge 12 ]; then
+        echo "using make -j${core_number}"
+        make -j$(nproc) || exit 1
+    else
+        echo "using make"
+        make || exit 1
+    fi
 
-    # if [ "${memory_gb}" -ge 12 ]; then
-    #     echo "using make -j"
-    #     make -j || exit 1
-    # else
-    #     echo "using make"
-    #     make || exit 1
-    # fi
-
-     make || exit 1
-     make install || exit 1
+    #  make || exit 1
+    #  make install || exit 1
 
     # Remove the trap if everything succeeded
     trap - EXIT
