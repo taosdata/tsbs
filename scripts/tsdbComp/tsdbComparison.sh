@@ -34,11 +34,11 @@ cd ${scriptDir}
 source ./${cfgfile}
 if [ ${clientIP} == ${serverIP} ]; then
     clientHost=$(hostname)
-    clientIP=$(ip address | grep inet | grep -v inet6 | grep -v docker | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}')
+    # clientIP=$(ip address | grep inet | grep -v inet6 | grep -v docker | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}')
 
-    sed -i "s/clientIP=.*/clientIP=\"${clientIP}\"/g" ${cfgfile}
+    # sed -i "s/clientIP=.*/clientIP=\"${clientIP}\"/g" ${cfgfile}
     sed -i "s/clientHost=.*/clientHost=\"${clientHost}\"/g" ${cfgfile}
-    sed -i "s/serverIP=.*/serverIP=\"${clientIP}\"/g" ${cfgfile}
+    # sed -i "s/serverIP=.*/serverIP=\"${clientIP}\"/g" ${cfgfile}
     sed -i "s/serverHost=.*/serverHost=\"${clientHost}\"/g" ${cfgfile}
 fi
 
@@ -95,7 +95,7 @@ if [ "${installEnvAll}" == "true" ]; then
         export GOPATH=$(go env GOPATH)
         export PATH=$GOPATH/bin:$PATH
     fi
-    sudo systemctl stop postgresql-14
+    sudo systemctl stop postgresql
     sudo systemctl stop influxd
     sudo systemctl stop taosd
 

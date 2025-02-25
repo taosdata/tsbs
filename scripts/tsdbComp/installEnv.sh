@@ -194,21 +194,22 @@ function install_TDengine {
 
     cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false
 
-    # Detect memory size
-    memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    memory_kb=$memory
-    memory_mb=$((memory_kb / 1024))
-    memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+    # # Detect memory size
+    # memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    # memory_kb=$memory
+    # memory_mb=$((memory_kb / 1024))
+    # memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
 
-    if [ "${memory_gb}" -ge 12 ]; then
-        echo "using make -j"
-        make -j || exit 1
-    else
-        echo "using make"
-        make || exit 1
-    fi
+    # if [ "${memory_gb}" -ge 12 ]; then
+    #     echo "using make -j"
+    #     make -j || exit 1
+    # else
+    #     echo "using make"
+    #     make || exit 1
+    # fi
 
-    make install || exit 1
+     make || exit 1
+     make install || exit 1
 
     # Remove the trap if everything succeeded
     trap - EXIT
@@ -250,7 +251,9 @@ cmdInstall build-essential
 cmdInstall libssl-dev
 
 cd ${installPath}
-wget --quiet https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz  ||  { echo "Download dool 1.1 package failed"; exit 1; }
+if [ ! -f "v1.1.0.tar.gz" ] ;then
+  wget --quiet https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz  ||  { echo "Download dool 1.1 package failed"; exit 1; }
+fi
 
 tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
@@ -287,20 +290,23 @@ fi
 # you need add trust link entry for your host in pg_hba.conf manually
 # eg : host    all     all             192.168.0.1/24               md5
 
-trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
+if [ "${clientIP}" != "${serverIP}" ]; then
+    echo "add trust link entry for your test server ip in pg_hba.conf automatically"
+    trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
 # echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
 # echo "${trustSlinkPar}"
-if [ -z "${trustSlinkPar}" ];then
-  echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-else
-  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
-fi
+    if [ -z "${trustSlinkPar}" ];then
+      echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+    else
+      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    fi
 
-trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
-# echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
-# echo "${trustClinkPar}"
-if [ -z "${trustClinkPar}" ];then
-  echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-else
-  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
+    # echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
+    # echo "${trustClinkPar}"
+    if [ -z "${trustClinkPar}" ];then
+      echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+    else
+      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    fi
 fi
