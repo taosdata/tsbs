@@ -52,16 +52,16 @@ elif [ "${caseType}" == "iottest" ];then
     query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-01T12:00:00Z" "2016-01-01T12:00:01Z" "200" "iot" "${query_number_wokers}"  "TDengine influx timescaledb" "10"
 
 elif [ "${caseType}" == "cpu" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "TDengine timescaledb influx " "${query_times}"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "TDengine timescaledb influx" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "100" "cpu-only" "${query_number_wokers}" "influx TDengine timescaledb" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "4000"  "cpu-only" "${query_number_wokers}" "influx TDengine timescaledb" "${query_times}"
 
 elif [ "${caseType}" == "devops" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "TDengine influx timescaledb" "${query_times}"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "TDengine influx timescaledb" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "100"  "devops" "${query_number_wokers}" "influx TDengine timescaledb" "${query_times}"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "4000"  "devops" "${query_number_wokers}" "influx TDengine timescaledb" "${query_times}"
 
 elif [ "${caseType}" == "iot" ];then
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "100"  "iot" "4"  "TDengine timescaledb influx"  "10000"
-    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-05T00:00:00Z" "2016-01-05T00:00:01Z"  "4000"  "iot" "4" "TDengine timescaledb influx"  "500"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "100"  "iot" "4"  "influx TDengine timescaledb"  "10000"
+    query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "4000"  "iot" "4" "influx TDengine timescaledb"  "500"
 
 elif [ "${caseType}" == "userdefined" ];then
     query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" "${query_times}"

@@ -64,12 +64,12 @@ for USE_CASE in ${USE_CASES}; do
             if  [[ ${CASE_TYPE} != "userdefined" ]];then
                 echo ${SCALE}
                 if [  ${SCALE} -eq 100 ];then
-                    TS_END="2016-02-01T00:00:00Z"
-                    CHUNK_TIME="62h"
+                    TS_END="2016-01-03T00:00:00Z"
+                    CHUNK_TIME="6h"
                     echo "generate 1 month data"
                 elif [ ${SCALE} -eq 4000 ];then
-                    TS_END="2016-01-05T00:00:00Z"
-                    CHUNK_TIME="8h"
+                    TS_END="2016-01-03T00:00:00Z"
+                    CHUNK_TIME="6h"
                     echo "generate 4 days data"
                 elif [ ${SCALE} -eq 100000 ] ;then
                     TS_END="2016-01-01T03:00:00Z"

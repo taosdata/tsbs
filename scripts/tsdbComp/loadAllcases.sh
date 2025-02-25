@@ -4,8 +4,6 @@ scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
 
-caseType=${caseType:-"cputest"}
-
 echo "${serverHost}","${caseType}"
 function load_testcase {
 #  testcaset
