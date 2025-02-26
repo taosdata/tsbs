@@ -244,7 +244,7 @@ elif [  ${FORMAT} == "influx" ];then
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
-elif [  ${FORMAT} == "TDengine" ];then
+elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     run_command "
     echo `date +%Y_%m%d_%H%M%S`\":restart taosd \"
     systemctl restart taosd
@@ -253,12 +253,18 @@ elif [  ${FORMAT} == "TDengine" ];then
     systemctl status taosd
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\" "
     
+    if [  ${FORMAT} == "TDengine" ]; then
+        load_commond="tsbs_load_tdengine"
+    elif [ ${FORMAT} == "TDengineStmt2"  ]; then
+        load_commond="tsbs_load_tdenginestmt2"
+    fi
+    echo "load_commond:${load_commond}"
     disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE} "VGROUPS":${VGROUPS}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
-    echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  tsbs_load_tdengine  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   tsbs_load_tdengine \
+    echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  ${load_commond}  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   ${load_commond} \
     --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_TAOS_PORT}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true  --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     taos -h $DATABASE_HOST -s "alter database ${DATABASE_NAME} cachemodel 'last_row'  cachesize 200 ;"
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`

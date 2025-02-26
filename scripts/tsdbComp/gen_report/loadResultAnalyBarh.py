@@ -85,7 +85,7 @@ for i in range(nshape):
             xinfluxtype.append(arr[i][3])
         elif (xLableName=="SCALE"):
             xinfluxtype.append(arr[i][2])
-    elif(arr[i][0]=="TDengine"):
+    elif(arr[i][0]=="TDengine" or arr[i][0]=="TDengineStmt2") :
         tdengineMetrics.append(arr[i][targets_number])
         if (xLableName=="NUM_WORKER"):
             xtdenginetype.append(arr[i][4])
@@ -103,7 +103,7 @@ if( "influx" in arrt ):
     ax.barh(xticks+2*bar_width, influxMetrics, height=bar_width, label="influx")
 if( "timescaledb" in arrt ):
     ax.barh(xticks+bar_width, timescaledbMetrics, height=bar_width, label="timescaledb")     
-if( "TDengine" in arrt ):
+if( "TDengine" or "TDengineStmt2" in arrt ):
     ax.barh(xticks, tdengineMetrics, height=bar_width, label="TDengine")
 
 
