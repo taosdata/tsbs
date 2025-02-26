@@ -108,6 +108,16 @@ else
     trap cleanup EXIT
 
     echo "Generating ${INSERT_DATA_FILE_NAME}:"
+    echo "${EXE_FILE_NAME_GENERATE_DATA} \
+        --format ${FORMAT} \
+        --use-case ${USE_CASE} \
+        --scale ${SCALE} \
+        --timestamp-start ${TS_START} \
+        --timestamp-end ${TS_END} \
+        --seed ${SEED} \
+        --log-interval ${LOG_INTERVAL} \
+        --max-data-points ${MAX_DATA_POINTS} \
+     | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
     ${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
