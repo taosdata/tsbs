@@ -20,7 +20,7 @@ function query_testcase {
     BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
     BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
     NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 VGROUPS="$vgroups" \
-    QUERY_DEBUG="false" RELOADDATA="${reloaddata}" QUERIES=${10} \
+    QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
     SCALES=$6 DATABASE_NAME="benchmark$caseType" \
     QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh 
 
@@ -61,7 +61,7 @@ elif [ "${caseType}" == "iot" ];then
     #query_testcase ${serverHost} ${serverPass}  "2016-01-01T00:00:00Z"  "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z"  "4000"  "iot" "4" "influx TDengine timescaledb"  "500"
 
 elif [ "${caseType}" == "userdefined" ];then
-    query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" "${query_times_default}"
+    query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" 1
 
 else
     echo "please set correct testcase type"

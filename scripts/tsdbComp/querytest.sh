@@ -30,7 +30,7 @@ FORMATS=${FORMATS:-"timescaledb influx"}
 SCALE=${SCALE:-"100"}
 SEED=${SEED:-"123"}
 NUM_WORKER_LOAD=${NUM_WORKER_LOAD:-"12"} 
-BATCH_SIZE=${BATCH_SIZE:-"50000"} 
+BATCH_SIZE=${query_load_batch_size}
 
 #reset loading data
 RELOADDATA=${RELOADDATA:-"true"}

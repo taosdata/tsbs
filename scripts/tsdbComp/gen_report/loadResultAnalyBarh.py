@@ -76,7 +76,7 @@ for i in range(nshape):
         elif (xLableName=="SCALE"):
             xtimescaletype.append("%d  devices x 10 metrics" % arr[i][2])
         # print(timescaledbMetrics)
-    elif(arr[i][0]=="influx"):
+    elif(arr[i][0]=="influx" or arr[i][0]=="influx3") :
         influxMetrics.append(arr[i][targets_number])
         if (xLableName=="NUM_WORKER"):
             xinfluxtype.append(arr[i][4])
@@ -98,7 +98,7 @@ print(influxMetrics)
 print(timescaledbMetrics)
 print(arrt)
 
-if( "influx" in arrt ):
+if( "influx" or "influx3" in arrt ):
     ax.barh(xticks+2*bar_width, influxMetrics, height=bar_width, label="influx")
 if( "timescaledb" in arrt ):
     ax.barh(xticks+bar_width, timescaledbMetrics, height=bar_width, label="timescaledb")     

@@ -71,6 +71,20 @@ else
     trap cleanup EXIT
 
     echo "Generating ${DATA_FILE_NAME}:"
+    echo "${EXE_FILE_NAME_GENERATE_QUE} \
+        --format ${FORMAT} \
+        --queries ${QUERIES} \
+        --query-type ${QUERY_TYPE} \
+        --scale ${SCALE} \
+        --seed ${SEED} \
+        --timestamp-start ${TS_START} \
+        --timestamp-end ${TS_END} \
+        --use-case ${USE_CASE} \
+        --timescale-use-json=${USE_JSON} \
+        --timescale-use-tags=${USE_TAGS} \
+        --timescale-use-time-bucket=${USE_TIME_BUCKET} \
+        --clickhouse-use-tags=${USE_TAGS} \
+    | gzip  > ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}"
     ${EXE_FILE_NAME_GENERATE_QUE} \
         --format ${FORMAT} \
         --queries ${QUERIES} \
@@ -91,30 +105,6 @@ fi
 
 # - 2) query execution
 echo "===============query running================="
-
-# Ensure runner is available
-EXE_FILE_NAME_RUN_TSCD=${EXE_FILE_NAME_RUN_TSCD:-$(which tsbs_run_queries_timescaledb)}
-if [[ -z "$EXE_FILE_NAME_RUN_TSCD" ]]; then
-    echo "tsbs_run_queries_timescaledb not available. It is not specified explicitly and not found in \$PATH"
-    exit 1
-fi
-
-EXE_FILE_NAME_RUN_INF=${EXE_FILE_NAME_RUN_INF:-$(which tsbs_run_queries_influx)}
-if [[ -z "$EXE_FILE_NAME_RUN_INF" ]]; then
-    echo "tsbs_run_queries_influx not available. It is not specified explicitly and not found in \$PATH"
-    exit 1
-fi
-
-
-
-EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
-if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
-    echo "tsbs_run_queries_influx not available. It is not specified explicitly and not found in \$PATH"
-    exit 1
-fi
-
-
-
 # Queryresult Path
 BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES:-"/tmp/bulk_result_query"}
 # Ensure DATA DIR available
@@ -158,6 +148,11 @@ fi
 echo "${debugflag} ${printResponse}"
 echo "Running ${DATA_FILE_NAME}"
 if [[ "${FORMAT}" =~ "timescaledb" ]]; then
+    EXE_FILE_NAME_RUN_TSCD=${EXE_FILE_NAME_RUN_TSCD:-$(which tsbs_run_queries_timescaledb)}
+    if [[ -z "$EXE_FILE_NAME_RUN_TSCD" ]]; then
+        echo "tsbs_run_queries_timescaledb not available. It is not specified explicitly and not found in \$PATH"
+        exit 1
+    fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     echo "start to execute timescaledb query:"`date +%Y_%m%d_%H%M%S`
@@ -178,14 +173,20 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
         echo ${FORMATAISA},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
         echo " timescaledb query finish:"`date +%Y_%m%d_%H%M%S`
-elif [  ${FORMAT} == "influx" ]; then
+elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
+    query_command="tsbs_run_queries_${FORMAT}"
+    EXE_FILE_NAME_RUN_INF=${EXE_FILE_NAME_RUN_INF:-$(which ${query_command})}
+    if [[ -z "$EXE_FILE_NAME_RUN_INF" ]]; then
+        echo "${query_command} not available. It is not specified explicitly and not found in \$PATH"
+        exit 1
+    fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     echo "start to execute influx query:"`date +%Y_%m%d_%H%M%S`
-    echo "cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${EXE_FILE_NAME_RUN_INF}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} | tee ${OUT_FULL_FILE_NAME}"
+    echo "cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${query_command}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
-        | ${EXE_FILE_NAME_RUN_INF} \
+        | ${query_command} \
             --db-name ${DATABASE_NAME} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
@@ -198,6 +199,11 @@ elif [  ${FORMAT} == "influx" ]; then
         echo ${FORMAT},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
         echo " influx query finish:"`date +%Y_%m%d_%H%M%S`
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
+    if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
+        echo "tsbs_run_queries_influx not available. It is not specified explicitly and not found in \$PATH"
+        exit 1
+    fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     echo "start to execute TDengine query:"`date +%Y_%m%d_%H%M%S`

@@ -242,7 +242,7 @@ run_command "
     echo "${disk_usage_before} ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
-elif [  ${FORMAT} == "influx" ];then
+elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     run_command "
     systemctl restart influxd
     sleep 1" 
@@ -251,12 +251,13 @@ elif [  ${FORMAT} == "influx" ];then
     else
         disk_usage_before=0
     fi
- 
-    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
+    
+    load_command="tsbs_load_${FORMAT}"
+    echo "COMMAND:${load_command} BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
-    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
