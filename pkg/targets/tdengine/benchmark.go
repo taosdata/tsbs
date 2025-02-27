@@ -17,24 +17,27 @@ func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.
 	}
 
 	return &benchmark{
-		opts:   opts,
-		ds:     ds,
-		dbName: dbName,
+		opts:       opts,
+		dataSource: ds,
+		dbName:     dbName,
+		factory:    NewBatchFactory(),
 	}, nil
 }
 
 type benchmark struct {
-	opts   *LoadingOptions
-	ds     targets.DataSource
-	dbName string
+	opts       *LoadingOptions
+	dataSource targets.DataSource
+	dbName     string
+	batchSize  uint
+	factory    *BatchFactory
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
-	return b.ds
+	return b.dataSource
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {
-	return &factory{}
+	return b.factory
 }
 
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
@@ -59,5 +62,5 @@ func (b *benchmark) GetProcessor() targets.Processor {
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{opts: b.opts, ds: b.ds}
+	return &DbCreator{Opts: b.opts}
 }

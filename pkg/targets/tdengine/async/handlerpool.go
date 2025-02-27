@@ -12,15 +12,22 @@ type Result struct {
 	Res unsafe.Pointer
 	N   int
 }
+type Stmt2ExecResult struct {
+	Res      unsafe.Pointer
+	Affected int
+	Code     int
+}
 type Caller struct {
 	QueryResult chan *Result
 	FetchResult chan *Result
+	ExecResult  chan *Stmt2ExecResult
 }
 
 func NewCaller() *Caller {
 	return &Caller{
 		QueryResult: make(chan *Result, 1),
 		FetchResult: make(chan *Result, 1),
+		ExecResult:  make(chan *Stmt2ExecResult, 1),
 	}
 }
 
@@ -35,6 +42,14 @@ func (c *Caller) FetchCall(res unsafe.Pointer, numOfRows int) {
 	c.FetchResult <- &Result{
 		Res: res,
 		N:   numOfRows,
+	}
+}
+
+func (c *Caller) ExecCall(res unsafe.Pointer, affected int, code int) {
+	c.ExecResult <- &Stmt2ExecResult{
+		Res:      res,
+		Affected: affected,
+		Code:     code,
 	}
 }
 

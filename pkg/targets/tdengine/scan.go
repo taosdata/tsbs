@@ -77,11 +77,19 @@ func (ha *hypertableArr) Reset() {
 	ha.createSql = ha.createSql[:0]
 }
 
-type factory struct{}
+type BatchFactory struct {
+	pool *sync.Pool
+}
 
-func (f *factory) New() targets.Batch {
-	return &hypertableArr{
-		m:   map[string][]string{},
-		cnt: 0,
-	}
+func (b *BatchFactory) New() targets.Batch {
+	return b.pool.Get().(*hypertableArr)
+}
+
+func NewBatchFactory() *BatchFactory {
+	pool := &sync.Pool{New: func() interface{} {
+		return &hypertableArr{
+			m: map[string][]string{},
+		}
+	}}
+	return &BatchFactory{pool: pool}
 }

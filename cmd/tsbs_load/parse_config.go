@@ -48,7 +48,10 @@ func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benc
 	if err != nil {
 		return nil, nil, err
 	}
-
+	configurableBenchmark, ok := benchmark.(targets.ConfigurableBenchmark)
+	if ok {
+		configurableBenchmark.SetConfig(loaderConfigInternal.BatchSize, loaderConfig.Workers)
+	}
 	return benchmark, load.GetBenchmarkRunner(*loaderConfigInternal), nil
 }
 
