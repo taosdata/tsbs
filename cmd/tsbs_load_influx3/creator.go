@@ -1,7 +1,7 @@
 package main
 
 import (
-	"byte
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
