@@ -33,70 +33,7 @@ NUM_WORKER_LOAD=${NUM_WORKER_LOAD:-"12"}
 BATCH_SIZE=${BATCH_SIZE:-"50000"} 
 
 #reset loading data
-RESTLOAD=${RESTLOAD:-"true"}
-
-# All available for generation query types (sorted alphabetically)
- QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
- single-groupby-1-1-1 \
- single-groupby-1-1-12 \
- single-groupby-1-8-1 \
- single-groupby-5-1-1 \
- single-groupby-5-1-12 \
- single-groupby-5-8-1 \
- cpu-max-all-1 \
- cpu-max-all-8 \
- double-groupby-1 \
- double-groupby-5 \
- double-groupby-all \
- high-cpu-1 \
- high-cpu-all \
- groupby-orderby-limit \
- lastpoint "}
-
-
-
-# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
-#  single-groupby-1-1-1 \
-#  single-groupby-1-1-12 \
-#  single-groupby-1-8-1 \
-#  single-groupby-5-1-1 \
-#  single-groupby-5-1-12 \
-#  single-groupby-5-8-1 \
-#  cpu-max-all-1 \
-#  cpu-max-all-8 "}
-
-# QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
-# single-groupby-1-8-1 \
-# single-groupby-5-8-1 \
-# single-groupby-5-1-12  "}
-
-
-#QUERY_TYPES_ALL=${QUERY_TYPES_ALL:-"\
-#lastpoint "}
-
-QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
-last-loc \
-low-fuel \
-high-load \
-stationary-trucks \
-long-driving-sessions \
-long-daily-sessions \
-avg-vs-projected-fuel-consumption \
-avg-daily-driving-duration \
-avg-daily-driving-session \
-avg-load \
-daily-activity \
-breakdown-frequency "}     
-
-
-# QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL:-"\
-# last-loc"}     
-
-#last-loc \
-#low-fuel \
-#high-load \
-
-# avg-daily-driving-session \
+RELOADDATA=${RELOADDATA:-"true"}
 
 # Number of queries to generate
 QUERIES=${QUERIES:-"100"}
@@ -164,7 +101,7 @@ for FORMAT in ${FORMATS}; do
     FORMATAISA=${FORMATAISA:-"timescaledb"}
     for USE_CASE in ${USE_CASES}; do
         for SCALE in ${SCALES};do 
-            if [ ${RESTLOAD} == "true" ] ;then
+            if [ ${RELOADDATA} == "true" ] ;then
                 echo ${SCALE}
                 echo " DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}   FORMATAISA=${FORMATAISA} VGROUPS=${VGROUPS}  ./full_cycle_minitest_query_loading.sh "
                 DATABASE_HOST=${DATABASE_HOST} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER_LOAD} BULK_DATA_DIR=${BULK_DATA_DIR} TS_END=${LOAD_TS_END} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  FORMATAISA=${FORMATAISA}  VGROUPS=${VGROUPS}   ./full_cycle_minitest_query_loading.sh

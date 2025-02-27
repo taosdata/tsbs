@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/valyala/fasthttp"
+	"strings"
 )
 
 const backingOffChanCap = 100
@@ -64,12 +65,16 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) 
 			if err == errBackoff {
 				p.backingOffChan <- true
 				time.Sleep(backoff)
+			} else if err != nil && strings.Contains(err.Error(), "conflict error") {
+				// Retry on conflict error
+				fmt.Printf("Retrying due to conflict error: %s\n", err.Error())
+				// time.Sleep(time.Second)
 			} else {
 				p.backingOffChan <- false
 				break
 			}
 		}
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "conflict error") {
 			fatal("Error writing: %s\n", err.Error())
 		}
 	}

@@ -61,7 +61,7 @@ log_info "  load_formats: ${load_formats}"
 log_info "  load_number_workers: ${load_number_workers}"
 log_info "Query config"
 log_info "  query_scales: ${query_scales}"
-log_info "  restload: ${restload}"
+log_info "  reloaddata: ${reloaddata}"
 log_info "  query_number_workers: ${query_number_workers}"
 log_info "  query_formats: ${query_formats}"
 log_info "  query_times: ${query_times}"
@@ -135,24 +135,28 @@ eeooff
 fi
 
 for caseType in ${caseTypes}; do
-    # execute load tests
-    log_info "========== caseType: ${caseType} =========="
-    log_info "========== Start executing ${caseType} load test =========="
-
+    log_info "========== caseType: ${caseType}, operation: ${operation_mode} =========="
     time=$(date +%Y_%m%d_%H%M%S)
 
-    cd ${scriptDir}
-    log_info "caseType=${caseType} ./loadAllcases.sh &> log/testload${caseType}${time}.log"
-    caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 
+    if [  ${operation_mode} == "both" ] || [  ${operation_mode} == "load" ]; then
+        # execute load tests
+        log_info "========== Start executing ${caseType} load test =========="
 
-    log_info "========== End executing ${caseType} load test =========="
+        cd ${scriptDir}
+        log_info "caseType=${caseType} ./loadAllcases.sh &> log/testload${caseType}${time}.log"
+        caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 
 
-    # execute query tests
-    log_info "========== Start executing ${caseType} query test =========="
+        log_info "========== End executing ${caseType} load test =========="
+    fi
 
-    cd ${scriptDir}
-    log_info "caseType=${caseType} ./queryAllcases.sh &> log/testquery${caseType}${time}.log"
-    caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log
+    if [  ${operation_mode} == "both" ] || [  ${operation_mode} == "query" ]; then
+        # execute query tests
+        log_info "========== Start executing ${caseType} query test =========="
 
-    log_info "========== End executing ${caseType} query test =========="
+        cd ${scriptDir}
+        log_info "caseType=${caseType} ./queryAllcases.sh &> log/testquery${caseType}${time}.log"
+        caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log
+
+        log_info "========== End executing ${caseType} query test =========="
+    fi
 done

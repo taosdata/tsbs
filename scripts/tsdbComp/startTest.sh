@@ -89,7 +89,7 @@ source  /root/.bashrc
 ./installEnv.sh -t ${installTsbs} -o ${osType}
 
 sudo systemctl stop postgresql-14
-sudo systemctl stop influxd
+#sudo systemctl stop influxd
 sudo systemctl stop taosd
 
 

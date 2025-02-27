@@ -56,7 +56,7 @@ func NewHTTPWriter(c HTTPWriterConfig, consistency string) *HTTPWriter {
 		},
 
 		c:   c,
-		url: []byte(c.Host + "/write?consistency=" + consistency + "&db=" + url.QueryEscape(c.Database)),
+		url: []byte(c.Host + "/api/v3/write_lp?" + "db=" + url.QueryEscape(c.Database)),
 	}
 }
 
@@ -83,6 +83,11 @@ func (w *HTTPWriter) executeReq(req *fasthttp.Request, resp *fasthttp.Response) 
 		sc := resp.StatusCode()
 		if sc == 500 && backpressurePred(resp.Body()) {
 			err = errBackoff
+		} else if sc == fasthttp.StatusConflict {
+			fmt.Printf("[DebugInfo: %s] Conflict error (status 409): %s", w.c.DebugInfo, resp.Body())
+			// Handle the conflict error gracefully by returning nil
+			// err = nil
+			err = fmt.Errorf("conflict error: %s", resp.Body())
 		} else if sc != fasthttp.StatusNoContent {
 			err = fmt.Errorf("[DebugInfo: %s] Invalid write response (status %d): %s", w.c.DebugInfo, sc, resp.Body())
 		}

@@ -16,8 +16,8 @@ if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
 fi
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath="/var/lib/taos/"
-InfPath="/var/lib/influxdb/"
+TDPath=${TDPath:-"/var/lib/taos/"}
+InfPath=${InfPath-"/var/lib/influxdb/"}
 TimePath="/var/lib/postgresql/14/main/base/"
 
 # Space-separated list of target DB formats to generate
@@ -143,7 +143,6 @@ cd ${scriptDir}
 
 echo "---------------  Clean  -----------------"
 run_command "echo 1 > /proc/sys/vm/drop_caches
-    systemctl restart influxd
     systemctl restart postgresql
     sleep 1
 "
@@ -225,10 +224,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
     sleep 60
 elif [  ${FORMAT} == "influx" ];then
     if [ -d "${InfPath}" ]; then
-        run_command "rm -rf ${InfPath}/*
-            systemctl restart influxd
-            sleep 1"
-        disk_usage_before=`set_command "du -s ${InfPath}/data | cut -f 1 " `
+        disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
     else
         disk_usage_before=0
     fi
@@ -261,7 +257,7 @@ elif [  ${FORMAT} == "influx" ];then
     done
     echo `date +%Y_%m%d_%H%M%S`":influxdb data  compression has been completed"
     set_command "rm -rf /usr/local/src/teststatus.log"
-    disk_usage_after=`set_command "du -s ${InfPath}/data | cut -f 1 " `
+    disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
@@ -287,7 +283,12 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\"
     sleep 2"
 
-    echo "caculte data size"
+    if [  ${FORMAT} == "TDengine" ]; then
+        load_commond="tsbs_load_tdengine"
+    elif [ ${FORMAT} == "TDengineStmt2"  ]; then
+        load_commond="tsbs_load_tdenginestmt2"
+    fi
+    echo "load_command:${load_commond}"
     if [ -d "${TDPath}" ]; then
         disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     else

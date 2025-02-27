@@ -19,8 +19,8 @@ if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
 fi
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath="/var/lib/taos/"
-InfPath="/var/lib/influxdb/"
+TDPath=${TDPath:-"/var/lib/taos/"}
+InfPath=${InfPath-"/var/lib/influxdb/"}
 TimePath="/var/lib/postgresql/14/main/base/"
 
 # Space-separated list of target DB formats to generate
@@ -107,20 +107,17 @@ else
     }
     trap cleanup EXIT
 
-    cat <<EOF
-    Generating ${INSERT_DATA_FILE_NAME}:
-            ${EXE_FILE_NAME_GENERATE_DATA} \
-            --format ${FORMAT} \
-            --use-case ${USE_CASE} \
-            --scale ${SCALE} \
-            --timestamp-start ${TS_START} \
-            --timestamp-end ${TS_END} \
-            --seed ${SEED} \
-            --log-interval ${LOG_INTERVAL} \
-            --max-data-points ${MAX_DATA_POINTS} \
-        | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}
-EOF
-
+    echo "Generating ${INSERT_DATA_FILE_NAME}:"
+    echo "${EXE_FILE_NAME_GENERATE_DATA} \
+        --format ${FORMAT} \
+        --use-case ${USE_CASE} \
+        --scale ${SCALE} \
+        --timestamp-start ${TS_START} \
+        --timestamp-end ${TS_END} \
+        --seed ${SEED} \
+        --log-interval ${LOG_INTERVAL} \
+        --max-data-points ${MAX_DATA_POINTS} \
+     | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
     ${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
@@ -263,7 +260,7 @@ elif [  ${FORMAT} == "influx" ];then
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
-    disk_usage_after=`set_command "du -s ${InfPath}/data | cut -f 1 " `
+    disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
@@ -281,7 +278,7 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`\":check status of taosd \"
     systemctl status taosd
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\" "
-    exit
+    
     if [ -d "${TDPath}" ]; then
         disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     else

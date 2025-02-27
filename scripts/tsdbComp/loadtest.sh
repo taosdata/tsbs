@@ -5,29 +5,6 @@ set -e
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
 
-# Space-separated list of target DB formats to generate
-FORMATS=${FORMATS:-"timescaledb influx TDengine"}
-
-# Number of hosts to generate data about
-SCALES=${SCALES:-"100"}
-
-# Rand seed
-SEED=${SEED:-"123"}
-
-# Start and stop time for generated timeseries
-TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
-TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-
-# What set of data to generate: devops (multiple data), cpu-only (cpu-usage data)
-# USE_CASES=${USE_CASES:-"cpu-only devops iot"}
-USE_CASES=${USE_CASES:-"cpu-only devops iot"}
-
-# Step to generate data
-LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
-
-# Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
-MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
-
 # Load parameters - common
 DATABASE_USER=${DATABASE_USER:-postgres}
 DATABASE_NAME=${DATABASE_NAME:-benchmark}
@@ -40,10 +17,6 @@ CASE_TYPE=${CASE_TYPE:-"cputest"}
 WALFSYNCPERIOD=${WALFSYNCPERIOD:-"0"}
 TRIGGER=${TRIGGER:-"8"} 
 VGROUPS=${VGROUPS:-"24"}
-
-# worklen=`echo  ${NUM_WORKERS}| awk  '{print NF}' `
-# batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
-# scalelen=`echo  ${SCALES}| awk  '{print NF}' `
 
 
 # Ensure DATA DIR available
@@ -66,12 +39,12 @@ for USE_CASE in ${USE_CASES}; do
             if  [[ ${CASE_TYPE} != "userdefined" ]];then
                 echo ${SCALE}
                 if [  ${SCALE} -eq 100 ];then
-                    TS_END="2016-02-01T00:00:00Z"
-                    CHUNK_TIME="62h"
+                    TS_END="2016-01-03T00:00:00Z"
+                    CHUNK_TIME="6h"
                     echo "generate 1 month data"
                 elif [ ${SCALE} -eq 4000 ];then
-                    TS_END="2016-01-05T00:00:00Z"
-                    CHUNK_TIME="8h"
+                    TS_END="2016-01-03T00:00:00Z"
+                    CHUNK_TIME="6h"
                     echo "generate 4 days data"
                 elif [ ${SCALE} -eq 100000 ] ;then
                     TS_END="2016-01-01T03:00:00Z"
