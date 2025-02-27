@@ -180,8 +180,8 @@ function install_tsbs {
   cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
   cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
   cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
+  cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
+  cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
 }
 
 cmdInstall sshpass
