@@ -20,7 +20,7 @@ fi
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 TDPath=${TDPath:-"/var/lib/taos/"}
-InfPath=${InfPath-"/var/lib/influxdb/"}
+InfPath=${InfPath-"/var/lib/influxdb/data/"}
 TimePath="/var/lib/postgresql/14/main/base/"
 
 # Space-separated list of target DB formats to generate
@@ -249,7 +249,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         sleep 1" 
     fi
     if [ -d "${InfPath}" ]; then
-        disk_usage_before=`set_command "du -s ${InfPath}/data | cut -f 1 " `
+        disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
     else
         disk_usage_before=0
     fi
