@@ -5,23 +5,31 @@
 # - 3) query execution
 
 scriptDir=$(dirname $(readlink -f $0))
+DEBUG=true
+NO_COLOR=true
+source ${scriptDir}/common.sh
+source ${scriptDir}/logger.sh
+
 
 FORMATAISA=${FORMATAISA:-"timescaledb"}
 
 
+log_info "start to load ${USE_CASE} data into ${FORMATAISA}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # - 1) data  generation
-echo "===============data generation================="
-echo "${FORMAT},${FORMATAISA},${SCALE},${USE_CASE}"
+log_info "===============data generation================="
+log_info "Generating data for ${USE_CASE} into ${FORMAT}, with scale ${SCALE}, seed ${SEED}, log interval ${LOG_INTERVAL}"
+
 EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
 if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
-    echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+    log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
     exit 1
 fi
+
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 TDPath=${TDPath:-"/var/lib/taos/"}
 InfPath=${InfPath-"/var/lib/influxdb/"}
-TimePath="/var/lib/postgresql/14/main/base/"
+TimePath=${TimePath-"/var/lib/postgresql/14/main/base/"}
 
 # Space-separated list of target DB formats to generate
 FORMAT=${FORMAT:-"timescaledb"}
@@ -68,8 +76,6 @@ function floor(){
   echo `expr $floor`
 }
 
-echo "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
-
 function run_command() {
     local command="$1"
     if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
@@ -99,7 +105,7 @@ function set_command() {
 # generate data
 INSERT_DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_scale${SCALE}_${TS_START}_${TS_END}_interval${LOG_INTERVAL}_${SEED}.dat.gz"
 if [ -f "${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}" ]; then
-    echo "WARNING: file ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} already exists, skip generating new data"
+    log_warning "WARNING: file ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} already exists, skip generating new data"
 else
     cleanup() {
         rm -f ${INSERT_DATA_FILE_NAME}
@@ -107,8 +113,8 @@ else
     }
     trap cleanup EXIT
 
-    echo "Generating ${INSERT_DATA_FILE_NAME}:"
-    echo "${EXE_FILE_NAME_GENERATE_DATA} \
+    log_info "Generating ${INSERT_DATA_FILE_NAME}:"
+    log_debug "${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
         --scale ${SCALE} \
@@ -132,7 +138,7 @@ else
 fi
 
 # - 2) data loading/insertion
-echo "===============data loading/insertion================="
+log_info "===============data loading/insertion================="
 
 # Load parameters - common
 DATABASE_USER=${DATABASE_USER:-postgres}
@@ -140,7 +146,7 @@ DATABASE_NAME=${DATABASE_NAME:-benchmark}
 DATABASE_HOST=${DATABASE_HOST:-localhost}
 DATABASE_PORT=${DATABASE_PORT:-5432}
 DATABASE_PWD=${DATABASE_PWD:-password}
-DATABASE_PORT_INF=${DATABASE_PORT_INF:-8086}
+DATABASE_PORT_INF=${DATABASE_PORT_INF:-8181}
 DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
 DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
 NUM_WORKER=${NUM_WORKER:-"16"} 
@@ -151,10 +157,10 @@ BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
 TRIGGER=${TRIGGER:-"1"} 
 
 
-mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
+mkdir -p ${BULK_DATA_DIR_RES_LOAD} || log_warning "file exists"
 cd ${scriptDir}
 
-echo "---------------  Clean  -----------------"
+log_info "---------------  Clean  -----------------"
 run_command "echo 1 > /proc/sys/vm/drop_caches"
 
 if [[ `echo $CHUNK_TIME|grep h` != "" ]];then
@@ -195,54 +201,50 @@ run_command "
         disk_usage_before=0
     fi
    
-    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
+    log_info "Starting to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    echo "$(date +%Y_%m%d_%H%M%S):start to load "
-    echo "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    log_debug "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     if [ "${USE_CASE}" == "cpu-only" ];then
         PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" > tempCompress.txt
         tempCompressNum=`more tempCompress.txt |grep rows |awk -F ' ' '{print $1}'`
-        echo "${tempCompressNum}"
+        log_debug "${FORMAT} tempCompressNum: ${tempCompressNum}"
         if [ "${tempCompressNum}" == "(0" ] ;then
             PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "ALTER TABLE cpu SET (timescaledb.compress, timescaledb.compress_orderby = 'time DESC,usage_user',  timescaledb.compress_segmentby = 'tags_id');"
             # hostname in  tags  can't be set and it reports ERROR:  unrecognized parameter namespace "timescaledb".
             # PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "ALTER TABLE tags SET (timescaledb.compress, timescaledb.compress_segmentby = 'hostname');"  
-            echo "$(date +%Y_%m%d_%H%M%S):start to add compression policy"
-            echo "compressed SQL: SELECT add_compression_policy('cpu', INTERVAL '${compressChunkTime}')"
+            log_debug "$(date +%Y_%m%d_%H%M%S):start to add compression policy"
+            log_debug "compressed SQL: SELECT add_compression_policy('cpu', INTERVAL '${compressChunkTime}')"
             PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "SELECT add_compression_policy('cpu', INTERVAL '${compressChunkTime}' );"
-
         else
-            echo "it has already been enabled native compression on TimescaleDB,"
+            log_warning "it has already been enabled native compression on TimescaleDB,"
         fi
-    fi
-    speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
-    speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
-    times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
-    if [ "${USE_CASE}" == "cpu-only" ];then
         while true
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             disk_usage_after=`set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
-            echo "${tempCompressNum},${disk_usage_after}"
+        
             timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
             # echo "chunkTimeSeconds:${chunkTimeInter}"
             timesHours=`echo "scale=3;${timesdiffSec}/${chunkTimeInter}"|bc`
             timesHours1=`ceil $timesHours`
             timesHours2=`floor $timesHours`
-            echo ${timesHours1}, ${timesHours2}
+            log_debug "Compression count: ${tempCompressNum}, disk usage after load: ${disk_usage_after}, expected compressed data Block count :${timesHours},${timesHours1},${timesHours2}"
             if [[ "${tempCompressNum}" == "(${timesHours1}" ]] || [[ "${tempCompressNum}" == "(${timesHours2}" ]] ;then
-                echo "${timesHours},${tempCompressNum}"
-                echo "$(date +%Y_%m%d_%H%M%S): complete  compression"
+                log_debug "com${timesHours},${tempCompressNum}"
+                log_debug "$(date +%Y_%m%d_%H%M%S): complete  compression"
                 break
             fi
         done
     fi
+    speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
+    speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
+    times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     disk_usage_after=`set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
     echo "${disk_usage_before} ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
-elif [  ${FORMAT} == "influx" ];then
+elif [  ${FORMAT} == "influx" ] || [   ${FORMAT} == "influx3"   ] ;then
     run_command "
     systemctl restart influxd
     sleep 1" 
@@ -255,8 +257,8 @@ elif [  ${FORMAT} == "influx" ];then
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
-    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   tsbs_load_influx  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  tsbs_load_influx3  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   tsbs_load_influx3  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
