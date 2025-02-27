@@ -1,4 +1,4 @@
-package influx
+package influx3
 
 import (
 	"fmt"
@@ -220,25 +220,23 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 	start := i.Interval.Start().Format(time.RFC3339)
 	end := i.Interval.End().Format(time.RFC3339)
-	influxql := fmt.Sprintf(`SELECT "elapsed" 
-		INTO "random_measure2_1" 
-		FROM (SELECT difference("difka"), elapsed("difka", 1m) 
-		 FROM (SELECT "difka" 
-		  FROM (SELECT difference("mv") AS difka 
-		   FROM (SELECT floor(mean("velocity")/10)/floor(mean("velocity")/10) AS "mv" 
-		    FROM "readings" 
-		    WHERE "name"!='' AND time > '%s' AND time < '%s' 
-		    GROUP BY time(10m), "name" fill(0)) 
-		   GROUP BY "name") 
-		  WHERE "difka"!=0 
-		  GROUP BY "name") 
-		 GROUP BY "name") 
-		WHERE "difference" = -2 
-		GROUP BY "name"; 
-		SELECT mean("elapsed") 
-		FROM "random_measure2_1" 
-		WHERE time > '%s' AND time < '%s' 
-		GROUP BY time(1d),"name"`,
+	influxql := fmt.Sprintf(`SELECT mean("elapsed")
+	FROM (SELECT elapsed
+	FROM (SELECT difference("difka") as diff_result, elapsed("difka", 1m) as elapsed 
+	 FROM (SELECT "difka" 
+	  FROM (SELECT difference("mv") AS difka 
+	   FROM (SELECT floor(mean("velocity")/10)/floor(mean("velocity")/10) AS "mv" 
+		FROM "readings" 
+		WHERE "name"!='' AND time > '%s' AND time < '%s' 
+		GROUP BY time(10m), "name" fill(0)) 
+	   GROUP BY "name") 
+	  WHERE "difka"!=0 
+	  GROUP BY "name") 
+	 GROUP BY "name") 
+	WHERE "diff_result" = -2
+	GROUP BY "name")
+	WHERE time > '%s' AND time < '%s'
+	GROUP BY time(1d), "name"`,
 		start,
 		end,
 		start,

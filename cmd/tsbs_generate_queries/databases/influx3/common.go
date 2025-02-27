@@ -1,4 +1,4 @@
-package influx
+package influx3
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, influ
 	q.HumanLabel = []byte(humanLabel)
 	q.RawQuery = []byte(influxql)
 	q.HumanDescription = []byte(humanDesc)
-	q.Method = []byte("POST")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/api/v3/query_influxql?%s", v.Encode()))
 	q.Body = nil
 }
 
