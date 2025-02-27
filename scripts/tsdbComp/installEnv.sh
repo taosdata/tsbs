@@ -1,61 +1,9 @@
 #!/bin/bash
 
-# set -e
-# set parameters by default value
-# [centos | ubuntu]
-osType=ubuntu      
-installPath="/usr/local/src/"
-
-# install env
-installGoEnv=false
-installDB=false
-installTsbs=false
-
-#client and server paras
-clientIP="192.168.0.203"
-clientHost="trd03"
-serverIP="192.168.0.204"
-serverHost="trd04"
-serverPass="taosdata!"
-
-#testcase type
-#[cputest | cpu| devops | iot ]
-caseType=cputest
-case="cpu-only"
-
-# data and result root path
-# datapath is bulk_data_rootDir/bulk_data_${caseType} 
-# executeTime=`date +%Y_%m%d_%H%M%S`
-# resultpath is bulk_data_resultrootdir/load_data_${caseType}_${executeTime}
-loadDataRootDir="/data2/"
-loadRsultRootDir="/data2/"
-queryDataRootDir="/data2/"
-queryRsultRootDir="/data2/"
-
-
-#load test parameters
-load_ts_start="2016-01-01T00:00:00Z"
-load_ts_end="2016-01-02T00:00:00Z"
-load_number_wokers="12"
-load_batchsizes="10000"
-load_scales="100 4000 100000 1000000 10000000"
-load_formats="TDengine influx timescaledb"
-load_test_scales="200"
-
-#query test parameters
-query_ts_start="2016-01-01T00:00:00Z"
-query_load_ts_end="2016-01-05T00:00:00Z"
-query_ts_end="2016-01-05T00:00:01Z"
-query_load_number_wokers="12"
-query_number_wokers="12"
-query_times="10000"
-query_scales="100 4000 100000 1000000 10000000"
-query_formats="TDengine influx timescaledb"
-
-# start to install 
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
+error_install_file="${scriptDir}/log/install_error.log"
 
 echo "install path: ${installPath}"
 echo "installGoEnv: ${installGoEnv}"
@@ -102,7 +50,7 @@ echo "=============timescaledb in centos: remove and install  ============="
   yum remove postgresql-14 -y
   yum remove timescaledb-2-postgresql-14 -y
 #   yum remove postgresql-14 -y
-  yum install timescaledb-2-postgresql-14 -y
+  yum install timescaledb-2-postgresql-14='2.13.0*'  timescaledb-2-loader-postgresql-14='2.13.0*' -y
 
 echo "=============timescaledb in centos: start ============="
   # configure postgresql 
@@ -141,7 +89,7 @@ echo "=============reinstall influx in centos ============="
   cd ${installPath}
   yum install wget
   if [ ! -f "influxdb-1.8.10.x86_64.rpm"  ] ;then
-    wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm
+    wget --quiet https://dl.influxdata.com/influxdb/releases/influxdb-1.8.10.x86_64.rpm  ||  { echo "Download InfluxDB 1.8 package failed"; exit 1; }
   fi
   sudo yum  -y localinstall influxdb-1.8.10.x86_64.rpm
   indexPar1=`grep -w 'index-version = "tsi1"' /etc/influxdb/influxdb.conf `
@@ -171,7 +119,7 @@ function install_timescale_ubuntu {
   apt remove postgresql-14 -y
   apt remove timescaledb-2-postgresql-14 -y
   apt install postgresql-14 -y
-  apt install timescaledb-2-postgresql-14='2.13.0*' -y 
+  apt install timescaledb-2-postgresql-14='2.13.0*'  --allow-downgrades timescaledb-2-loader-postgresql-14='2.13.0*'  -y 
 
   echo "============timescaledb in ubuntu: configure and start postgresql ============="
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
@@ -203,7 +151,7 @@ function install_influx_ubuntu {
   dpkg -r influxdb
   cd ${installPath}
   if [ ! -f "influxdb_1.8.10_amd64.deb" ] ;then
-     wget https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb
+     wget --quiet https://dl.influxdata.com/influxdb/releases/influxdb_1.8.10_amd64.deb  ||  { echo "Download InfluxDB 1.8 package failed"; exit 1; }
   fi
   sudo dpkg -i influxdb_1.8.10_amd64.deb
   indexPar1=`grep -w 'index-version = "tsi1"' /etc/influxdb/influxdb.conf `
@@ -221,28 +169,75 @@ systemctl restart influxd
 
 
 function install_TDengine {
-  echo "=============reinstall TDengine  in ubuntu ============="
-  cd ${installPath}
-  sudo apt-get install -y gcc cmake build-essential git libssl-dev
-  git clone https://github.com/taosdata/TDengine.git
-  cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
-  if [ -d "debug/" ];then
-      rm -rf debug 
-  fi
-  mkdir -p   debug && cd debug  && cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false    && make -j && make install
-  systemctl status taosd
-  taosPar=`grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg`
-  if [ -z "${taosPar}" ];then
-    echo -e  "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n"  >> /etc/taos/taos.cfg
-  fi
-  fqdnCPar=`grep -w "${clientIP} ${clientHost}" /etc/hosts`
-  fqdnSPar=`grep -w "${serverIP} ${serverHost}" /etc/hosts`
-  if [ -z "${fqdnCPar}" ];then
-    echo -e  "\n${clientIP} ${clientHost} \n"  >> /etc/hosts
-  fi
-  if [ -z "${fqdnSPar}" ];then
-    echo -e  "\n${serverIP} ${serverHost} \n"  >> /etc/hosts
-  fi
+    echo "=============reinstall TDengine in ubuntu ============="
+    cd ${installPath}
+    sudo apt-get install -y gcc cmake build-essential git libssl-dev
+    if [ ! -d "TDengine" ]; then
+        git clone https://github.com/taosdata/TDengine.git || exit 1
+    fi
+  # if [ caseType == "cpu" ];then
+  #   cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8
+  # else 
+  #   cd TDengine && git checkout 1bea5a53c27e18d19688f4d38596413272484900
+  # fi
+  
+    cd TDengine && git checkout main
+
+    if [ -d "debug/" ]; then
+        rm -rf debug
+    fi
+    sed -i "s/\-Werror / /g" cmake/cmake.define
+    mkdir -p debug && cd debug
+
+    # Trap any exit signal and log it
+    trap 'echo "TDengine build failed"; exit 1' EXIT
+
+    cmake .. -Ddisable_assert=True -DSIMD_SUPPORT=true   -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=false
+
+    # Detect memory size
+    memory=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    memory_kb=$memory
+    memory_mb=$((memory_kb / 1024))
+    memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
+    core_number=$(nproc)
+    if [ "${memory_gb}" -ge 12 ]; then
+        echo "using make -j${core_number}"
+        make -j$(nproc) || exit 1
+    else
+        echo "using make"
+        make || exit 1
+    fi
+
+    make install || exit 1
+
+    # Remove the trap if everything succeeded
+    trap - EXIT
+
+    # Check if taosd and taos commands are available
+    if ! command -v taosd &> /dev/null || ! command -v taos &> /dev/null; then
+        echo "install TDengine failed"
+        exit 1
+    fi
+
+    systemctl status taosd
+
+    # Resolved the issue of failure after three restarts within the default time range (600s)
+    sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
+    systemctl daemon-reload
+    taosPar=$(grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg)
+    if [ -z "${taosPar}" ]; then
+        echo -e "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n" >> /etc/taos/taos.cfg
+    fi
+    fqdnCPar=$(grep -w "${clientIP} ${clientHost}" /etc/hosts)
+    if [ -z "${fqdnCPar}" ];then
+        echo -e "\n${clientIP} ${clientHost} \n" >> /etc/hosts
+    fi
+    if [ "${clientIP}" != "${serverIP}" ]; then
+        fqdnSPar=$(grep -w "${serverIP} ${serverHost}" /etc/hosts)
+        if [ -z "${fqdnSPar}" ]; then
+            echo -e "\n${serverIP} ${serverHost} \n" >> /etc/hosts
+        fi
+    fi
 }
 
 
@@ -255,8 +250,11 @@ cmdInstall build-essential
 cmdInstall libssl-dev
 
 cd ${installPath}
-wget https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz
-tar vxf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
+if [ ! -f "v1.1.0.tar.gz" ] ;then
+  wget --quiet https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz  ||  { echo "Download dool 1.1 package failed"; exit 1; }
+fi
+
+tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
 # install db  
 if [ "${installDB}" == "true" ];then
@@ -291,20 +289,23 @@ fi
 # you need add trust link entry for your host in pg_hba.conf manually
 # eg : host    all     all             192.168.0.1/24               md5
 
-trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustSlinkPar}"
-if [ -z "${trustSlinkPar}" ];then
-  echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-else
-  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
-fi
+if [ "${clientIP}" != "${serverIP}" ]; then
+    echo "add trust link entry for your test server ip in pg_hba.conf automatically"
+    trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
+# echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
+# echo "${trustSlinkPar}"
+    if [ -z "${trustSlinkPar}" ];then
+      echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+    else
+      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    fi
 
-trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
-echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
-echo "${trustClinkPar}"
-if [ -z "${trustClinkPar}" ];then
-  echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-else
-  echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
+    # echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
+    # echo "${trustClinkPar}"
+    if [ -z "${trustClinkPar}" ];then
+      echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
+    else
+      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+    fi
 fi

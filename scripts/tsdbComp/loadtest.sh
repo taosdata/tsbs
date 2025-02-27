@@ -45,9 +45,10 @@ VGROUPS=${VGROUPS:-"24"}
 # batchlen=`echo  ${BATCH_SIZES}| awk  '{print NF}' `
 # scalelen=`echo  ${SCALES}| awk  '{print NF}' `
 
-# # Ensure DATA DIR available
-# mkdir -p ${BULK_DATA_DIR}
-# chmod a+rwx ${BULK_DATA_DIR}
+
+# Ensure DATA DIR available
+mkdir -p ${BULK_DATA_DIR}
+chmod a+rwx ${BULK_DATA_DIR}
 
 datadir_space=`du ${BULK_DATA_DIR} -s |awk '{print $1}'  `
 echo ${BULK_DATA_DIR} "disk usage is" ${datadir_space}
