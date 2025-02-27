@@ -243,9 +243,11 @@ run_command "
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
-    run_command "
-    systemctl restart influxd
-    sleep 1" 
+    if [  ${FORMAT} == "influx" ]; then
+        run_command "
+        systemctl restart influxd
+        sleep 1" 
+    fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath}/data | cut -f 1 " `
     else

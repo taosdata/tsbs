@@ -17,7 +17,7 @@ fi
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 TDPath=${TDPath:-"/var/lib/taos/"}
-InfPath=${InfPath-"/var/lib/influxdb/"}
+InfPath=${InfPath-"/var/lib/influxdb/data/"}
 TimePath="/var/lib/postgresql/14/main/base/"
 
 # Space-separated list of target DB formats to generate
@@ -233,6 +233,11 @@ if [ "${FORMAT}" == "timescaledb" ];then
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
+    if [  ${FORMAT} == "influx" ]; then
+        run_command "rm -rf ${InfPath}/*
+        systemctl restart influxd
+        sleep 1"
+    fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
     else
@@ -272,9 +277,11 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
-    run_command "rm -rf ${InfPath}/*
-    systemctl restart influxd
-    sleep 1"
+    if [  ${FORMAT} == "influx" ]; then
+        run_command "rm -rf ${InfPath}/*
+        systemctl restart influxd
+        sleep 1"
+    fi
 eeooff
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     if [  ${FORMAT} == "TDengine" ]; then
