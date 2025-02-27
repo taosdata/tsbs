@@ -228,7 +228,6 @@ elif [  ${FORMAT} == "influx" ];then
     else
         disk_usage_before=0
     fi
-
     echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     echo `date +%Y_%m%d_%H%M%S`
@@ -262,7 +261,16 @@ elif [  ${FORMAT} == "influx" ];then
     echo "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    run_command "rm -rf ${InfPath}/*
+    systemctl restart influxd
+    sleep 1"
+eeooff
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    if [  ${FORMAT} == "TDengine" ]; then
+        load_commond="tsbs_load_tdengine"
+    elif [ ${FORMAT} == "TDengineStmt2"  ]; then
+        load_commond="tsbs_load_tdenginestmt2"
+    fi
     run_command "
     echo `date +%Y_%m%d_%H%M%S`\":start to stop taosd and remove data ${TDPath}\"
     systemctl stop taosd

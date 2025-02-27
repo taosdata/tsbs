@@ -18,9 +18,11 @@ WALFSYNCPERIOD=${WALFSYNCPERIOD:-"0"}
 TRIGGER=${TRIGGER:-"8"} 
 VGROUPS=${VGROUPS:-"24"}
 
+
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
+
 datadir_space=`du ${BULK_DATA_DIR} -s |awk '{print $1}'  `
 echo ${BULK_DATA_DIR} "disk usage is" ${datadir_space}
 if [ ${datadir_space} -lt 30000  ];then

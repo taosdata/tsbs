@@ -66,7 +66,6 @@ elif (xLableName=="SCALE"):
             
 print(nshape)
 
-
 for i in range(nshape):
     if(arr[i][0]=="timescaledb"):
         timescaledbMetrics.append(arr[i][targets_number])
@@ -108,11 +107,11 @@ if( "TDengine" or "TDengineStmt2" in arrt ):
 
 
 for a,b in zip(xticks+bar_width*2,influxMetrics):   #柱子上的数字显示
-    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8);
+    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8)
 for a,b in zip(xticks+bar_width,timescaledbMetrics):   #柱子上的数字显示
-    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8);
+    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8)
 for a,b in zip(xticks,tdengineMetrics):   #柱子上的数字显示
-    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8);
+    ax.text(b,a,'%.0f'%b,ha='left',va='center',fontsize=8)
 
 # ax.axvline(100, color='gray', linewidth=2)
 plt.style.use('Solarize_Light2')
