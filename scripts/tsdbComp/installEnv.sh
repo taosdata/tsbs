@@ -173,7 +173,7 @@ function install_TDengine {
   cd ${installPath}
   sudo apt-get install -y gcc cmake build-essential git libssl-dev
   if [ ! -d "TDengine" ];then
-    git clone https://github.com/taosdata/TDengine.git
+    git clone https://github.com/taosdata/TDengine.git || exit 1
   fi
   # if [ caseType == "cpu" ];then
   #   cd TDengine && git checkout c90e2aa791ceb62542f6ecffe7bd715165f181e8

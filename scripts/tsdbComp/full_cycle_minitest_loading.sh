@@ -16,8 +16,8 @@ if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
 fi
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath=${TDPath}
-InfPath=${InfPath}
+TDPath=${TDPath:-"/var/lib/taos/"}
+InfPath=${InfPath-"/var/lib/influxdb/"}
 TimePath="/var/lib/postgresql/14/main/base/"
 
 # Space-separated list of target DB formats to generate
