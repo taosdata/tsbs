@@ -38,24 +38,24 @@ function load_testcase {
 # caseType [cputest | cpu| devops | iot ]
 echo "caseType: ${caseType}"
 if [ "${caseType}" == "cputest" ];then
-    echo "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} cpu-only ${load_number_workers} ${load_batchsizes} ${load_formats}"
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "cpu-only" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    echo "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} cpu-only ${load_number_workers} ${load_batch_sizes} ${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "cpu-only" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "iottest" ];then
-    echo "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} iot ${load_number_workers} ${load_batchsizes} ${load_formats}"
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "iot" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    echo "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} iot ${load_number_workers} ${load_batch_sizes} ${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "iot" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "cpu" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "cpu-only" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "cpu-only" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "devops" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}"  "devops" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}"  "devops" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "iot" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "iot" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "iot" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "userdefined" ];then
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_scales}" "${case}" "${load_number_workers}" "${load_batchsizes}" "${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"   "${load_scales}" "${case}" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 else  
     echo "please set correct testcase type"

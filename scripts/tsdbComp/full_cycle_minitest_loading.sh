@@ -282,7 +282,6 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         systemctl restart influxd
         sleep 1"
     fi
-eeooff
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     if [  ${FORMAT} == "TDengine" ]; then
         load_commond="tsbs_load_tdengine"

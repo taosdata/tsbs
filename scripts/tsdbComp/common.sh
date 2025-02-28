@@ -104,3 +104,63 @@ function checkout_system {
     log_info "Server hardware configuration meets the minimum requirements."
     log_info "Detection completed, everything is normal."
 }
+
+# 解析 INI 文件并导出变量的函数
+parse_ini() {
+    local ini_file="$1"
+    local current_section=""
+    local multiline_key=""
+    local multiline_value=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # 去除行首和行尾的空白字符
+        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # 忽略注释行
+        if [[ $line =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # 检查是否为节（section）
+        if [[ $line =~ ^\[([^]]+)\]$ ]]; then
+            current_section="${BASH_REMATCH[1]}"
+            multiline_key=""
+            multiline_value=""
+        # 检查是否为键值对
+        elif [[ $line =~ ^([^=]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            # 去除键和值的前后空白字符
+            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            # 去除值中的引号
+            value=$(echo "$value" | sed 's/^"//;s/"$//')
+
+            # 组合节名和键名，以避免命名冲突。如果不为空，并且是LoadTest 和 QueryTest 两个节
+            if [[ -n $current_section && ($current_section == "LoadTest" || $current_section == "QueryTest") ]]; then
+                full_key="${current_section}_${key}"
+            else
+                full_key="$key"
+            fi
+
+            # 检查是否为多行值的开始
+            if [[ $value =~ \\$ ]]; then
+                multiline_key="$full_key"
+                multiline_value="${value%\\}"
+            else
+                # 导出变量
+                export "$full_key"="$value"
+            fi
+        # 处理多行值
+        elif [[ -n $multiline_key ]]; then
+            if [[ $line =~ \\$ ]]; then
+                multiline_value="${multiline_value} ${line%\\}"
+            else
+                multiline_value="${multiline_value} $line"
+                export "$multiline_key"="$multiline_value"
+                multiline_key=""
+                multiline_value=""
+            fi
+        fi
+    done < "$ini_file"
+}
