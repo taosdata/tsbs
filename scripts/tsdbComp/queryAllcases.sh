@@ -1,5 +1,3 @@
-set -e
-
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
