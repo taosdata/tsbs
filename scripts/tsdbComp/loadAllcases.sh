@@ -39,12 +39,12 @@ function load_testcase {
 # caseType [cputest | cpu| devops | iot ]
 log_info "caseType: ${caseType}"
 if [ "${caseType}" == "cputest" ];then
-    log_info "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} cpu-only ${load_number_workers} ${load_batch_sizes} ${load_formats}"
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "cpu-only" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
+    log_info "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${LoadTest_load_ts_end}  ${LoadTest_load_scales} cpu-only ${load_number_workers} ${load_batch_sizes} ${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${LoadTest_load_ts_end}"  "${LoadTest_load_scales}" "cpu-only" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "iottest" ];then
-    log_info "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} iot ${load_number_workers} ${load_batch_sizes} ${load_formats}"
-    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${load_ts_end}"  "${load_scales}" "iot" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
+    log_info "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${LoadTest_load_ts_end}  ${LoadTest_load_scales} iot ${load_number_workers} ${load_batch_sizes} ${load_formats}"
+    load_testcase ${serverHost} ${serverPass}  "${load_ts_start}" "${LoadTest_load_ts_end}"  "${LoadTest_load_scales}" "iot" "${load_number_workers}" "${load_batch_sizes}" "${load_formats}"
 
 elif [ "${caseType}" == "cpu" ];then
     log_info "load_testcase ${serverHost} ${serverPass}  ${load_ts_start} ${load_ts_end}  ${load_scales} cpu-only ${load_number_workers} ${load_batch_sizes} ${load_formats}"
