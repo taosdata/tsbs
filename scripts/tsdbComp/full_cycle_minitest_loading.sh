@@ -5,10 +5,17 @@
 # - 3) query execution
 
 scriptDir=$(dirname $(readlink -f $0))
+DEBUG=true
+NO_COLOR=true
+source ${scriptDir}/common.sh
+source ${scriptDir}/logger.sh
 
+log_info "Start to load ${USE_CASE} data into ${FORMATAISA}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # - 1) data  generation
-echo "===============data generation================="
-echo "${FORMAT},${SCALE},${USE_CASE}"
+log_info "===============data generation================="
+log_info "Generating data for ${USE_CASE} into ${FORMAT}, with scale ${SCALE}, seed ${SEED}, log interval ${LOG_INTERVAL}"
+
+# Generate data
 EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
 if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
     echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
@@ -55,7 +62,7 @@ function ceil(){
   echo `expr $floor  + $add`
 }
 
-echo "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
+log_debug "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
 function run_command() {
     local command="$1"
     if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
@@ -88,7 +95,7 @@ set -eo pipefail
 # generate data
 INSERT_DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_scale${SCALE}_${TS_START}_${TS_END}_interval${LOG_INTERVAL}_${SEED}.dat.gz"
 if [ -f "${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}" ]; then
-    echo "WARNING: file ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} already exists, skip generating new data"
+    log_warning "WARNING: file ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} already exists, skip generating new data"
 else
     cleanup() {
         rm -f ${INSERT_DATA_FILE_NAME}
@@ -96,17 +103,8 @@ else
     }
     trap cleanup EXIT
 
-    echo "Generating ${INSERT_DATA_FILE_NAME}:"
-    echo "${EXE_FILE_NAME_GENERATE_DATA} \
-        --format ${FORMAT} \
-        --use-case ${USE_CASE} \
-        --scale ${SCALE} \
-        --timestamp-start ${TS_START} \
-        --timestamp-end ${TS_END} \
-        --seed ${SEED} \
-        --log-interval ${LOG_INTERVAL} \
-        --max-data-points ${MAX_DATA_POINTS} \
-     | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
+    log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} --timestamp-start ${TS_START} --timestamp-end ${TS_END} --seed ${SEED} --log-interval ${LOG_INTERVAL} --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
+
     ${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
@@ -121,7 +119,7 @@ else
 fi
 
 # - 2) data loading/insertion
-echo "===============data loading/insertion================="
+log_info "===============data loading/insertion================="
 
 # Load parameters - common
 DATABASE_USER=${DATABASE_USER:-postgres}
@@ -129,7 +127,7 @@ DATABASE_NAME=${DATABASE_NAME:-benchmark}
 DATABASE_HOST=${DATABASE_HOST:-localhost}
 DATABASE_PORT=${DATABASE_PORT:-5432}
 DATABASE_PWD=${DATABASE_PWD:-password}
-DATABASE_PORT_INF=${DATABASE_PORT_INF:-8086}
+DATABASE_PORT_INF=${DATABASE_PORT_INF:-8181}
 DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
 DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
 NUM_WORKER=${NUM_WORKER:-"16"} 
@@ -151,7 +149,7 @@ mkdir -p ${BULK_DATA_DIR_RES_LOAD} || echo "file exists"
 cd ${scriptDir}
 
 
-echo "---------------  Clean  -----------------"
+log_info "---------------  Clean  -----------------"
 run_command "echo 1 > /proc/sys/vm/drop_caches
     systemctl restart postgresql
     sleep 1
@@ -173,16 +171,16 @@ if [ "${FORMAT}" == "timescaledb" ];then
     else
         disk_usage_before=0
     fi
-    echo $disk_usage_before
-    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
+    log_debug "disk usage before load :$disk_usage_before "
+    log_info "Starting to load ${USE_CASE} data into ${FORMAT} with scale ${SCALE}, workers ${NUM_WORKER}, and batch size ${BATCH_SIZE}"
+
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    echo `date +%Y_%m%d_%H%M%S`":start to insert data in timescaldeb"
-    echo "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    log_debug "Execute commond: cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     if [ "${USE_CASE}" == "cpu-only" ] || [ "${USE_CASE}" == "iot" ];then
         PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" > tempCompress.txt
         tempCompressNum=`more tempCompress.txt |grep rows |awk -F ' ' '{print $1}'`
-        echo "${tempCompressNum}"
+        log_debug "${FORMAT} tempCompressNum: ${tempCompressNum}"
         if [ "${tempCompressNum}" == "(0" ] ;then
             if [ "${USE_CASE}" == "cpu-only" ]; then
                 PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "ALTER TABLE cpu SET (timescaledb.compress, timescaledb.compress_orderby = 'time DESC,usage_user',  timescaledb.compress_segmentby = 'tags_id');"
@@ -196,14 +194,10 @@ if [ "${FORMAT}" == "timescaledb" ];then
                 # PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME}  -h ${DATABASE_HOST} -c  "call run_job(1001) ;"     
             fi
         else
-            echo "it has already been enabled native compression on TimescaleDB,"
+            log_warning "it has already been enabled native compression on TimescaleDB,"
         fi
-    fi
-    speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
-    speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
-    times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
-    echo `date +%Y_%m%d_%H%M%S`":timescaledb data is being compressed"
-    if [[ "${USE_CASE}" == "cpu-only" ]] || [[ "${USE_CASE}" == "iot" ]];then
+
+        log_info "${FORMAT} ${USE_CASE} data is being compressed,it will print the debug information for the compression process"
         while true
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
@@ -219,15 +213,18 @@ if [ "${FORMAT}" == "timescaledb" ];then
                 timesHours="12"
             fi
             tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
-            echo ${disk_usage_after},${tempCompressNum},${timesHours}
+            log_debug "Compression count: ${tempCompressNum}, disk usage after load: ${disk_usage_after}, expected compressed data Block count :${timesHours}"
             if [ "${tempCompressNum}" -ge "${timesHours}" ];then
                 break
             fi
         done
     fi
-    echo `date +%Y_%m%d_%H%M%S`"timescaledb data compression has been completed"
+    speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
+    speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
+    times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
+    log_info  "${FORMAT} ${USE_CASE} data compression has been completed"
     disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
-    echo "${disk_usage_before} ${disk_usage_after}"
+    log_debug "disk usage before load :$disk_usage_before and disk usage after load: ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
