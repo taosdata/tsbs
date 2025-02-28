@@ -104,3 +104,110 @@ function checkout_system {
     log_info "Server hardware configuration meets the minimum requirements."
     log_info "Detection completed, everything is normal."
 }
+
+# 解析 INI 文件并导出变量的函数
+function parse_ini() {
+    local ini_file="$1"
+    local current_section=""
+    local multiline_key=""
+    local multiline_value=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # 去除行首和行尾的空白字符
+        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # 忽略注释行
+        if [[ $line =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # 检查是否为节（section）
+        if [[ $line =~ ^\[([^]]+)\]$ ]]; then
+            current_section="${BASH_REMATCH[1]}"
+            multiline_key=""
+            multiline_value=""
+        # 检查是否为键值对
+        elif [[ $line =~ ^([^=]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            # 去除键和值的前后空白字符
+            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            # 去除值中的引号
+            value=$(echo "$value" | sed 's/^"//;s/"$//')
+
+            # 组合节名和键名，以避免命名冲突。如果不为空，并且是LoadTest 和 QueryTest 两个节
+            if [[ -n $current_section && ($current_section == "LoadTest" || $current_section == "QueryTest") ]]; then
+                full_key="${current_section}_${key}"
+            else
+                full_key="$key"
+            fi
+
+            # 检查是否为多行值的开始
+            if [[ $value =~ \\$ ]]; then
+                multiline_key="$full_key"
+                multiline_value="${value%\\}"
+            else
+                # 导出变量
+                export "$full_key"="$value"
+            fi
+        # 处理多行值
+        elif [[ -n $multiline_key ]]; then
+            if [[ $line =~ \\$ ]]; then
+                multiline_value="${multiline_value} ${line%\\}"
+            else
+                # 去除最后一行的右引号
+                line=$(echo "$line" | sed 's/"$//')
+                multiline_value="${multiline_value} $line"
+                export "$multiline_key"="$multiline_value"
+                multiline_key=""
+                multiline_value=""
+            fi
+        fi
+    done < "$ini_file"
+}
+
+# Function to double the TS_END time
+function double_ts_end() {
+    local ts_end=$1
+    local new_ts_end=$(date -u -d "$ts_end + $(($(date -u -d "$ts_end" +%s) - $(date -u -d "2016-01-01T00:00:00Z" +%s))) seconds" +"%Y-%m-%dT%H:%M:%SZ")
+    echo $new_ts_end
+}
+
+function ceil(){
+  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
+  add=`awk -v num1=$floor -v num2=$1 'BEGIN{print(num1<num2)?"1":"0"}'`
+  echo `expr $floor  + $add`
+}
+
+function floor(){
+  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
+  echo `expr $floor`
+}
+
+function run_command() {
+    local command="$1"
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        eval "$command"
+    else
+        # 远程执行
+        sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST << eeooff
+            $command
+            exit
+eeooff
+    fi
+}
+
+function set_command() {
+    local command=$1
+    local result
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        result=$(eval "$command")
+    else
+        # 远程执行
+         result=`sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST "$command"`
+    fi
+    echo "$result"
+}
