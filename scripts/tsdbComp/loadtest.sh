@@ -38,20 +38,21 @@ declare -A scale_map=(
 for FORMAT in ${FORMATS}; do
     for SCALE in ${SCALES};do
         if [[ ${CASE_TYPE} != "userdefined" ]]; then
-            echo ${SCALE}
+            log_debug "SCALE: ${SCALE}"
             if [[ -n "${scale_map[$SCALE]}" ]]; then
                 IFS=' ' read -r TS_END CHUNK_TIME MESSAGE <<< "${scale_map[$SCALE]}"
-                echo "${MESSAGE}"
+                log_debug "${MESSAGE}"
             else
                 TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-                echo "generate input data"
+                log_debug "generate input data"
                 CHUNK_TIME="12h"
             fi
         else
             TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-            echo "generate input data"
+            log_debug "generate input data"
             CHUNK_TIME="12h"
         fi
+        log_debug "TS_END=${TS_END}  CHUNK_TIME=${CHUNK_TIME}"
 
         if [ ${USE_CASE} == "iot" ];then
             VGROUPS="12"
