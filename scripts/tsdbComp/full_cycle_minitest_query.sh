@@ -4,64 +4,26 @@
 # - 2) data loading/insertion
 # - 3) query execution
 scriptDir=$(dirname $(readlink -f $0))
-DEBUG=true
-NO_COLOR=true
 source ${scriptDir}/common.sh
 source ${scriptDir}/logger.sh
 
 # it have been generated data when execute this scripts
 # - 1) query generation
 log_info "===============query generation================="
-EXE_FILE_NAME_GENERATE_QUE=${EXE_FILE_NAME_GENERATE_QUE:-$(which tsbs_generate_queries)}
-if [[ -z "${EXE_FILE_NAME_GENERATE_QUE}" ]]; then
-    echo "tsbs_generate_queries not available. It is not specified explicitly and not found in \$PATH"
-    exit 1
-fi
-
 EXE_FILE_VERSION=`md5sum $EXE_FILE_NAME_GENERATE_QUE | awk '{ print $1 }'`
 # Queries folder
 BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR:-"/tmp/bulk_queries"}
-
-FORMATAISA=${FORMATAISA:-"timescaledb"}
-
-
 # Form of data to generate
 USE_JSON=${USE_JSON:-false}
 USE_TAGS=${USE_TAGS:-true}
 USE_TIME_BUCKET=${USE_TIME_BUCKET:-true}
-
-# Space-separated list of target DB formats to generate
-FORMAT=${FORMAT:-"timescaledb"}
-
-# All available for generation query types (sorted alphabetically)
-# QUERY_TYPES_ALL="cpu-max-all-1"
-
-# What query types to generate
-QUERY_TYPE=${QUERY_TYPE:-"cpu-max-all-1"}
-
-# Number of hosts to generate data about
-SCALE=${SCALE:-"100"}
-
-# Number of queries to generate
-QUERIES=${QUERIES:-"1000"}
-
 # Rand seed
 SEED=${SEED:-"123"}
-
-# Start and stop time for generated timeseries
-TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
-TS_END=${TS_END:-"2016-01-02T00:00:01Z"}
-
-# What set of data to generate: devops (multiple data), cpu-only (cpu-usage data)
-USE_CASE=${USE_CASE:-"cpu-only"}
-
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_QUERY_DIR}
 chmod a+rwx ${BULK_DATA_QUERY_DIR}
 
 set -eo pipefail
-
-
 # Loop over all requested queries types and generate data
 DATA_FILE_NAME="queries_${FORMAT}_${USE_CASE}_${QUERY_TYPE}_queries${QUERIES}_scale${SCALE}_seed${SEED}_${TS_START}_${TS_END}_${USE_CASE}.dat.gz"
 if [ -f "${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}" ]; then
@@ -73,7 +35,25 @@ else
     }
     trap cleanup EXIT
 
-    log_debug "Generating ${DATA_FILE_NAME}:"
+    EXE_FILE_NAME_GENERATE_QUE=${EXE_FILE_NAME_GENERATE_QUE:-$(which tsbs_generate_queries)}
+    if [[ -z "${EXE_FILE_NAME_GENERATE_QUE}" ]]; then
+        echo "tsbs_generate_queries not available. It is not specified explicitly and not found in \$PATH"
+        exit 1
+    fi
+    log_debug "Generating ${EXE_FILE_NAME_GENERATE_QUE} \
+        --format ${FORMAT} \
+        --queries ${QUERIES} \
+        --query-type ${QUERY_TYPE} \
+        --scale ${SCALE} \
+        --seed ${SEED} \
+        --timestamp-start ${TS_START} \
+        --timestamp-end ${TS_END} \
+        --use-case ${USE_CASE} \
+        --timescale-use-json=${USE_JSON} \
+        --timescale-use-tags=${USE_TAGS} \
+        --timescale-use-time-bucket=${USE_TIME_BUCKET} \
+        --clickhouse-use-tags=${USE_TAGS} \
+    | gzip  > ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}"
     ${EXE_FILE_NAME_GENERATE_QUE} \
         --format ${FORMAT} \
         --queries ${QUERIES} \
@@ -94,32 +74,15 @@ fi
 
 # - 2) query execution
 log_info "===============query running================="
-
-# Ensure runner is available
-
-
-
-
-
-
-
 # Queryresult Path
 BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES:-"/tmp/bulk_result_query"}
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR_RUN_RES}
 chmod a+rwx ${BULK_DATA_DIR_RUN_RES}
 
-
 DATABASE_USER=${DATABASE_USER:-postgres}
-DATABASE_NAME=${DATABASE_NAME:-benchmark}
-DATABASE_HOST=${DATABASE_HOST:-localhost}
-DATABASE_PORT=${DATABASE_PORT:-5432}
 DATABASE_PWD=${DATABASE_PWD:-password}
-DATABASE_INF_PORT=${DATABASE_INF_PORT:-8181}
 DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
-DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
-NUM_WORKER=${NUM_WORKER:-"16"} 
-QUERY_DEBUG=${QUERY_DEBUG:-"false"} 
 
 # How many queries would be run
 MAX_QUERIES=${MAX_QUERIES:-"0"}
@@ -173,7 +136,6 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
         echo ${FORMATAISA},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
         log_info "Execution of ${FORMAT} query type ${QUERY_TYPE} finished"
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
-    query_command="tsbs_run_queries_${FORMAT}"
     EXE_FILE_NAME_RUN_INF=${EXE_FILE_NAME_RUN_INF:-$(which tsbs_run_queries_influx3)}
     if [[ -z "$EXE_FILE_NAME_RUN_INF" ]]; then
         log_error "tsbs_run_queries_influx3 not available. It is not specified explicitly and not found in \$PATH"
@@ -182,17 +144,23 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
 
     set +e  # Disable exit on error
 
+    query_command="tsbs_run_queries_${FORMAT}"
+    if [  ${FORMAT} == "influx" ]; then
+        DATABASE_PORT=${influx_port:-8086}
+    elif [  ${FORMAT} == "influx3" ]; then
+        DATABASE_PORT=${influx3_port:-8181}
+    fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     log_info "Start to execute ${FORMAT} query, query type: ${QUERY_TYPE}"
-    log_debug "Execute commond:  ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${query_command}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} | tee ${OUT_FULL_FILE_NAME}"
+    log_debug "Execute commond:  ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${query_command}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
         | ${query_command} \
             --db-name ${DATABASE_NAME} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
-            --urls=http://${DATABASE_HOST}:${DATABASE_INF_PORT} \
+            --urls=http://${DATABASE_HOST}:${DATABASE_PORT} \
             --debug=${debugflag}\
             --print-responses=${printResponse}\
         | tee ${OUT_FULL_FILE_NAME}
@@ -210,17 +178,16 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         log_info "Execution of ${FORMAT} query type ${QUERY_TYPE} finished"
 
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
-
     EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
     if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
         log_error "tsbs_run_queries_tdengine not available. It is not specified explicitly and not found in \$PATH"
         exit 1
     fi
-
+    DATABASE_PORT=${tdengine_port:-6030}
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     log_info "Start to execute ${FORMAT} query, USE_CASE: ${USE_CASE}, query type: ${QUERY_TYPE}, scale: ${SCALE} "
-    log_debug "execute commond:  cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TD} --db-name ${DATABASE_NAME} --host ${DATABASE_HOST}  --pass ${DATABASE_TAOS_PWD} --port ${DATABASE_TAOS_PORT} --max-queries ${MAX_QUERIES}  --workers ${NUM_WORKER} | tee ${OUT_FULL_FILE_NAME}"
+    log_debug "execute commond:  cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} | ${GUNZIP} | ${EXE_FILE_NAME_RUN_TD} --db-name ${DATABASE_NAME} --host ${DATABASE_HOST}  --pass ${DATABASE_TAOS_PWD} --port ${DATABASE_PORT} --max-queries ${MAX_QUERIES}  --workers ${NUM_WORKER} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
         | ${EXE_FILE_NAME_RUN_TD} \

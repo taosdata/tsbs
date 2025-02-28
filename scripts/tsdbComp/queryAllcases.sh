@@ -1,11 +1,12 @@
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
+source ${scriptDir}/common.sh
 source ${scriptDir}/logger.sh
 
 function query_testcase {
     #  testcaset
     # need define data and result path
-    log_info "testcase scenarios $5"
+    log_info "excute testcase scenarios $5"
     load_executeTime=`date +%Y_%m%d_%H%M%S`
     load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/" 
     load_resultDir="${loadResultRootDir}/load_result_${caseType}_${load_executeTime}/" 
@@ -13,13 +14,23 @@ function query_testcase {
     query_dataDir="${queryDataRootDir}/query_data_${caseType}/" 
     query_resultDir="${queryResultRootDir}/query_result_${caseType}_${load_executeTime}/" 
 
+    log_debug "TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
+    DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
+    BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
+    BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
+    NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
+    QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
+    SCALE=$6 DATABASE_NAME="benchmark$caseType" \
+    NUM_WORKER_LOAD=${query_load_works} BATCH_SIZE=${query_load_batch_size}\
+    QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh "
     TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
     DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
     BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
     BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
-    NUM_WORKERS=$8 USE_CASES=$7 FORMATS=$9 VGROUPS="$vgroups" \
+    NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
     QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
-    SCALES=$6 DATABASE_NAME="benchmark$caseType" \
+    SCALE=$6 DATABASE_NAME="benchmark$caseType" \
+    NUM_WORKER_LOAD=${query_load_works} BATCH_SIZE=${query_load_batch_size}\
     QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh 
 
     if [  ${caseType} != "userdefined" ] && [  ${report} == "true" ]; then

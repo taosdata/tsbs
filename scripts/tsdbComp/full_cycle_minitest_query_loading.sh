@@ -5,103 +5,37 @@
 # - 3) query execution
 
 scriptDir=$(dirname $(readlink -f $0))
-DEBUG=true
-NO_COLOR=true
 source ${scriptDir}/common.sh
 source ${scriptDir}/logger.sh
 
-
-FORMATAISA=${FORMATAISA:-"timescaledb"}
-
+# Step to generate data
+LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
+# Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
+MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
+# Rand seed
+SEED=${SEED:-"123"}
+# Data folder
+BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
+# TDneing Databases: Vgroups
+VGROUPS=${VGROUPS:-"6"}
+BUFFER=${BUFFER:-"512"}
+PAGES=${PAGES:-"4096"}
+# Load parameters - common
+DATABASE_PWD=${DATABASE_PWD:-password}
+DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
+BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
+TRIGGER=${trigger:-"1"} 
 
 log_info "start to load ${USE_CASE} data into ${FORMATAISA}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # - 1) data  generation
 log_info "===============data generation================="
 log_info "Generating data for ${USE_CASE} into ${FORMAT}, with scale ${SCALE}, seed ${SEED}, log interval ${LOG_INTERVAL}"
-
-EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
-if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
-    log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
-    exit 1
-fi
-
-# Data folder
-BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath=${TDPath:-"/var/lib/taos/"}
-InfPath=${InfPath-"/var/lib/influxdb/data/"}
-TimePath="/var/lib/postgresql/14/main/base/"
-
-# Space-separated list of target DB formats to generate
-FORMAT=${FORMAT:-"timescaledb"}
-
-# TDneing Databases: Vgroups
-VGROUPS=${VGROUPS:-"6"}
-BUFFER=${BUFFER:-"512"}
-PAGES=${PAGES:-"4096"}
-
-# Number of hosts to generate data about
-SCALE=${SCALE:-"100"}
-
-# Rand seed
-SEED=${SEED:-"123"}
-
-# Start and stop time for generated timeseries
-TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
-TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-
-# What set of data to generate: devops (multiple data), cpu-only (cpu-usage data)
-USE_CASE=${USE_CASE:-"devops"}
-
-# Step to generate data
-LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
-
-# Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
-MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
-
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
 clientHost=`hostname`
 
 set -eo pipefail
-
-function ceil(){
-  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
-  add=`awk -v num1=$floor -v num2=$1 'BEGIN{print(num1<num2)?"1":"0"}'`
-  echo `expr $floor  + $add`
-}
-
-function floor(){
-  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
-  echo `expr $floor`
-}
-
-function run_command() {
-    local command="$1"
-    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
-        # 本地执行
-        eval "$command"
-    else
-        # 远程执行
-        sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST << eeooff
-            $command
-            exit
-eeooff
-    fi
-}
-
-function set_command() {
-    local command=$1
-    local result
-    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
-        # 本地执行
-        result=$(eval "$command")
-    else
-        # 远程执行
-         result=`sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST "$command"`
-    fi
-    echo "$result"
-}
 # generate data
 INSERT_DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_scale${SCALE}_${TS_START}_${TS_END}_interval${LOG_INTERVAL}_${SEED}.dat.gz"
 if [ -f "${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}" ]; then
@@ -113,6 +47,11 @@ else
     }
     trap cleanup EXIT
 
+    EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
+    if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
+        log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+        exit 1
+    fi
     log_info "Generating ${INSERT_DATA_FILE_NAME}:"
     log_debug "${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
@@ -139,24 +78,6 @@ fi
 
 # - 2) data loading/insertion
 log_info "===============data loading/insertion================="
-
-# Load parameters - common
-DATABASE_USER=${DATABASE_USER:-postgres}
-DATABASE_NAME=${DATABASE_NAME:-benchmark}
-DATABASE_HOST=${DATABASE_HOST:-localhost}
-DATABASE_PORT=${DATABASE_PORT:-5432}
-DATABASE_PWD=${DATABASE_PWD:-password}
-DATABASE_PORT_INF=${DATABASE_PORT_INF:-8181}
-DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
-DATABASE_TAOS_PORT=${DATABASE_TAOS_PORT:-6030}
-NUM_WORKER=${NUM_WORKER:-"16"} 
-BATCH_SIZE=${BATCH_SIZE:-"10000"} 
-CHUNK_TIME=${CHUNK_TIME:-"12h"}
-SERVER_PASSWORD=${SERVER_PASSWORD:-123456}
-BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD:-"/tmp/bulk_result_load"}
-TRIGGER=${TRIGGER:-"1"} 
-
-
 mkdir -p ${BULK_DATA_DIR_RES_LOAD} || log_warning "file exists"
 cd ${scriptDir}
 
@@ -189,7 +110,8 @@ elif  [[ "${SCALE}" == "4000" ]];then
 fi
 
 if [[ "${FORMAT}" =~ "timescaledb" ]];then
-run_command "
+    TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
+    run_command "
     systemctl restart postgresql
     sleep 1"
 
@@ -201,7 +123,7 @@ run_command "
         disk_usage_before=0
     fi
    
-    log_info "Starting to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
+    log_debug "Starting to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     log_debug "cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
@@ -241,35 +163,44 @@ run_command "
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     disk_usage_after=`set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " `
-    echo "${disk_usage_before} ${disk_usage_after}"
+    log_debug "${disk_usage_before} ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
+    log_debug "${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage}"
     echo ${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
+    load_command="tsbs_load_${FORMAT}"
+    log_debug "COMMAND:${load_command} USE_CASE:${USE_CASE} FORMAT:${FORMAT} SCALE:${SCALE} InfPath:${InfPath} DATABASE_PORT:${DATABASE_PORT}" 
     if [  ${FORMAT} == "influx" ]; then
         run_command "
         systemctl restart influxd
         sleep 1" 
+        InfPath=${influx_data_dir-"/var/lib/influxdb/data/"}
+        DATABASE_PORT=${influx_port:-8086}
+    elif [  ${FORMAT} == "influx3" ]; then
+        InfPath=${influx3_data_dir-"/var/lib/influxdb/data/"}
+        DATABASE_PORT=${influx3_port:-8181}
     fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
     else
         disk_usage_before=0
     fi
-    
-    load_command="tsbs_load_${FORMAT}"
-    echo "COMMAND:${load_command} BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
+
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    echo `date +%Y_%m%d_%H%M%S`
-    echo "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT_INF}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
-    echo "${disk_usage_before},${disk_usage_after}"
+    log_debug "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage}"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    TDPath=${tdengine_data_dir:-"/var/lib/taos/"}
+    DATABASE_PORT=${tdengine_port:-6030}
+    log_debug "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "SCALE":${SCALE} "DATABASE_PORT":${DATABASE_PORT}
     if [  ${FORMAT} == "TDengine" ]; then
         load_commond="tsbs_load_tdengine"
     elif [ ${FORMAT} == "TDengineStmt2"  ]; then
@@ -277,6 +208,9 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     fi
     
     run_command "
+    echo `date +%Y_%m%d_%H%M%S`\": reset \"
+    systemctl reset-failed taosd.service
+    sleep 5
     echo `date +%Y_%m%d_%H%M%S`\":restart taosd \"
     systemctl restart taosd
     sleep 5
@@ -289,26 +223,23 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     else
         disk_usage_before=0
     fi
-    
-    echo "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE} "VGROUPS":${VGROUPS}
+
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    echo `date +%Y_%m%d_%H%M%S`
-    echo " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  ${load_commond}  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    log_debug " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  ${load_commond}  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   ${load_commond} \
-    --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_TAOS_PORT}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true  --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_PORT}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true  --stt_trigger=${TRIGGER}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     taos -h $DATABASE_HOST -s "alter database ${DATABASE_NAME} cachemodel 'last_row'  cachesize 200 ;"
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME};"
     disk_usage_after=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
-    echo "${disk_usage_before},${disk_usage_after}"
+    log_debug "${disk_usage_before},${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    # pid=`ps aux|grep taosd|grep -v  grep |awk '{print $2}'`
-    # echo ${pid}
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage}"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
-    echo "it don't support format"
+    log_error "The format is not supported"
 fi  
 
 

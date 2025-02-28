@@ -106,7 +106,7 @@ function checkout_system {
 }
 
 # 解析 INI 文件并导出变量的函数
-parse_ini() {
+function parse_ini() {
     local ini_file="$1"
     local current_section=""
     local multiline_key=""
@@ -156,6 +156,8 @@ parse_ini() {
             if [[ $line =~ \\$ ]]; then
                 multiline_value="${multiline_value} ${line%\\}"
             else
+                # 去除最后一行的右引号
+                line=$(echo "$line" | sed 's/"$//')
                 multiline_value="${multiline_value} $line"
                 export "$multiline_key"="$multiline_value"
                 multiline_key=""
@@ -163,4 +165,49 @@ parse_ini() {
             fi
         fi
     done < "$ini_file"
+}
+
+# Function to double the TS_END time
+function double_ts_end() {
+    local ts_end=$1
+    local new_ts_end=$(date -u -d "$ts_end + $(($(date -u -d "$ts_end" +%s) - $(date -u -d "2016-01-01T00:00:00Z" +%s))) seconds" +"%Y-%m-%dT%H:%M:%SZ")
+    echo $new_ts_end
+}
+
+function ceil(){
+  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
+  add=`awk -v num1=$floor -v num2=$1 'BEGIN{print(num1<num2)?"1":"0"}'`
+  echo `expr $floor  + $add`
+}
+
+function floor(){
+  floor=`echo "scale=0;$1/1"|bc -l ` # 向下取整
+  echo `expr $floor`
+}
+
+function run_command() {
+    local command="$1"
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        eval "$command"
+    else
+        # 远程执行
+        sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST << eeooff
+            $command
+            exit
+eeooff
+    fi
+}
+
+function set_command() {
+    local command=$1
+    local result
+    if [ "$clientHost" == "${DATABASE_HOST}"  ]; then
+        # 本地执行
+        result=$(eval "$command")
+    else
+        # 远程执行
+         result=`sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST "$command"`
+    fi
+    echo "$result"
 }
