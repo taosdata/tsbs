@@ -29,8 +29,8 @@ fi
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 # Define an associative array for SCALE to TS_END and CHUNK_TIME mapping
 declare -A scale_map=(
-    [100]="2016-01-03T00:00:00Z 6h generate 1 month data"
-    [4000]="2016-01-03T00:00:00Z 6h generate 4 days data"
+    [100]="2016-01-03T00:00:00Z 6h generate 2 days data"
+    [4000]="2016-01-03T00:00:00Z 6h generate 2 days data"
     [100000]="2016-01-01T03:00:00Z 15m generate 3 hours data"
     [1000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
     [10000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
