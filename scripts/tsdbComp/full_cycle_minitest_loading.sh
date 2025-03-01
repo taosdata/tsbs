@@ -8,7 +8,7 @@ scriptDir=$(dirname $(readlink -f $0))
 source ${scriptDir}/common.sh
 source ${scriptDir}/logger.sh
 
-log_info "Start to load ${USE_CASE} data into ${FORMATAISA}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
+log_info "Start to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 TDPath=${TDPath:-"/var/lib/taos/"}
@@ -77,7 +77,6 @@ cd ${scriptDir}
 
 log_info "---------------  Clean  -----------------"
 run_command "echo 1 > /proc/sys/vm/drop_caches
-    systemctl restart postgresql
     sleep 1
 "
 
@@ -91,6 +90,11 @@ fi
 
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
+    run_command "
+    systemctl restart postgresql
+    sleep 1"
+
+    sleep 1
     DATABASE_PORT=${timescaledb_port:-5432}
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     if [ -d "${TimePath}" ]; then
@@ -213,6 +217,8 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     fi
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     run_command "
+    echo `date +%Y_%m%d_%H%M%S`\": reset limit\"
+    systemctl reset-failed taosd.service
     echo `date +%Y_%m%d_%H%M%S`\":start to stop taosd and remove data ${TDPath}\"
     systemctl stop taosd
     rm -rf ${TDPath}/*
@@ -253,6 +259,7 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     log_debug "TDengine data is being written to disk "
 
     taos -h  ${DATABASE_HOST} -s  "flush database ${DATABASE_NAME}"
+    set_command "systemctl reset-failed taosd.service"
     set_command "systemctl restart taosd " 
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
     while ${ioStatusPa}

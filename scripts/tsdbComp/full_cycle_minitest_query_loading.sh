@@ -208,7 +208,7 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     fi
     
     run_command "
-    echo `date +%Y_%m%d_%H%M%S`\": reset \"
+    echo `date +%Y_%m%d_%H%M%S`\": reset limit\"
     systemctl reset-failed taosd.service
     sleep 5
     echo `date +%Y_%m%d_%H%M%S`\":restart taosd \"

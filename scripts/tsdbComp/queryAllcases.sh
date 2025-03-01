@@ -49,6 +49,9 @@ log_info "caseType: ${caseType}"
 if [ "${caseType}" == "cpu" ] || [ "${caseType}" == "cputest" ];then
     if [ "${caseType}" == "cputest" ];then
         query_cpu_scale_times=${QueryTest_query_cpu_scale_times}
+        query_ts_end=${QueryTest_query_ts_end}
+        query_load_ts_end=${QueryTest_query_load_ts_end}
+        query_ts_start=${QueryTest_query_ts_start}
     fi
     # 解析  query_cpu_scale_times 得 scale 和 query_times
     IFS=' ' read -r -a cpu_scale_times <<< "${query_cpu_scale_times}"
@@ -69,6 +72,9 @@ elif [ "${caseType}" == "devops" ];then
 elif [ "${caseType}" == "iot" ] || [ "${caseType}" == "iottest" ];then
     if [ "${caseType}" == "iottest" ];then
         query_iot_scale_times=${QueryTest_query_iot_scale_times}
+        query_ts_end=${QueryTest_query_ts_end}
+        query_load_ts_end=${QueryTest_query_load_ts_end}
+        query_ts_start=${QueryTest_query_ts_start}
     fi
     # 解析  query_iot_scale_times 得 scale 和 query_times
     IFS=' ' read -r -a iot_scale_times <<< "${query_iot_scale_times}"

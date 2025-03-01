@@ -29,8 +29,8 @@ fi
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 # Define an associative array for SCALE to TS_END and CHUNK_TIME mapping
 declare -A scale_map=(
-    [100]="2016-01-03T00:00:00Z 6h generate 1 month data"
-    [4000]="2016-01-03T00:00:00Z 6h generate 4 days data"
+    [100]="2016-01-03T00:00:00Z 6h generate 2 days data"
+    [4000]="2016-01-03T00:00:00Z 6h generate 2 days data"
     [100000]="2016-01-01T03:00:00Z 15m generate 3 hours data"
     [1000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
     [10000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
@@ -38,20 +38,21 @@ declare -A scale_map=(
 for FORMAT in ${FORMATS}; do
     for SCALE in ${SCALES};do
         if [[ ${CASE_TYPE} != "userdefined" ]]; then
-            echo ${SCALE}
+            log_debug "SCALE: ${SCALE}"
             if [[ -n "${scale_map[$SCALE]}" ]]; then
                 IFS=' ' read -r TS_END CHUNK_TIME MESSAGE <<< "${scale_map[$SCALE]}"
-                echo "${MESSAGE}"
+                log_debug "${MESSAGE}"
             else
                 TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-                echo "generate input data"
+                log_debug "generate input data"
                 CHUNK_TIME="12h"
             fi
         else
             TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-            echo "generate input data"
+            log_debug "generate input data"
             CHUNK_TIME="12h"
         fi
+        log_debug "TS_END=${TS_END}  CHUNK_TIME=${CHUNK_TIME}"
 
         if [ ${USE_CASE} == "iot" ];then
             VGROUPS="12"
