@@ -28,11 +28,11 @@ function load_testcase {
         #generate png report
         # loadResultAnaly.py has three parameter,
         # 1: loadResultFile 2:define the x-axis 3. reportResultImageFile
-        log_info "python3 ${scriptDir}/gen_report/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png"
-        python3 ${scriptDir}/gen_report/loadResultAnalyBarh.py  ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load.png
+        log_info "python3 ${scriptDir}/gen_report/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png"
+        python3 ${scriptDir}/gen_report/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png
 
-        log_info "${scriptDir}/gen_report/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png"
-        python3 ${scriptDir}/gen_report/loadRatioBarh.py ${load_resultDir}/load_input.csv  SCALE ${load_resultDir}/test_load_ratio.png
+        log_info "python3 ${scriptDir}/gen_report/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png -m ratio"
+        python3 ${scriptDir}/gen_report/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png -m ratio
     fi
 }
 
