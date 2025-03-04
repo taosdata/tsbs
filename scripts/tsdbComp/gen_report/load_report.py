@@ -74,7 +74,7 @@ def create_result_chart(df, x_label_name, targets_number, output_file):
         elif x_label_name == "BATCH_SIZE":
             xtypes.append("%d batch size" % arr[i][3])
         elif x_label_name == "SCALE":
-            xtypes.append("%d scale" % arr[i][2])
+            xtypes.append("scale=%d " % arr[i][2])
 
     color_map = get_color_map()
 
@@ -89,7 +89,7 @@ def create_result_chart(df, x_label_name, targets_number, output_file):
     plt.grid(axis="x")
 
     ax.set_xlabel("Metrics ingested per second")
-    ax.set_title("Load Comparisons Ingestion Rate in different %s:%s/s" % (x_label_name, targets_number))
+    ax.set_title("Load Comparisons Ingestion Rate in different %s:%s/s" % (x_label_name, global_args.targets))
 
     ax.invert_yaxis()
     ax.legend()
@@ -109,23 +109,23 @@ def create_ratio_chart(df, x_label_name, targets_number, output_file):
     numformate = int(len(np.unique(arrt[0])))
     numgroup = int(nshape / numformate)
 
-    tdengine_index = np.where(arrt[0] == 'TDengine')[0]
+    tdengine_index = np.where((arrt[0] == 'TDengine') | (arrt[0] == 'TDengineStmt2'))[0]
     if len(tdengine_index) == 0:
         print("No TDengine data found, ratio chart will not be generated.")
         return
 
     tdengine_index = tdengine_index[0]
-    ratios = {dbtype: [] for dbtype in sortdbformate if dbtype != 'TDengine'}
+    ratios = {f'TDengine/{dbtype}': [] for dbtype in sortdbformate if dbtype != 'TDengine' and dbtype != 'TDengineStmt2'}
     scales = sorted(np.unique(arr[:, 2]))  # 获取所有唯一的 scale 并排序
 
     for scale in scales:
-        tdengine_value = arr[(arr[:, 0] == 'TDengine') & (arr[:, 2] == scale)][0][targets_number]
+        tdengine_value = arr[((arr[:, 0] == 'TDengine') | (arr[:, 0] == 'TDengineStmt2')) & (arr[:, 2] == scale)][0][targets_number]
         for dbtype in sortdbformate:
-            if dbtype != 'TDengine':
+            if dbtype != 'TDengine' and dbtype != 'TDengineStmt2':
                 db_values = arr[(arr[:, 0] == dbtype) & (arr[:, 2] == scale)]
                 if len(db_values) > 0:
                     ratio = 100 * tdengine_value / db_values[0][targets_number]
-                    ratios[dbtype].append(ratio)
+                    ratios[f'TDengine/{dbtype}'].append(ratio)
 
     fig = figure(figsize=(12, 10), dpi=300, layout='constrained')
     ax = plt.subplot(1, 1, 1)
@@ -135,7 +135,7 @@ def create_ratio_chart(df, x_label_name, targets_number, output_file):
     color_map = get_color_map()
 
     for idx, (dbtype, ratio_values) in enumerate(ratios.items()):
-        ax.barh(xticks + idx * bar_width, ratio_values, height=bar_width, label=f"TDengine/{dbtype}", color=color_map.get(dbtype, 'gray'))
+        ax.barh(xticks + idx * bar_width, ratio_values, height=bar_width, label=dbtype, color=color_map.get(dbtype.split('/')[1], 'gray'))
 
     for dbtype, ratio_values in ratios.items():
         for a, b in zip(xticks + bar_width * list(ratios.keys()).index(dbtype), ratio_values):
@@ -146,7 +146,7 @@ def create_ratio_chart(df, x_label_name, targets_number, output_file):
     plt.grid(axis="x")
 
     ax.set_xlabel("ratios:%")
-    ax.set_title("Load Comparisons TDengine/otherDB Ingestion Rate Ratio(%s/s) in different %s : percent" % (targets_number, x_label_name))
+    ax.set_title("Load Comparisons TDengine vs otherDB Ingestion Rate Ratio(%s/s) in different %s : percent" % (global_args.targets, x_label_name))
 
     ax.invert_yaxis()
     ax.legend()
@@ -157,26 +157,29 @@ def create_ratio_chart(df, x_label_name, targets_number, output_file):
     plt.close()
     print(f"Chart saved to {output_file}")
 
+global_args = None
+
 def main():
-    args = parse_args()
-    df = load_data(args.input)
+    global global_args
+    global_args = parse_args()
+    df = load_data(global_args.input)
     if df.empty:
         print("Error: No valid data found in the input file")
         sys.exit(1)
 
-    if args.targets == "rows":
+    if global_args.targets == "rows":
         targets_number = 5
-    elif args.targets == "metrics":
+    elif global_args.targets == "metrics":
         targets_number = 7
 
-    if args.mode == 'ratio':
-        output_file = args.output.replace('.png', '_ratio.png')
-        create_ratio_chart(df, args.xlabel, targets_number, output_file)
+    if global_args.mode == 'ratio':
+        output_file = global_args.output.replace('.png', '_ratio.png')
+        create_ratio_chart(df, global_args.xlabel, targets_number, output_file)
     else:
-        output_file = args.output.replace('.png', '_result.png')
-        create_result_chart(df, args.xlabel, targets_number, output_file)
+        output_file = global_args.output.replace('.png', '_result.png')
+        create_result_chart(df, global_args.xlabel, targets_number, output_file)
 
-    print("Processing complete.")
+    print("Processing complete。")
 
 if __name__ == "__main__":
     main()
