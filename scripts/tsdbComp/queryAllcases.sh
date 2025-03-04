@@ -35,11 +35,11 @@ function query_testcase {
 
     if [  ${caseType} != "userdefined" ] && [  ${report} == "true" ]; then
         # generate png 
-        log_info "python3 ${scriptDir}/gen_report/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png ${10} "
-        log_info "python3 ${scriptDir}/gen_report/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png  ${10}"
+        log_info "python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png -q ${10}"
+        log_info "python3 ${scriptDir}/gen_report/queryResultBarh.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio"
 
-        python3 ${scriptDir}/gen_report/queryResultBarh.py  ${query_resultDir}/query_input.csv queryType  ${query_resultDir}/test_query_barh.png   ${10}
-        python3 ${scriptDir}/gen_report/queryRatioBarh.py  ${query_resultDir}/query_input.csv  queryType  ${query_resultDir}/test_query_barRatio.png ${10}
+        python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png -q ${10}
+       python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio
     fi
 }
 
