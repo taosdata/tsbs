@@ -21,7 +21,7 @@ function query_testcase {
     NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
     QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
     SCALE=$6 DATABASE_NAME="benchmark$caseType" \
-    NUM_WORKER_LOAD=${query_load_works} BATCH_SIZE=${query_load_batch_size}\
+    NUM_WORKER_LOAD=${query_load_workers} BATCH_SIZE=${query_load_batch_size}\
     QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh "
     TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
     DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
@@ -30,7 +30,7 @@ function query_testcase {
     NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
     QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
     SCALE=$6 DATABASE_NAME="benchmark$caseType" \
-    NUM_WORKER_LOAD=${query_load_works} BATCH_SIZE=${query_load_batch_size}\
+    NUM_WORKER_LOAD=${query_load_workers} BATCH_SIZE=${query_load_batch_size}\
     QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh 
 
     if [  ${caseType} != "userdefined" ] && [  ${report} == "true" ]; then
@@ -57,16 +57,16 @@ if [ "${caseType}" == "cpu" ] || [ "${caseType}" == "cputest" ];then
     IFS=' ' read -r -a cpu_scale_times <<< "${query_cpu_scale_times}"
     for pair in "${cpu_scale_times[@]}"; do
         IFS=',' read -r scale times <<< "$pair"
-        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} cpu-only ${query_number_wokers} ${query_formats} ${times}"
-        query_testcase ${serverHost} ${serverPass} "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "cpu-only" "${query_number_wokers}" "${query_formats}" "${times}"
+        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} cpu-only ${query_number_workers} ${query_formats} ${times}"
+        query_testcase ${serverHost} ${serverPass} "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "cpu-only" "${query_number_workers}" "${query_formats}" "${times}"
     done
 
 elif [ "${caseType}" == "devops" ];then
     IFS=' ' read -r -a devops_scale_times <<< "${query_devops_scale_times}"
     for pair in "${devops_scale_times[@]}"; do
         IFS=',' read -r scale times <<< "$pair"
-        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} devops ${query_number_wokers} ${query_formats} ${times}"
-        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "devops" "${query_number_wokers}" "${query_formats}" "${times}"
+        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} devops ${query_number_workers} ${query_formats} ${times}"
+        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "devops" "${query_number_workers}" "${query_formats}" "${times}"
     done
 
 elif [ "${caseType}" == "iot" ] || [ "${caseType}" == "iottest" ];then
@@ -80,16 +80,16 @@ elif [ "${caseType}" == "iot" ] || [ "${caseType}" == "iottest" ];then
     IFS=' ' read -r -a iot_scale_times <<< "${query_iot_scale_times}"
     for pair in "${iot_scale_times[@]}"; do
         IFS=',' read -r scale times <<< "$pair"
-        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} iot ${query_number_wokers} ${query_formats} ${times}"
-        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "iot" "${query_number_wokers}" "${query_formats}" "${times}"
+        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} iot ${query_number_workers} ${query_formats} ${times}"
+        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${scale}" "iot" "${query_number_workers}" "${query_formats}" "${times}"
     done
 
 elif [ "${caseType}" == "userdefined" ];then
     IFS=' ' read -r -a devops_scale_times <<< "${query_devops_scale_times}"
     for pair in "${devops_scale_times[@]}"; do
         IFS=',' read -r scale times <<< "$pair"
-        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} ${case} ${query_number_wokers} ${query_formats} ${times}"
-        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_wokers}" "${query_formats}" "${times}"
+        log_info "query_testcase ${serverHost} ${serverPass} ${query_ts_start} ${query_load_ts_end} ${query_ts_end} ${scale} ${case} ${query_number_workers} ${query_formats} ${times}"
+        query_testcase ${serverHost} ${serverPass}  "${query_ts_start}" "${query_load_ts_end}"  "${query_ts_end}" "${query_scales}" "${case}" "${query_number_workers}" "${query_formats}" "${times}"
     done
     
 else

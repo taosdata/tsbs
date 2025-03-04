@@ -1,14 +1,16 @@
 #!/bin/bash
 
 scriptDir=$(dirname $(readlink -f $0))
+cfgfile="test.ini"
 cd ${scriptDir}
-source ./test.ini
-error_install_file="${scriptDir}/log/install_error.log"
+source ${scriptDir}/logger.sh
+source ${scriptDir}/common.sh
+parse_ini ${cfgfile}
 
-echo "install path: ${installPath}"
-echo "installGoEnv: ${installGoEnv}"
-echo "installDB: ${installDB}"
-echo "installTsbs: ${installTsbs}"
+log_info "install path: ${installPath}"
+log_info "installGoEnv: ${installGoEnv}"
+log_info "installDB: ${installDB}"
+log_info "installTsbs: ${installTsbs}"
 
 function cmdInstall {
 comd=$1
@@ -240,6 +242,27 @@ function install_TDengine {
     fi
 }
 
+function install_influxdb3 {
+  echo "=============install InfluxDB3 in ubuntu ============="
+  cd ${installPath}
+  # if influxdb3 is already installed, no need to reinsall
+  if [[ -z `influxdb3 --help` ]];then
+    curl -O https://www.influxdata.com/d/install_influxdb3.sh && sh install_influxdb3.sh <<EOF
+2
+n
+EOF
+  fi
+
+  # if influxdb3 is started, restart it
+  if ps -ef | grep influxdb3 | grep -v grep > /dev/null; then
+    echo "influxdb3 is already started, restarting it"
+    pkill influxdb3
+  fi
+
+  nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_data_dir} --http-bind=0.0.0.0:${influx3_port} &
+
+}
+
 
 # install sshpass,git and dool
 cmdInstall sshpass
@@ -277,6 +300,7 @@ if [ "${installDB}" == "true" ];then
     echo "osType can't be supported"
   fi
   install_TDengine
+  install_influxdb3
 
   # if [[ -z `taosd --help` ]];then
   #   install_TDengine

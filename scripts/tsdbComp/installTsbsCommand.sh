@@ -1,8 +1,11 @@
 #!/bin/bash
 
 scriptDir=$(dirname $(readlink -f $0))
+cfgfile="test.ini"
 cd ${scriptDir}
-source ./test.ini
+source ${scriptDir}/logger.sh
+source ${scriptDir}/common.sh
+parse_ini ${cfgfile}
 
 echo "install path: ${installPath}"
 echo "installGoEnv: ${installGoEnv}"

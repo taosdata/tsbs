@@ -163,11 +163,18 @@ if [ "${FORMAT}" == "timescaledb" ];then
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
+        InfPath=${influx_data_dir-"/var/lib/influxdb/data/"}
         run_command "rm -rf ${InfPath}/*
         systemctl restart influxd
         sleep 1"
     elif [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx3_port:-8181}
+        InfPath=${influx3_data_dir-"/var/lib/influxdb/data/"}
+        run_command "
+        pkill influxdb3
+        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} &
+        sleep 1
+        "
     fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `

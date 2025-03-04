@@ -28,58 +28,63 @@ fi
 
 rm -rf ${BULK_DATA_DIR_RES_LOAD}/*
 # Define an associative array for SCALE to TS_END and CHUNK_TIME mapping
-declare -A scale_map=(
-    [100]="2016-01-03T00:00:00Z 6h generate 2 days data"
-    [4000]="2016-01-03T00:00:00Z 6h generate 2 days data"
-    [100000]="2016-01-01T03:00:00Z 15m generate 3 hours data"
-    [1000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
-    [10000000]="2016-01-01T00:03:00Z 15s generate 3 min data"
-)
+eval "declare -A scale_map=${TIME_SCALE_STR#*=}"
 for FORMAT in ${FORMATS}; do
     for SCALE in ${SCALES};do
         if [[ ${CASE_TYPE} != "userdefined" ]]; then
             log_debug "SCALE: ${SCALE}"
             if [[ -n "${scale_map[$SCALE]}" ]]; then
-                IFS=' ' read -r TS_END CHUNK_TIME MESSAGE <<< "${scale_map[$SCALE]}"
-                log_debug "${MESSAGE}"
-            else
-                TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-                log_debug "generate input data"
-                CHUNK_TIME="12h"
+                IFS=' ' read -r TS_START TS_END LOG_INTERVAL <<< "${scale_map[$SCALE]}"
             fi
+            TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
+            TS_END=${TS_END:-"2016-01-01T00:03:00Z"}
+            LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
         else
+            TS_START="2016-01-01T00:00:00Z"
             TS_END=${TS_END:-"2016-01-02T00:00:00Z"}
-            log_debug "generate input data"
-            CHUNK_TIME="12h"
+            LOG_INTERVAL="10s"
         fi
-        log_debug "TS_END=${TS_END}  CHUNK_TIME=${CHUNK_TIME}"
+        CHUNK_TIME=$(calculate_chunk_time "$TS_START" "$TS_END")
+        log_debug "TS_START=${TS_START} TS_END=${TS_END}  LOG_INTERVAL=${LOG_INTERVAL} CHUNK_TIME=${CHUNK_TIME}"
 
         if [ ${USE_CASE} == "iot" ];then
             VGROUPS="12"
         fi
         for BATCH_SIZE in ${BATCH_SIZES};do 
             for NUM_WORKER in ${NUM_WORKERS};do
-                log_debug " TS_START=${TS_START}  TS_END=${TS_END}   DATABASE_USER=${DATABASE_USER} DATABASE_HOST=${DATABASE_HOST}  DATABASE_PWD=${DATABASE_PWD} DATABASE_NAME=${DATABASE_NAME} SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD}  BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} WALFSYNCPERIOD=${WALFSYNCPERIOD} VGROUPS=${VGROUPS} ./full_cycle_minitest_loading.sh " 
-                TS_START=${TS_START} \
-                TS_END=${TS_END} \
-                DATABASE_USER=${DATABASE_USER} \
-                DATABASE_HOST=${DATABASE_HOST} \
-                DATABASE_PWD=${DATABASE_PWD} \
-                DATABASE_NAME=${DATABASE_NAME} \
-                SCALE=${SCALE} \
-                FORMAT=${FORMAT} \
-                USE_CASE=${USE_CASE} \
-                BATCH_SIZE=${BATCH_SIZE}  \
-                NUM_WORKER=${NUM_WORKER} \
-                CHUNK_TIME=${CHUNK_TIME} \
-                SERVER_PASSWORD=${SERVER_PASSWORD} \
-                BULK_DATA_DIR=${BULK_DATA_DIR} \
-                CASE_TYPE=${CASE_TYPE} \
-                BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
-                WALFSYNCPERIOD=${WALFSYNCPERIOD} \
-                VGROUPS=${VGROUPS} \
-                TRIGGER=${TRIGGER} ./full_cycle_minitest_loading.sh
-                sleep 60s
+                for i in `seq 1 ${HORIZONTAL_SCALING_FACTOR}`;do
+                    log_debug "TS_START=${TS_START}  TS_END=${TS_END}  \
+                        DATABASE_HOST=${DATABASE_HOST}  SERVER_PASSWORD=${SERVER_PASSWORD} \
+                        DATABASE_USER=${DATABASE_USER}  DATABASE_PWD=${DATABASE_PWD} DATABASE_NAME=${DATABASE_NAME} \
+                        SCALE=${SCALE} FORMAT=${FORMAT} USE_CASE=${USE_CASE} BATCH_SIZE=${BATCH_SIZE}  NUM_WORKER=${NUM_WORKER} CHUNK_TIME=${CHUNK_TIME} \
+                        BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
+                        WALFSYNCPERIOD=${WALFSYNCPERIOD} VGROUPS=${VGROUPS}" 
+
+                    export TS_START=${TS_START} 
+                    export TS_END=${TS_END} 
+                    export DATABASE_USER=${DATABASE_USER} 
+                    export DATABASE_HOST=${DATABASE_HOST} 
+                    export DATABASE_PWD=${DATABASE_PWD} 
+                    export DATABASE_NAME=${DATABASE_NAME} 
+                    export SCALE=${SCALE} 
+                    export FORMAT=${FORMAT} 
+                    export USE_CASE=${USE_CASE} 
+                    export BATCH_SIZE=${BATCH_SIZE}  
+                    export NUM_WORKER=${NUM_WORKER} 
+                    export CHUNK_TIME=${CHUNK_TIME} 
+                    export LOG_INTERVAL=${LOG_INTERVAL} 
+                    export SERVER_PASSWORD=${SERVER_PASSWORD} 
+                    export BULK_DATA_DIR=${BULK_DATA_DIR} 
+                    export CASE_TYPE=${CASE_TYPE} 
+                    export BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} 
+                    export WALFSYNCPERIOD=${WALFSYNCPERIOD} 
+                    export VGROUPS=${VGROUPS} 
+                    export TRIGGER=${TRIGGER} 
+                    ./full_cycle_minitest_loading.sh
+                    #sleep 60s
+                    TS_END="$(double_ts_end $TS_END)"
+                    CHUNK_TIME=$(calculate_chunk_time "$TS_START" "$TS_END")
+                done
             done
         done
     done
