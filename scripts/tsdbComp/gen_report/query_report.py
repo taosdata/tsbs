@@ -2,6 +2,8 @@ import argparse
 import sys
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # sets the backend to a non-interactive one
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
 import warnings
