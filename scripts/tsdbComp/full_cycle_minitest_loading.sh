@@ -11,10 +11,6 @@ source ${scriptDir}/logger.sh
 log_info "Start to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath=${TDPath:-"/var/lib/taos/"}
-InfPath=${InfPath-"/var/lib/influxdb/data/"}
-TimePath="/var/lib/postgresql/14/main/base/"
-
 # Step to generate data
 LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
 # Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
@@ -45,7 +41,7 @@ else
 
     EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
     if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
-        echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+        log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
         exit 1
     fi
     log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} --timestamp-start ${TS_START} --timestamp-end ${TS_END} --seed ${SEED} --log-interval ${LOG_INTERVAL} --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
@@ -90,6 +86,7 @@ fi
 
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
+    TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
     run_command "
     systemctl restart postgresql
     sleep 1"
@@ -163,15 +160,17 @@ if [ "${FORMAT}" == "timescaledb" ];then
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
-        InfPath=${influx_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx_data_dir-"/var/lib/influxdb/"}
+        InfPath=$InfPath/data
         run_command "rm -rf ${InfPath}/*
         systemctl restart influxd
         sleep 1"
     elif [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx3_port:-8181}
-        InfPath=${influx3_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
         run_command "
         pkill influxdb3
+        mkdir -p ${InfPath}
         nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} &
         sleep 1
         "
@@ -223,6 +222,9 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         sleep 1"
     fi
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    TDPath=${tdengine_data_dir:-"/var/lib/taos/"}
+    DATABASE_PORT=${tdengine_port:-6030}
+    DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
     run_command "
     echo `date +%Y_%m%d_%H%M%S`\": reset limit\"
     systemctl reset-failed taosd.service
@@ -237,8 +239,6 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\"
     sleep 2"
 
-    DATABASE_PORT=${tdengine_port:-6030}
-    DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
     if [  ${FORMAT} == "TDengine" ]; then
         load_commond="tsbs_load_tdengine"
     elif [ ${FORMAT} == "TDengineStmt2"  ]; then

@@ -174,13 +174,15 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         run_command "
         systemctl restart influxd
         sleep 1" 
-        InfPath=${influx_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx_data_dir-"/var/lib/influxdb/"}
+        InfPath=$InfPath/data
         DATABASE_PORT=${influx_port:-8086}
     elif [  ${FORMAT} == "influx3" ]; then
-        InfPath=${influx3_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
         DATABASE_PORT=${influx3_port:-8181}
         run_command "
         pkill influxdb3
+        mkdir -p ${influx3_path}
         nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} &
         sleep 1
         "

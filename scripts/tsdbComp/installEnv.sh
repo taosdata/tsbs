@@ -7,30 +7,16 @@ source ${scriptDir}/logger.sh
 source ${scriptDir}/common.sh
 parse_ini ${cfgfile}
 
-log_info "install path: ${installPath}"
-log_info "installGoEnv: ${installGoEnv}"
-log_info "installDB: ${installDB}"
-log_info "installTsbs: ${installTsbs}"
+log_info "Install path: ${installPath}"
+log_info "Install Go environment: ${installGoEnv}"
+log_info "Install databases: ${installDB}"
+log_info "Install TSBS executable: ${installTsbs}"
 
-function cmdInstall {
-comd=$1
-if command -v ${comd} ;then
-    echo "${comd} is already installed" 
-else 
-    if command -v apt ;then
-        apt-get install ${comd} -y 
-    elif command -v yum ;then
-        yum install ${comd} -y 
-    else
-        echo "you should install ${comd} manually"
-    fi
-fi
-}
 
 function install_timescale_centos {
 # install timescaledb in centos 
-echo "=============install timescaledb in centos ============="
-echo "=============timescaledb in centos: configure preinstall   ============="
+  log_info "============= Installing TimescaleDB on CentOS ============="
+  log_debug "Configuring pre-installation for TimescaleDB on CentOS"
   yum install https://download.postgresql.org/pub/repos/yum/reporpms/EL-$(rpm -E %{centos})-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 if [ ! -f "/etc/yum.repos.d/timescale_timescaledb.repo"  ] ;then
   tee /etc/yum.repos.d/timescale_timescaledb.repo <<EOL
@@ -48,25 +34,25 @@ EOL
   yum update -y 
 fi
 
-echo "=============timescaledb in centos: remove and install  ============="
+  log_debug "Removing and installing TimescaleDB on CentOS"
   yum remove postgresql-14 -y
   yum remove timescaledb-2-postgresql-14 -y
 #   yum remove postgresql-14 -y
   yum install timescaledb-2-postgresql-14='2.13.0*'  timescaledb-2-loader-postgresql-14='2.13.0*' -y
 
-echo "=============timescaledb in centos: start ============="
+  log_debug "Starting TimescaleDB on CentOS"
   # configure postgresql 
   sudo /usr/pgsql-14/bin/postgresql-14-setup initdb
   sudo systemctl enable postgresql-14
   sudo systemctl start postgresql-14
 
-  echo "============timescaledb in centos: configure and start postgresql ============="
+  log_debug "Configuring and starting PostgreSQL for TimescaleDB on CentOS"
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   sharePar2=`grep -w "#shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   if [[ -z "${sharePar1}" ]] || [[  -n  "${sharePar2}" ]];then
     echo "shared_preload_libraries = 'timescaledb'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "sharePar has already been add to postgresql.conf"
+    log_debug "shared_preload_libraries is already configured in postgresql.conf"
   fi
 
   listenPar1=`grep -w "listen_addresses = '\*'"  /etc/postgresql/14/main/postgresql.conf `
@@ -74,11 +60,11 @@ echo "=============timescaledb in centos: start ============="
   if [[ -z "${listenPar1}" ]] || [[  -n "${listenPar2}" ]];then
     echo "listen_addresses = '*'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "listenPar has already been add to postgresql.conf"    
+    log_debug "listen_addresses is already configured in postgresql.conf"  
   fi 
   systemctl restart  postgresql 
 
-  echo "=============timescaledb in centos: reset password to 'password'  and add extension timescaledb for postgresql ============="
+  log_debug "Resetting password to 'password' and adding TimescaleDB extension for PostgreSQL on CentOS"
   # reset default password:password 
   su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
   systemctl restart  postgresql 
@@ -86,7 +72,7 @@ echo "=============timescaledb in centos: start ============="
 }
 
 function install_influx_centos {
-echo "=============reinstall influx in centos ============="
+  log_info "============= Reinstalling InfluxDB on CentOS ============="
   rpm -e influxdb
   cd ${installPath}
   yum install wget
@@ -102,14 +88,14 @@ echo "=============reinstall influx in centos ============="
     sed -i '/^\[data\]/a\ cache-max-memory-size = "80g"'  /etc/influxdb/influxdb.conf 
     sed -i '/^\[data\]/a\ compact-full-write-cold-duration = "30s"'  /etc/influxdb/influxdb.conf 
   else 
-    echo "indexPar has already been add to influxdb.conf"    
+    log_debug "index-version is already configured in influxdb.conf" 
   fi 
-systemctl restart influxd
+  systemctl restart influxd
 }
 
 function install_timescale_ubuntu {
-  echo "=============reinstall timescaledb in ubuntu ============="
-  echo "=============timescaledb in ubuntu: configure preinstall   ============="
+  log_info "=============Reinstalling TimescaleDB on Ubuntu ============="
+  log_debug "Configuring pre-installation for TimescaleDB on Ubuntu"
   apt install -y  gnupg postgresql-common apt-transport-https lsb-release wget 
   /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y 
   curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | sudo apt-key add -
@@ -117,19 +103,19 @@ function install_timescale_ubuntu {
   wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | apt-key add -
   apt update -y 
   
-  echo "=============timescaledb in ubuntu: remove and install  ============="
+  log_debug "Removing and installing TimescaleDB on Ubuntu"
   apt remove postgresql-14 -y
   apt remove timescaledb-2-postgresql-14 -y
   apt install postgresql-14 -y
   apt install timescaledb-2-postgresql-14='2.13.0*'  --allow-downgrades timescaledb-2-loader-postgresql-14='2.13.0*'  -y 
 
-  echo "============timescaledb in ubuntu: configure and start postgresql ============="
+  log_debug "Configuring and starting PostgreSQL for TimescaleDB on Ubuntu"
   sharePar1=`grep -w "shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   sharePar2=`grep -w "#shared_preload_libraries = 'timescaledb'"  /etc/postgresql/14/main/postgresql.conf  `
   if [[ -z "${sharePar1}" ]] || [[  -n  "${sharePar2}" ]];then
     echo "shared_preload_libraries = 'timescaledb'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "sharePar has already been add to postgresql.conf"
+    log_debug "shared_preload_libraries is already configured in postgresql.conf"
   fi
 
   listenPar1=`grep -w "listen_addresses = '\*'"  /etc/postgresql/14/main/postgresql.conf `
@@ -137,11 +123,11 @@ function install_timescale_ubuntu {
   if [[ -z "${listenPar1}" ]] || [[  -n "${listenPar2}" ]];then
     echo "listen_addresses = '*'" >> /etc/postgresql/14/main/postgresql.conf
   else 
-    echo "listenPar has already been add to postgresql.conf"    
+    log_debug "listen_addresses is already configured in postgresql.conf" 
   fi 
   systemctl restart  postgresql 
 
-  echo "=============timescaledb in ubuntu: reset password to 'password'  and add extension timescaledb for postgresql ============="
+  log_debug "Resetting password to 'password' and adding TimescaleDB extension for PostgreSQL on Ubuntu"
   # reset default password:password 
   su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
   systemctl restart  postgresql 
@@ -149,7 +135,7 @@ function install_timescale_ubuntu {
 }
 
 function install_influx_ubuntu {
-  echo "=============reinstall influx in ubuntu ============="
+  log_info "=============Reinstalling InfluxDB on ubuntu ============="
   dpkg -r influxdb
   cd ${installPath}
   if [ ! -f "influxdb_1.8.10_amd64.deb" ] ;then
@@ -164,14 +150,14 @@ function install_influx_ubuntu {
     sed -i '/^\[data\]/a\ cache-max-memory-size = "80g"'  /etc/influxdb/influxdb.conf 
     sed -i '/^\[data\]/a\ compact-full-write-cold-duration = "30s"'  /etc/influxdb/influxdb.conf 
   else 
-    echo "indexPar has already been add to influxdb.conf"    
+    log_debug "index-version is already configured in influxdb.conf" 
   fi 
-systemctl restart influxd
+  systemctl restart influxd
 }
 
 
 function install_TDengine {
-  echo "=============reinstall TDengine  in ubuntu ============="
+  log_info "============= Reinstalling TDengine on Ubuntu ============="
   cd ${installPath}
   sudo apt-get install -y gcc cmake build-essential git libssl-dev
   if [ ! -d "TDengine" ];then
@@ -203,10 +189,10 @@ function install_TDengine {
     memory_gb=$(echo "scale=0; ($memory_mb / 1024) + ($memory_mb % 1024 > 0)" | bc)
     core_number=$(nproc)
     if [ "${memory_gb}" -ge 12 ]; then
-        echo "using make -j${core_number}"
+        log_debug "Using make -j${core_number}"
         make -j$(nproc) || exit 1
     else
-        echo "using make"
+        log_debug "Using make"
         make || exit 1
     fi
 
@@ -217,7 +203,7 @@ function install_TDengine {
 
     # Check if taosd and taos commands are available
     if ! command -v taosd &> /dev/null || ! command -v taos &> /dev/null; then
-        echo "install TDengine failed"
+        log_error "Install TDengine failed"
         exit 1
     fi
 
@@ -243,7 +229,7 @@ function install_TDengine {
 }
 
 function install_influxdb3 {
-  echo "=============install InfluxDB3 in ubuntu ============="
+  log_info "=============Installing InfluxDB3 on ubuntu ============="
   cd ${installPath}
   # if influxdb3 is already installed, no need to reinsall
   if [[ -z `influxdb3 --help` ]];then
@@ -253,12 +239,21 @@ n
 EOF
   fi
 
-  # if influxdb3 is started, restart it
-  if ps -ef | grep influxdb3 | grep -v grep > /dev/null; then
-    echo "influxdb3 is already started, restarting it"
-    pkill influxdb3
+  source  /root/.bashrc
+  # run influxdb3 --version to check if it is installed successfully
+  if [[ -z `influxdb3 --version` ]];then
+    log_error "Install InfluxDB3 failed"
+    exit 1
   fi
 
+  # if influxdb3 is started, restart it
+  if ps -ef | grep influxdb3 | grep -v grep > /dev/null; then
+    log_debug "Influxdb3 is already started, restarting it"
+    pkill influxdb3
+  fi
+  influx3_path=${influx3_data_dir:-"/var/lib/influxdb3"}
+  influx3_port=${influx3_port:-"8086"}
+  mkdir -p ${influx3_path}
   nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_data_dir} --http-bind=0.0.0.0:${influx3_port} &
 
 }
@@ -297,7 +292,7 @@ if [ "${installDB}" == "true" ];then
     #   install_influx_ubuntu 
     # fi
   else
-    echo "osType can't be supported"
+    log_error "OS type not supported"
   fi
   install_TDengine
   install_influxdb3
@@ -306,7 +301,7 @@ if [ "${installDB}" == "true" ];then
   #   install_TDengine
   # fi
 else 
-  echo "It doesn't install timescaleDB InfluxDB and TDengine.If you want to install,please set installDB  true"
+  log_warning "timescaleDB InfluxDB and TDengine will not be installed. To install, set installDB to true."
 fi 
 
 
@@ -314,14 +309,14 @@ fi
 # eg : host    all     all             192.168.0.1/24               md5
 
 if [ "${clientIP}" != "${serverIP}" ]; then
-    echo "add trust link entry for your test server ip in pg_hba.conf automatically"
+    log_debug "Adding trust link entry for your test server ip in pg_hba.conf automatically"
     trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
 # echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
 # echo "${trustSlinkPar}"
     if [ -z "${trustSlinkPar}" ];then
       echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
     else
-      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+      log_debug "Trust link entry for your test server IP is already added in pg_hba.conf"
     fi
 
     trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
@@ -330,6 +325,6 @@ if [ "${clientIP}" != "${serverIP}" ]; then
     if [ -z "${trustClinkPar}" ];then
       echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
     else
-      echo "it has been added trust link entry for your test server ip in pg_hba.conf"
+      log_debug "Trust link entry for your client IP is already added in pg_hba.conf"
     fi
 fi

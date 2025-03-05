@@ -236,3 +236,18 @@ function calculate_chunk_time() {
     local chunk_time=$((interval_seconds / 180 * chunk_time_base))
     echo "${chunk_time}s"
 }
+
+function cmdInstall {
+    comd=$1
+    if command -v ${comd} ;then
+        log_debug "${comd} is already installed" 
+    else 
+        if command -v apt ;then
+            apt-get install ${comd} -y 
+        elif command -v yum ;then
+            yum install ${comd} -y 
+        else
+            log_warning "You should install ${comd} manually"
+        fi
+    fi
+}
