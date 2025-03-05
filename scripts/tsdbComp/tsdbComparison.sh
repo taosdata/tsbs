@@ -1,15 +1,18 @@
 #!/bin/bash
 
 # Set DEBUG and NO_COLOR environment variables
-export DEBUG=true
-export NO_COLOR=true
+DEBUG=true
+NO_COLOR=true
 
 # define path and filename
 scriptDir=$(dirname $(readlink -f $0))
+installPath="/usr/local/src/"
+
 cfgfile="test.ini"
 logger_sh="${scriptDir}/logger.sh"
 common_sh="${scriptDir}/common.sh"
 install_env_file="installEnv.sh"
+
 #set error log file
 mkdir -p ${scriptDir}/log
 error_install_file="${scriptDir}/log/install_error.log"
@@ -21,78 +24,56 @@ source ${scriptDir}/common.sh
 
 log_info "Starting TSDB comparison script"
 
-# check system type and version. If the system is not supported, exit the script
+# check system
 checkout_system
 
 
 log_info "set client and server conf"
+
 cd ${scriptDir}
-parse_ini ${cfgfile}
+source ./${cfgfile}
 if [ ${clientIP} == ${serverIP} ]; then
-    export clientHost="$(hostname)"
-    export serverHost="$(hostname)"
+    clientHost=$(hostname)
+    # clientIP=$(ip address | grep inet | grep -v inet6 | grep -v docker | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}')
+
+    # sed -i "s/clientIP=.*/clientIP=\"${clientIP}\"/g" ${cfgfile}
+    sed -i "s/clientHost=.*/clientHost=\"${clientHost}\"/g" ${cfgfile}
+    # sed -i "s/serverIP=.*/serverIP=\"${clientIP}\"/g" ${cfgfile}
+    sed -i "s/serverHost=.*/serverHost=\"${clientHost}\"/g" ${cfgfile}
 fi
+
+# enable configure :test.ini
+source ./${cfgfile}
+
 
 log_info "==== All test parameters ===="
 
-log_info "General config"
-log_info "  installPath: ${installPath}"
-log_info "  clientIP: ${clientIP}, clientHost: ${clientHost}"
-log_info "  serverIP: ${serverIP}, serverHost: ${serverHost}"
-log_info "  installEnvAll: ${installEnvAll}"
-log_info "  installGoEnv: ${installGoEnv}"
-log_info "  installDB: ${installDB}"
-log_info "  installTsbs: ${installTsbs}"
-log_info "  caseTypes: ${caseTypes}"
-log_info "  case: ${case}"
-log_info "  operation_mode: ${operation_mode}"
-log_info "  loadDataRootDir: ${loadDataRootDir}"
-log_info "  loadResultRootDir: ${loadResultRootDir}"
-log_info "  queryDataRootDir: ${queryDataRootDir}"
-log_info "  queryResultRootDir: ${queryResultRootDir}"
+log_info "client: ${clientIP}"
+log_info "server: ${serverIP}"
+log_info "installEnvAll: ${installEnvAll}"
+log_info "installGoEnv: ${installGoEnv}"
+log_info "installDB: ${installDB}"
+log_info "installTsbs: ${installTsbs}"
+log_info "case: ${caseType}"
 log_info "Load config"
-log_info "  load_number_workers: ${load_number_workers}"
-log_info "  load_batch_sizes: ${load_batch_sizes}"
-log_info "  load_formats: ${load_formats}"
-log_info "  load_fsync: ${load_fsync}"
-log_info "  vgroups: ${vgroups}"
-log_info "  trigger: ${trigger}"
-log_info "Load"
-log_info "  load_ts_start: ${load_ts_start}"
-log_info "  load_ts_end: ${load_ts_end}"
 log_info "  load_scales: ${load_scales}"
-log_info "Load test"
-log_info "  load_ts_start: ${LoadTest_load_ts_start}"
-log_info "  load_ts_end: ${LoadTest_load_ts_end}"
-log_info "  load_scales: ${LoadTest_load_scales}"
+log_info "  load_formats: ${load_formats}"
+log_info "  load_number_workers: ${load_number_workers}"
 log_info "Query config"
+log_info "  query_scales: ${query_scales}"
+log_info "  restload: ${restload}"
 log_info "  query_number_workers: ${query_number_workers}"
 log_info "  query_formats: ${query_formats}"
-log_info "  reload_data: ${reload_data}"
-log_info "  query_debug: ${query_debug}"
-log_info "  query_load_batch_size: ${query_load_batch_size}"
-log_info "  query_load_workers: ${query_load_workers}"
-log_info "  query_types_cpu_all: ${query_types_cpu_all}"
-log_info "  query_types_iot_all: ${query_types_iot_all}"
-log_info "Query"
-log_info "  query_ts_start: ${query_ts_start}"
-log_info "  query_load_ts_end: ${query_load_ts_end}"
-log_info "  query_ts_end: ${query_ts_end}"
-log_info "  query_cpu_scale_times: ${query_cpu_scale_times}"
-log_info "  query_iot_scale_times: ${query_iot_scale_times}"
-log_info "Query test config"
-log_info "  query_ts_start: ${QueryTest_query_ts_start}"
-log_info "  query_load_ts_end: ${QueryTest_query_load_ts_end}"
-log_info "  query_ts_end: ${QueryTest_query_ts_end}"
-log_info "  query_cpu_scale_times: ${QueryTest_query_cpu_scale_times}"
-log_info "  query_iot_scale_times: ${QueryTest_query_iot_scale_times}"
-log_info "Report config"
-log_info "  report: ${report}"
+log_info "  query_times: ${query_times}"
+log_info "  query_types: ${query_types}"
 
 log_info "==== Now we start to test ===="
 log_info "Start to install env in ${installPath}"
 
 mkdir -p ${installPath}
+# copy configure to installPath
+cp ${scriptDir}/${cfgfile} ${installPath}
+
 if [ "${installEnvAll}" == "true" ]; then
     # install basic env, and you should have python3 and pip3 environment
     log_info "Install basic env"
@@ -154,28 +135,24 @@ eeooff
 fi
 
 for caseType in ${caseTypes}; do
-    log_info "========== caseType: ${caseType}, operation: ${operation_mode} =========="
+    # execute load tests
+    log_info "========== caseType: ${caseType} =========="
+    log_info "========== Start executing ${caseType} load test =========="
+
     time=$(date +%Y_%m%d_%H%M%S)
 
-    if [  ${operation_mode} == "both" ] || [  ${operation_mode} == "load" ]; then
-        # execute load tests
-        log_info "========== Start executing ${caseType} load test =========="
+    cd ${scriptDir}
+    log_info "caseType=${caseType} ./loadAllcases.sh &> log/testload${caseType}${time}.log"
+    caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 
 
-        cd ${scriptDir}
-        log_info "caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log"
-        caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 2>&1
+    log_info "========== End executing ${caseType} load test =========="
 
-        log_info "========== End executing ${caseType} load test =========="
-    fi
+    # execute query tests
+    log_info "========== Start executing ${caseType} query test =========="
 
-    if [  ${operation_mode} == "both" ] || [  ${operation_mode} == "query" ]; then
-        # execute query tests
-        log_info "========== Start executing ${caseType} query test =========="
+    cd ${scriptDir}
+    log_info "caseType=${caseType} ./queryAllcases.sh &> log/testquery${caseType}${time}.log"
+    caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log
 
-        cd ${scriptDir}
-        log_info "caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log"
-        caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log 2>&1
-
-        log_info "========== End executing ${caseType} query test =========="
-    fi
+    log_info "========== End executing ${caseType} query test =========="
 done

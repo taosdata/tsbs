@@ -71,11 +71,6 @@ type Benchmark interface {
 	GetDBCreator() DBCreator
 }
 
-type ConfigurableBenchmark interface {
-	Benchmark
-	SetConfig(batchSize uint, workers uint)
-}
-
 type DataSource interface {
 	NextItem() data.LoadedPoint
 	Headers() *common.GeneratedDataHeaders

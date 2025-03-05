@@ -19,10 +19,6 @@ type tdengineTarget struct {
 }
 
 func (t *tdengineTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
-	TargetSpecificFlags(flagPrefix, flagSet)
-}
-
-func TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
 	flagSet.String(flagPrefix+"user", "root", "User to connect to TDengine")
 	flagSet.String(flagPrefix+"pass", "taosdata", "Password for user connecting to TDengine")
 	flagSet.String(flagPrefix+"host", "", "TDengine host")

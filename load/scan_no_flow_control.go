@@ -23,7 +23,6 @@ func scanWithoutFlowControl(
 		batches[i] = factory.New()
 	}
 	var itemsRead uint64
-	//s := time.Now()
 	for {
 		if limit > 0 && itemsRead >= limit {
 			break
@@ -40,14 +39,7 @@ func scanWithoutFlowControl(
 		batches[idx].Append(item)
 
 		if batches[idx].Len() >= batchSize {
-			//if idx == 0 {
-			//	now := time.Now()
-			//	fmt.Printf("%s\n", now.Sub(s))
-			//	s = now
-			//}
-			//s2 := time.Now()
 			channels[idx] <- batches[idx]
-			//fmt.Printf("channel %d: %s\n", idx, time.Now().Sub(s2))
 			batches[idx] = factory.New()
 		}
 	}

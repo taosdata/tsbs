@@ -1,11 +1,10 @@
 package load
 
 import (
+	"github.com/taosdata/tsbs/pkg/targets"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/taosdata/tsbs/pkg/targets"
 )
 
 type noFlowBenchmarkRunner struct {
