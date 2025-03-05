@@ -8,14 +8,14 @@ function cmdInstall {
     else
         if command -v apt &> /dev/null; then
             log_info "Installing ${comd} using apt"
-            if apt-get install ${comd} -y 2>> ${error_install_file}; then
+            if apt-get install ${comd} -y 2>&1 ; then
                 log_info "${comd} installed successfully"
             else
                 log_error "Failed to install ${comd} using apt"
             fi
         elif command -v yum &> /dev/null; then
             log_info "Installing ${comd} using yum"
-            if yum install ${comd} -y 2>> ${error_install_file}; then
+            if yum install ${comd} -y 2>&1 ; then
                 log_info "${comd} installed successfully"
             else
                 log_error "Failed to install ${comd} using yum"
@@ -24,22 +24,6 @@ function cmdInstall {
             log_warning "You should install ${comd} manually"
         fi
     fi
-}
-
-# Check if pip3 package exists and install it if not
-function pip3_define_install {
-    for comd in "$@"; do
-        if pip3 show ${comd} &> /dev/null; then
-            log_info "${comd} is already installed"
-        else
-            log_info "Installing ${comd} using pip3"
-            if pip3 install ${comd} 2>> ${error_install_file}; then
-                log_info "${comd} installed successfully"
-            else
-                log_error "Failed to install ${comd} using pip3"
-            fi
-        fi
-    done
 }
 
 # Detect system type and version

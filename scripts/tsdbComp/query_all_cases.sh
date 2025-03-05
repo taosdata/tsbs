@@ -36,7 +36,7 @@ function query_testcase {
     export QUERY_TYPES_ALL=${query_types_cpu_all}
     export QUERY_TYPES_IOT_ALL=${query_types_iot_all}
 
-    log_debug "Executing querytest.sh with environment variables"
+    log_debug "Executing query_test.sh with environment variables"
     log_debug "TS_START=$TS_START QUERY_TS_END=$QUERY_TS_END LOAD_TS_END=$LOAD_TS_END \
     DATABASE_HOST=$DATABASE_HOST SERVER_PASSWORD=$SERVER_PASSWORD  \
     BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD}   \
@@ -47,7 +47,7 @@ function query_testcase {
     NUM_WORKER_LOAD=${NUM_WORKER_LOAD} BATCH_SIZE=${BATCH_SIZE}\
     QUERY_TYPES_ALL=${QUERY_TYPES_ALL} QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL}"
 
-    ./querytest.sh
+    ./query_test.sh
 
     if [  ${caseType} != "userdefined" ] && [  ${report} == "true" ]; then
         # generate png 

@@ -25,7 +25,7 @@ function show_help() {
     echo "         $0"
     echo "         $0 -h"
     echo ""
-    echo "Set test.ini manually for more config, then run tsdbComparison.sh."
+    echo "Set test.ini manually for more config, then run tsdb_comparison.sh."
     
 }
 
@@ -71,7 +71,7 @@ case $scenario in
         ;;
 esac
 
-# run tsdbComparison.sh
-echo "nohup bash tsdbComparison.sh &> log/testAll_${time}.log &"
+# run tsdb_comparison.sh
+echo "nohup bash tsdb_comparison.sh &> log/testAll_${time}.log &"
 echo "please check log/testAll_${time}.log to monitor the test"
-nohup bash tsdbComparison.sh &> log/testAll_${time}.log &
+nohup bash tsdb_comparison.sh &> log/testAll_${time}.log &
