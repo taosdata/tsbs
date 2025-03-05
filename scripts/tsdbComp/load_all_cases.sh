@@ -31,12 +31,12 @@ function load_testcase {
     export TRIGGER=${trigger}
     export HORIZONTAL_SCALING_FACTOR=${horizontal_scaling_factor}
     
-    log_info "Executing loadtest.sh with environment variables"
+    log_info "Executing load_test.sh with environment variables"
     log_debug "DATABASE_HOST=$DATABASE_HOST SERVER_PASSWORD=$SERVER_PASSWORD DATABASE_NAME=$DATABASE_NAME \
         BULK_DATA_DIR=${BULK_DATA_DIR} BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD}  \
         NUM_WORKERS=$NUM_WORKERS USE_CASE=$USE_CASE FORMATS=$FORMATS BATCH_SIZES=$BATCH_SIZES CASE_TYPE=${CASE_TYPE} SCALES=$SCALES \
         WALFSYNCPERIOD=$load_fsync  VGROUPS=$vgroups"
-    ./loadtest.sh
+    ./load_test.sh
 
     if [ ${caseType} != "userdefined" ] && [ ${report} == "true" ]; then
         #generate png report

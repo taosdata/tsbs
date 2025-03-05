@@ -9,7 +9,7 @@ scriptDir=$(dirname $(readlink -f $0))
 cfgfile="test.ini"
 logger_sh="${scriptDir}/logger.sh"
 common_sh="${scriptDir}/common.sh"
-install_env_file="installEnv.sh"
+install_env_file="install_env.sh"
 #set error log file
 mkdir -p ${scriptDir}/log
 error_install_file="${scriptDir}/log/install_error.log"
@@ -100,11 +100,11 @@ if [ "${installEnvAll}" == "true" ]; then
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
 
     if [ "${installDB}" == "true" ]; then
-        ./installEnv.sh || exit 1
+        ./install_env.sh || exit 1
     fi 
 
     if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ]; then
-        ./installTsbsCommand.sh || exit 1
+        ./install_tsbs_cmd.sh || exit 1
         GO_HOME=${installPath}/go
         export PATH=$GO_HOME/bin:$PATH
         export GOPATH=$(go env GOPATH)
@@ -133,7 +133,7 @@ eeooff
             sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
                 cd ${installPath}
                 log_info "Install basic env in server ${serverIP}"
-                ./installEnv.sh || exit 1
+                ./install_env.sh || exit 1
                 source /root/.bashrc
                 sleep 1
                 exit
@@ -157,8 +157,8 @@ for caseType in ${caseTypes}; do
         log_info "========== Start executing ${caseType} load test =========="
 
         cd ${scriptDir}
-        log_info "caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log"
-        caseType=${caseType} ./loadAllcases.sh > log/testload${caseType}${time}.log 2>&1
+        log_info "caseType=${caseType} ./load_all_cases.sh > log/testload${caseType}${time}.log"
+        caseType=${caseType} ./load_all_cases.sh > log/testload${caseType}${time}.log 2>&1
 
         log_info "========== End executing ${caseType} load test =========="
     fi
@@ -168,8 +168,8 @@ for caseType in ${caseTypes}; do
         log_info "========== Start executing ${caseType} query test =========="
 
         cd ${scriptDir}
-        log_info "caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log"
-        caseType=${caseType} ./queryAllcases.sh > log/testquery${caseType}${time}.log 2>&1
+        log_info "caseType=${caseType} ./query_all_cases.sh > log/testquery${caseType}${time}.log"
+        caseType=${caseType} ./query_all_cases.sh > log/testquery${caseType}${time}.log 2>&1
 
         log_info "========== End executing ${caseType} query test =========="
     fi
