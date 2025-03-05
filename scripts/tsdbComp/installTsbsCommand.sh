@@ -7,10 +7,10 @@ source ${scriptDir}/logger.sh
 source ${scriptDir}/common.sh
 parse_ini ${cfgfile}
 
-echo "install path: ${installPath}"
-echo "installGoEnv: ${installGoEnv}"
-echo "installDB: ${installDB}"
-echo "installTsbs: ${installTsbs}"
+log_info "Install path: ${installPath}"
+log_info "Install Go environment: ${installGoEnv}"
+log_info "Install databases: ${installDB}"
+log_info "Install TSBS executable: ${installTsbs}"
 
 function set_go_proxy {
   curl --max-time 10 --silent --head https://proxy.golang.org | grep "HTTP/2 200"
@@ -81,7 +81,7 @@ function install_go_env {
 
   tar -xf "${go_tar}" || { echo "Failed to extract ${go_tar}"; exit 1; }
 
-  echo "add go to PATH"
+  log_debug "add go to PATH"
   GO_HOME=${installPath}/go
   goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
   export PATH=$GO_HOME/bin:$PATH
@@ -97,7 +97,7 @@ function install_go_env {
   set_go_proxy
 
 
-  echo ${GOPATH}
+  log_debug "GOPATH: ${GOPATH}"
   if [[ -z "${GOPATH}" ]];then
       echo "add go path to PATH and set GOPATH"
       export GOPATH=$(go env GOPATH)
@@ -119,7 +119,6 @@ function install_go_env {
 # compile tsbs 
 function install_tsbs {
   log_info "============= Installing TSBS ============="
-  tail -10 /root/.bashrc
   source  /root/.bashrc
   goenv=${GOPATH}
   if [[ -z ${goenv} ]];then
@@ -173,15 +172,12 @@ if [ "${installGoEnv}" == "true" ];then
   install_go_env
 else 
   log_info "Go environment will not be installed. To install, set installGoEnv to true."
+  export GOPATH=$(go env GOPATH)
+  export PATH=$(go env GOPATH)/bin:$PATH
 fi 
 
-
 if [ "${installTsbs}" == "true" ];then
-  if [[ -z `tsbs_load_tdengine --help` ]];then
-      install_tsbs
-  else
-    log_info "TSBS is already installed. To update TSBS, please remove tsbs_load_tdengine from the system."
-  fi
+  install_tsbs
 else
   log_info "TSBS will not be installed or updated. To install, set installTsbs to true."
 fi 

@@ -10,36 +10,52 @@ function query_testcase {
     load_executeTime=`date +%Y_%m%d_%H%M%S`
     load_dataDir="${loadDataRootDir}/load_data_${caseType}_host/" 
     load_resultDir="${loadResultRootDir}/load_result_${caseType}_${load_executeTime}/" 
-
     query_dataDir="${queryDataRootDir}/query_data_${caseType}/" 
     query_resultDir="${queryResultRootDir}/query_result_${caseType}_${load_executeTime}/" 
 
-    log_debug "TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
-    DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
-    BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
-    BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
-    NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
-    QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
-    SCALE=$6 DATABASE_NAME="benchmark$caseType" \
-    NUM_WORKER_LOAD=${query_load_workers} BATCH_SIZE=${query_load_batch_size}\
-    QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh "
-    TS_START=$3 QUERY_TS_END=$5 LOAD_TS_END=$4 \
-    DATABASE_HOST=$1 SERVER_PASSWORD=$2  \
-    BULK_DATA_DIR=${load_dataDir}  BULK_DATA_DIR_RES_LOAD=${load_resultDir}   \
-    BULK_DATA_QUERY_DIR=${query_dataDir}  BULK_DATA_DIR_RUN_RES=${query_resultDir} \
-    NUM_WORKERS=$8 USE_CASE=$7 FORMATS=$9 VGROUPS="$vgroups" \
-    QUERY_DEBUG="${query_debug}" RELOADDATA="${reload_data}" QUERIES=${10} \
-    SCALE=$6 DATABASE_NAME="benchmark$caseType" \
-    NUM_WORKER_LOAD=${query_load_workers} BATCH_SIZE=${query_load_batch_size}\
-    QUERY_TYPES_ALL=${query_types_cpu_all} QUERY_TYPES_IOT_ALL=${query_types_iot_all} ./querytest.sh 
+    export TS_START=$3
+    export QUERY_TS_END=$5
+    export LOAD_TS_END=$4
+    export DATABASE_HOST=$1
+    export SERVER_PASSWORD=$2
+    export BULK_DATA_DIR=${load_dataDir}
+    export BULK_DATA_DIR_RES_LOAD=${load_resultDir}
+    export BULK_DATA_QUERY_DIR=${query_dataDir}
+    export BULK_DATA_DIR_RUN_RES=${query_resultDir}
+    export NUM_WORKERS=$8
+    export USE_CASE=$7
+    export FORMATS=$9
+    export VGROUPS="$vgroups"
+    export QUERY_DEBUG="${query_debug}"
+    export RELOADDATA="${reload_data}"
+    export QUERIES=${10}
+    export SCALE=$6
+    export DATABASE_NAME="benchmark$caseType"
+    export NUM_WORKER_LOAD=${query_load_workers}
+    export BATCH_SIZE=${query_load_batch_size}
+    export QUERY_TYPES_ALL=${query_types_cpu_all}
+    export QUERY_TYPES_IOT_ALL=${query_types_iot_all}
+
+    log_debug "Executing querytest.sh with environment variables"
+    log_debug "TS_START=$TS_START QUERY_TS_END=$QUERY_TS_END LOAD_TS_END=$LOAD_TS_END \
+    DATABASE_HOST=$DATABASE_HOST SERVER_PASSWORD=$SERVER_PASSWORD  \
+    BULK_DATA_DIR=${BULK_DATA_DIR}  BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD}   \
+    BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR}  BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES} \
+    NUM_WORKERS=$NUM_WORKERS USE_CASE=$USE_CASE FORMATS=$FORMATS VGROUPS="$vgroups" \
+    QUERY_DEBUG="${QUERY_DEBUG}" RELOADDATA="${RELOADDATA}" QUERIES=${QUERIES} \
+    SCALE=$SCALE DATABASE_NAME="benchmark$caseType" \
+    NUM_WORKER_LOAD=${NUM_WORKER_LOAD} BATCH_SIZE=${BATCH_SIZE}\
+    QUERY_TYPES_ALL=${QUERY_TYPES_ALL} QUERY_TYPES_IOT_ALL=${QUERY_TYPES_IOT_ALL}"
+
+    ./querytest.sh
 
     if [  ${caseType} != "userdefined" ] && [  ${report} == "true" ]; then
         # generate png 
         log_info "python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png -q ${10}"
-        log_info "python3 ${scriptDir}/gen_report/queryResultBarh.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio"
+        log_info "python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio"
 
         python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png -q ${10}
-       python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio
+        python3 ${scriptDir}/gen_report/query_report.py  -i  ${query_resultDir}/query_input.csv -x queryType -o  ${query_resultDir}/test_query.png  -q ${10} -m ratio
     fi
 }
 
@@ -93,6 +109,6 @@ elif [ "${caseType}" == "userdefined" ];then
     done
     
 else
-    log_error "please set correct testcase type"
+    log_error "caseType: ${caseType} not supported"
 fi
 

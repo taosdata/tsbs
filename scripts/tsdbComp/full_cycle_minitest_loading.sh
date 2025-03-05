@@ -158,6 +158,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
+    log_info "Load data to influxdb"
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
         InfPath=${influx_data_dir-"/var/lib/influxdb/"}
@@ -168,12 +169,20 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     elif [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx3_port:-8181}
         InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
+        InfLogPath=${InfPath}/influxdb3.log
+        InfPath=$InfPath/tsbs_test_data
         run_command "
         pkill influxdb3
         mkdir -p ${InfPath}
-        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} &
+        rm -rf ${InfPath}/*
+        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
         sleep 1
         "
+        # check if influxdb3 is running
+        if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
+            log_error "influxdb3 failed to start"
+            exit 1
+        fi
     fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
@@ -185,7 +194,6 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
-    log_debug "test"
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
@@ -208,7 +216,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
             ioStatusPa=true
         fi
     done
-    log_debug "influxdb data  compression has been completed"
+    log_debug "influxdb data compression has been completed"
     set_command "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"

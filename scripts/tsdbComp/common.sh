@@ -27,7 +27,6 @@ function cmdInstall {
 }
 
 # Check if pip3 package exists and install it if not
-# Check if pip3 packages exist and install them if not
 function pip3_define_install {
     for comd in "$@"; do
         if pip3 show ${comd} &> /dev/null; then
@@ -237,17 +236,35 @@ function calculate_chunk_time() {
     echo "${chunk_time}s"
 }
 
-function cmdInstall {
-    comd=$1
-    if command -v ${comd} ;then
-        log_debug "${comd} is already installed" 
-    else 
-        if command -v apt ;then
-            apt-get install ${comd} -y 
-        elif command -v yum ;then
-            yum install ${comd} -y 
+
+function check_influxdb3_status() {
+    local port=$1
+    local retries=10
+    local wait_time=10
+
+    for i in $(seq 1 $retries); do
+        if netstat -tuln | grep ":${port} " > /dev/null; then
+            log_info "InfluxDB3 started successfully on port ${port}."
+            return 0
         else
-            log_warning "You should install ${comd} manually"
+            log_warning "InfluxDB3 not started yet on port ${port}. Retrying in ${wait_time} seconds..."
+            sleep $wait_time
         fi
+    done
+
+    log_error "InfluxDB3 failed to start on port ${port} after multiple attempts."
+    return 1
+}
+
+function check_glibc_version() {
+    local required_version="2.32"
+    local current_version=$(ldd --version | head -n 1 | awk '{print $NF}')
+
+    if [ "$(printf '%s\n' "$required_version" "$current_version" | sort -V | head -n1)" = "$required_version" ]; then
+        log_info "GLIBC version meets the minimum requirement: $required_version"
+    else
+        log_error "GLIBC version does not meet the minimum requirement: $required_version"
+        exit 1
     fi
+    
 }

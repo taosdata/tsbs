@@ -96,7 +96,7 @@ if [ "${installEnvAll}" == "true" ]; then
     log_info "Install basic env"
     cmdInstall python3.8
     cmdInstall python3-pip
-    pip3_define_install  matplotlib pandas
+    pip3_define_install  matplotlib pandas numpy
 
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
@@ -112,9 +112,6 @@ if [ "${installEnvAll}" == "true" ]; then
         export GOPATH=$(go env GOPATH)
         export PATH=$GOPATH/bin:$PATH
     fi
-    sudo systemctl stop postgresql
-    sudo systemctl stop influxd
-    sudo systemctl stop taosd
 
     # configure sshd 
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
@@ -147,8 +144,10 @@ eeooff
         log_info "========== Installation of server: ${serverIP} completed =========="
     else
         log_info "Client and server are the same machine and no need to install server environment"
-
     fi
+else
+    export GOPATH=$(go env GOPATH)
+    export PATH=$(go env GOPATH)/bin:$PATH
 fi
 
 for caseType in ${caseTypes}; do
@@ -176,4 +175,5 @@ for caseType in ${caseTypes}; do
 
         log_info "========== End executing ${caseType} query test =========="
     fi
+    log_info "Please check result at directory: ${loadResultRootDir} for load operation or ${queryResultRootDir} for query operation"
 done

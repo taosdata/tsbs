@@ -11,6 +11,8 @@ log_info "Install path: ${installPath}"
 log_info "Install Go environment: ${installGoEnv}"
 log_info "Install databases: ${installDB}"
 log_info "Install TSBS executable: ${installTsbs}"
+log_info "Server IP: ${serverIP}"
+log_info "Client IP: ${clientIP}"
 
 
 function install_timescale_centos {
@@ -37,7 +39,7 @@ fi
   log_debug "Removing and installing TimescaleDB on CentOS"
   yum remove postgresql-14 -y
   yum remove timescaledb-2-postgresql-14 -y
-#   yum remove postgresql-14 -y
+  #   yum remove postgresql-14 -y
   yum install timescaledb-2-postgresql-14='2.13.0*'  timescaledb-2-loader-postgresql-14='2.13.0*' -y
 
   log_debug "Starting TimescaleDB on CentOS"
@@ -93,6 +95,21 @@ function install_influx_centos {
   systemctl restart influxd
 }
 
+# add trust link entry for your host in pg_hba.conf manually
+# eg : host    all     all             192.168.0.1/24               md5
+function add_trust_link_entry() {
+    local ip=$1
+    local description=$2
+
+    log_debug "Adding trust link entry for your ${description} IP in pg_hba.conf automatically"
+    trustPar=`grep -w "${ip}" /etc/postgresql/14/main/pg_hba.conf`
+    if [ -z "${trustPar}" ]; then
+        echo -e "\r\nhost    all     all             ${ip}/24               md5\n" >> /etc/postgresql/14/main/pg_hba.conf
+    else
+        log_debug "Trust link entry for your ${description} IP is already added in pg_hba.conf"
+    fi
+}
+
 function install_timescale_ubuntu {
   log_info "=============Reinstalling TimescaleDB on Ubuntu ============="
   log_debug "Configuring pre-installation for TimescaleDB on Ubuntu"
@@ -132,6 +149,11 @@ function install_timescale_ubuntu {
   su - postgres -c "psql -U postgres -c \"alter role  postgres with password 'password';\""
   systemctl restart  postgresql 
   PGPASSWORD=password psql -U postgres -h localhost -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+  if [ "${clientIP}" != "${serverIP}" ]; then
+    add_trust_link_entry "${serverIP}" "server"
+    add_trust_link_entry "${clientIP}" "client"
+  fi
 }
 
 function install_influx_ubuntu {
@@ -230,6 +252,8 @@ function install_TDengine {
 
 function install_influxdb3 {
   log_info "=============Installing InfluxDB3 on ubuntu ============="
+  check_glibc_version
+  
   cd ${installPath}
   # if influxdb3 is already installed, no need to reinsall
   if [[ -z `influxdb3 --help` ]];then
@@ -241,8 +265,9 @@ EOF
 
   source  /root/.bashrc
   # run influxdb3 --version to check if it is installed successfully
-  if [[ -z `influxdb3 --version` ]];then
-    log_error "Install InfluxDB3 failed"
+  version_output=$(influxdb3 --version 2>&1)
+  if [[ $? -ne 0 ]]; then
+    log_error "Install InfluxDB3 failed: ${version_output}"
     exit 1
   fi
 
@@ -253,11 +278,63 @@ EOF
   fi
   influx3_path=${influx3_data_dir:-"/var/lib/influxdb3"}
   influx3_port=${influx3_port:-"8086"}
+  influx3_log=${influx3_path}/influxdb3.log
+  influx3_path=${influx3_path}/tsbs_test_data
   mkdir -p ${influx3_path}
-  nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_data_dir} --http-bind=0.0.0.0:${influx3_port} &
+  rm -rf ${influx3_path}/*
+  nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_path} --http-bind=0.0.0.0:${influx3_port} >> ${influx3_log} 2>&1 &
+
+  if check_influxdb3_status ${influx3_port}; then
+    log_info "InfluxDB3 started successfully on port ${influx3_port}."
+  else
+    log_error "InfluxDB3 failed to start on port ${influx3_port}."
+    exit 1
+  fi
 
 }
 
+function install_database {
+    local db=$1
+    case $db in
+        TDengine | TDengineStmt2)
+            log_info "Installing TDengine..."
+            install_TDengine
+            ;;
+        influx)
+            log_info "Installing InfluxDB..."
+            if [ "${osType}" == "centos" ];then
+              yum install -y  curl wget
+              install_influx_centos
+            elif [ "${osType}" == "ubuntu" ];then
+              sudo apt-get update
+              sudo apt install wget curl  -y
+              install_influx_ubuntu 
+            else
+              log_error "OS type not supported"
+            fi
+            ;;
+        timescaledb)
+            log_info "Installing TimescaleDB..."
+              if [ "${osType}" == "centos" ];then
+                yum install -y  curl wget
+                install_timescale_centos
+              elif [ "${osType}" == "ubuntu" ];then
+                sudo apt-get update
+                sudo apt install wget curl  -y
+                install_timescale_ubuntu 
+              else
+                log_error "OS type not supported"
+              fi
+            ;;
+        influx3)
+            log_info "Installing InfluxDB3..."
+            install_influxdb3
+            ;;
+        *)
+            log_warning "Unknown database format: $db"
+            ;;
+    esac
+}
 
 # install sshpass,git and dool
 cmdInstall sshpass
@@ -275,56 +352,26 @@ fi
 tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
 
 # install db  
-if [ "${installDB}" == "true" ];then
-  if [ "${osType}" == "centos" ];then
-    yum install -y  curl wget
-    install_timescale_centos
-    install_influx_centos
-    # if [[ -z `influx --help` ]];then
-    #   install_influx_centos
-    # fi
-  elif [ "${osType}" == "ubuntu" ];then
-    sudo apt-get update
-    sudo apt install wget curl  -y
-    install_timescale_ubuntu 
-    install_influx_ubuntu 
-    # if [[ -z `influx --help` ]];then
-    #   install_influx_ubuntu 
-    # fi
-  else
-    log_error "OS type not supported"
+if [ "${installDB}" == "true" ]; then
+  log_info "Installing databases. Operation mode: ${operation_mode}"
+  log_debug "Operation mode: ${operation_mode}, query formats: ${query_formats}, load formats: ${load_formats}"
+
+  declare -A db_set
+  if [[ "$operation_mode" == "query" || "$operation_mode" == "both" ]]; then
+      for db in $query_formats; do
+          db_set[$db]=1
+      done
   fi
-  install_TDengine
-  install_influxdb3
 
-  # if [[ -z `taosd --help` ]];then
-  #   install_TDengine
-  # fi
-else 
-  log_warning "timescaleDB InfluxDB and TDengine will not be installed. To install, set installDB to true."
-fi 
+  if [[ "$operation_mode" == "load" || "$operation_mode" == "both" ]]; then
+      for db in $load_formats; do
+          db_set[$db]=1
+      done
+  fi
 
-
-# you need add trust link entry for your host in pg_hba.conf manually
-# eg : host    all     all             192.168.0.1/24               md5
-
-if [ "${clientIP}" != "${serverIP}" ]; then
-    log_debug "Adding trust link entry for your test server ip in pg_hba.conf automatically"
-    trustSlinkPar=`grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf`
-# echo "grep -w "${serverIP}" /etc/postgresql/14/main/pg_hba.conf"
-# echo "${trustSlinkPar}"
-    if [ -z "${trustSlinkPar}" ];then
-      echo -e  "\r\nhost    all     all             ${serverIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-    else
-      log_debug "Trust link entry for your test server IP is already added in pg_hba.conf"
-    fi
-
-    trustClinkPar=`grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf`
-    # echo "grep -w "${clientIP}" /etc/postgresql/14/main/pg_hba.conf"
-    # echo "${trustClinkPar}"
-    if [ -z "${trustClinkPar}" ];then
-      echo -e  "\r\nhost    all     all             ${clientIP}/24               md5\n"  >> /etc/postgresql/14/main/pg_hba.conf
-    else
-      log_debug "Trust link entry for your client IP is already added in pg_hba.conf"
-    fi
+  for db in "${!db_set[@]}"; do
+      install_database $db
+  done
+else
+  log_warning "Databases will not be installed. To install, set installDB to true."
 fi
