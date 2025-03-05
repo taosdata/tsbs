@@ -10,7 +10,6 @@ source ${scriptDir}/logger.sh
 # it have been generated data when execute this scripts
 # - 1) query generation
 log_info "===============query generation================="
-EXE_FILE_VERSION=`md5sum $EXE_FILE_NAME_GENERATE_QUE | awk '{ print $1 }'`
 # Queries folder
 BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR:-"/tmp/bulk_queries"}
 # Form of data to generate

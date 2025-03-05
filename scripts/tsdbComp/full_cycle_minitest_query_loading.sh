@@ -169,17 +169,31 @@ if [[ "${FORMAT}" =~ "timescaledb" ]];then
     echo ${FORMATAISA},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     load_command="tsbs_load_${FORMAT}"
-    log_debug "COMMAND:${load_command} USE_CASE:${USE_CASE} FORMAT:${FORMAT} SCALE:${SCALE} InfPath:${InfPath} DATABASE_PORT:${DATABASE_PORT}" 
     if [  ${FORMAT} == "influx" ]; then
         run_command "
         systemctl restart influxd
         sleep 1" 
-        InfPath=${influx_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx_data_dir-"/var/lib/influxdb/"}
+        InfPath=$InfPath/data
         DATABASE_PORT=${influx_port:-8086}
     elif [  ${FORMAT} == "influx3" ]; then
-        InfPath=${influx3_data_dir-"/var/lib/influxdb/data/"}
+        InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
+        InfLogPath=${InfPath}/influxdb3.log
+        InfPath=$InfPath/tsbs_test_data
         DATABASE_PORT=${influx3_port:-8181}
+        run_command "
+        pkill influxdb3
+        mkdir -p ${InfPath}
+        rm -rf ${InfPath}/*
+        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
+        "
+        # check if influxdb3 is running
+        if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
+            log_error "influxdb3 failed to start"
+            exit 1
+        fi
     fi
+    log_debug "COMMAND:${load_command} USE_CASE:${USE_CASE} FORMAT:${FORMAT} SCALE:${SCALE} InfPath:${InfPath} DATABASE_PORT:${DATABASE_PORT}" 
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
     else

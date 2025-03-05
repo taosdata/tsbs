@@ -11,10 +11,6 @@ source ${scriptDir}/logger.sh
 log_info "Start to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
-TDPath=${TDPath:-"/var/lib/taos/"}
-InfPath=${InfPath-"/var/lib/influxdb/data/"}
-TimePath="/var/lib/postgresql/14/main/base/"
-
 # Step to generate data
 LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
 # Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
@@ -45,7 +41,7 @@ else
 
     EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
     if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
-        echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+        log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
         exit 1
     fi
     log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} --timestamp-start ${TS_START} --timestamp-end ${TS_END} --seed ${SEED} --log-interval ${LOG_INTERVAL} --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
@@ -90,6 +86,7 @@ fi
 
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
+    TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
     run_command "
     systemctl restart postgresql
     sleep 1"
@@ -161,13 +158,31 @@ if [ "${FORMAT}" == "timescaledb" ];then
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
+    log_info "Load data to influxdb"
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
+        InfPath=${influx_data_dir-"/var/lib/influxdb/"}
+        InfPath=$InfPath/data
         run_command "rm -rf ${InfPath}/*
         systemctl restart influxd
         sleep 1"
     elif [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx3_port:-8181}
+        InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
+        InfLogPath=${InfPath}/influxdb3.log
+        InfPath=$InfPath/tsbs_test_data
+        run_command "
+        pkill influxdb3
+        mkdir -p ${InfPath}
+        rm -rf ${InfPath}/*
+        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
+        sleep 1
+        "
+        # check if influxdb3 is running
+        if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
+            log_error "influxdb3 failed to start"
+            exit 1
+        fi
     fi
     if [ -d "${InfPath}" ]; then
         disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
@@ -179,7 +194,6 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
-    log_debug "test"
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
@@ -202,7 +216,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
             ioStatusPa=true
         fi
     done
-    log_debug "influxdb data  compression has been completed"
+    log_debug "influxdb data compression has been completed"
     set_command "rm -rf /usr/local/src/teststatus.log"
     disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
@@ -216,6 +230,9 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         sleep 1"
     fi
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    TDPath=${tdengine_data_dir:-"/var/lib/taos/"}
+    DATABASE_PORT=${tdengine_port:-6030}
+    DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
     run_command "
     echo `date +%Y_%m%d_%H%M%S`\": reset limit\"
     systemctl reset-failed taosd.service
@@ -230,8 +247,6 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\"
     sleep 2"
 
-    DATABASE_PORT=${tdengine_port:-6030}
-    DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
     if [  ${FORMAT} == "TDengine" ]; then
         load_commond="tsbs_load_tdengine"
     elif [ ${FORMAT} == "TDengineStmt2"  ]; then
