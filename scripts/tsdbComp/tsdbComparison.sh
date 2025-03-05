@@ -58,13 +58,11 @@ log_info "  load_fsync: ${load_fsync}"
 log_info "  vgroups: ${vgroups}"
 log_info "  trigger: ${trigger}"
 log_info "Load"
-log_info "  load_ts_start: ${load_ts_start}"
-log_info "  load_ts_end: ${load_ts_end}"
 log_info "  load_scales: ${load_scales}"
+log_info "  load_time_scales: ${load_time_scale_str}"
 log_info "Load test"
-log_info "  load_ts_start: ${LoadTest_load_ts_start}"
-log_info "  load_ts_end: ${LoadTest_load_ts_end}"
 log_info "  load_scales: ${LoadTest_load_scales}"
+log_info "  load_time_scales: ${load_test_time_scale_str}"
 log_info "Query config"
 log_info "  query_number_workers: ${query_number_workers}"
 log_info "  query_formats: ${query_formats}"
@@ -98,7 +96,7 @@ if [ "${installEnvAll}" == "true" ]; then
     log_info "Install basic env"
     cmdInstall python3.8
     cmdInstall python3-pip
-    pip3_define_install  matplotlib pandas
+    pip3_define_install  matplotlib pandas numpy
 
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
@@ -114,9 +112,6 @@ if [ "${installEnvAll}" == "true" ]; then
         export GOPATH=$(go env GOPATH)
         export PATH=$GOPATH/bin:$PATH
     fi
-    sudo systemctl stop postgresql
-    sudo systemctl stop influxd
-    sudo systemctl stop taosd
 
     # configure sshd 
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
@@ -149,8 +144,10 @@ eeooff
         log_info "========== Installation of server: ${serverIP} completed =========="
     else
         log_info "Client and server are the same machine and no need to install server environment"
-
     fi
+else
+    export GOPATH=$(go env GOPATH)
+    export PATH=$(go env GOPATH)/bin:$PATH
 fi
 
 for caseType in ${caseTypes}; do
@@ -178,4 +175,5 @@ for caseType in ${caseTypes}; do
 
         log_info "========== End executing ${caseType} query test =========="
     fi
+    log_info "Please check result at directory: ${loadResultRootDir} for load operation or ${queryResultRootDir} for query operation"
 done

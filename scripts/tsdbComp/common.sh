@@ -27,7 +27,6 @@ function cmdInstall {
 }
 
 # Check if pip3 package exists and install it if not
-# Check if pip3 packages exist and install them if not
 function pip3_define_install {
     for comd in "$@"; do
         if pip3 show ${comd} &> /dev/null; then
@@ -105,58 +104,66 @@ function checkout_system {
     log_info "Detection completed, everything is normal."
 }
 
-# 解析 INI 文件并导出变量的函数
+# parse ini file and export variables
 function parse_ini() {
     local ini_file="$1"
     local current_section=""
     local multiline_key=""
     local multiline_value=""
 
+    declare -A LoadTimeScale
+    declare -A LoadTestTimeScale
+
     while IFS= read -r line || [[ -n "$line" ]]; do
-        # 去除行首和行尾的空白字符
+        # remove leading and trailing whitespace from line
         line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-        # 忽略注释行
+        # ignore comment lines
         if [[ $line =~ ^[[:space:]]*# ]]; then
             continue
         fi
 
-        # 检查是否为节（section）
+        # check if the line is a section
         if [[ $line =~ ^\[([^]]+)\]$ ]]; then
             current_section="${BASH_REMATCH[1]}"
             multiline_key=""
             multiline_value=""
-        # 检查是否为键值对
+        # check if the line is a key-value pair
         elif [[ $line =~ ^([^=]+)=(.*)$ ]]; then
             key="${BASH_REMATCH[1]}"
             value="${BASH_REMATCH[2]}"
-            # 去除键和值的前后空白字符
+            # remove leading and trailing whitespace from key and value
             key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            # 去除值中的引号
+            # remove leading and trailing double quotes from value
             value=$(echo "$value" | sed 's/^"//;s/"$//')
 
-            # 组合节名和键名，以避免命名冲突。如果不为空，并且是LoadTest 和 QueryTest 两个节
+            # combine section name and key name to avoid naming conflicts when not empty and in LoadTest and QueryTest sections
             if [[ -n $current_section && ($current_section == "LoadTest" || $current_section == "QueryTest") ]]; then
                 full_key="${current_section}_${key}"
             else
                 full_key="$key"
             fi
 
-            # 检查是否为多行值的开始
+            # check if the line is the start of a multiline value
             if [[ $value =~ \\$ ]]; then
                 multiline_key="$full_key"
                 multiline_value="${value%\\}"
             else
-                # 导出变量
-                export "$full_key"="$value"
+                if [[ $current_section == "LoadTimeScale" ]]; then
+                    LoadTimeScale["$key"]="$value"
+                elif [[ $current_section == "LoadTestTimeScale" ]]; then
+                    LoadTestTimeScale["$key"]="$value"
+                else
+                    export "$full_key"="$value"
+                fi
             fi
-        # 处理多行值
+        # check if the line is a continuation of a multiline value
         elif [[ -n $multiline_key ]]; then
             if [[ $line =~ \\$ ]]; then
                 multiline_value="${multiline_value} ${line%\\}"
             else
-                # 去除最后一行的右引号
+                # remove trailing double quotes from the last line
                 line=$(echo "$line" | sed 's/"$//')
                 multiline_value="${multiline_value} $line"
                 export "$multiline_key"="$multiline_value"
@@ -165,6 +172,9 @@ function parse_ini() {
             fi
         fi
     done < "$ini_file"
+
+    export load_time_scale_str=$(declare -p LoadTimeScale)
+    export load_test_time_scale_str=$(declare -p LoadTestTimeScale)   
 }
 
 # Function to double the TS_END time
@@ -210,4 +220,51 @@ function set_command() {
          result=`sshpass -p ${SERVER_PASSWORD} ssh root@$DATABASE_HOST "$command"`
     fi
     echo "$result"
+}
+
+# Function to calculate CHUNK_TIME based on the interval between TS_START and TS_END
+function calculate_chunk_time() {
+    local ts_start=$1
+    local ts_end=$2
+    local chunk_time_base=15  # base chunk time in seconds
+
+    local start_seconds=$(date -d "$ts_start" +%s)
+    local end_seconds=$(date -d "$ts_end" +%s)
+    local interval_seconds=$((end_seconds - start_seconds))
+
+    local chunk_time=$((interval_seconds / 180 * chunk_time_base))
+    echo "${chunk_time}s"
+}
+
+
+function check_influxdb3_status() {
+    local port=$1
+    local retries=10
+    local wait_time=10
+
+    for i in $(seq 1 $retries); do
+        if netstat -tuln | grep ":${port} " > /dev/null; then
+            log_info "InfluxDB3 started successfully on port ${port}."
+            return 0
+        else
+            log_warning "InfluxDB3 not started yet on port ${port}. Retrying in ${wait_time} seconds..."
+            sleep $wait_time
+        fi
+    done
+
+    log_error "InfluxDB3 failed to start on port ${port} after multiple attempts."
+    return 1
+}
+
+function check_glibc_version() {
+    local required_version="2.32"
+    local current_version=$(ldd --version | head -n 1 | awk '{print $NF}')
+
+    if [ "$(printf '%s\n' "$required_version" "$current_version" | sort -V | head -n1)" = "$required_version" ]; then
+        log_info "GLIBC version meets the minimum requirement: $required_version"
+    else
+        log_error "GLIBC version does not meet the minimum requirement: $required_version"
+        exit 1
+    fi
+    
 }
