@@ -3,6 +3,9 @@
 scriptDir=$(dirname $(readlink -f $0))
 cd ${scriptDir}
 source ./test.ini
+source ./logger.sh
+source ./common.sh
+
 error_install_file="${scriptDir}/log/install_error.log"
 
 echo "install path: ${installPath}"
@@ -254,7 +257,7 @@ if [ ! -f "v1.1.0.tar.gz" ] ;then
   wget --quiet https://github.com/scottchiefbaker/dool/archive/refs/tags/v1.1.0.tar.gz  ||  { echo "Download dool 1.1 package failed"; exit 1; }
 fi
 
-tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && ./install.py
+tar xf v1.1.0.tar.gz && cd dool-1.1.0/ && execute_python_file ${scriptDir} ./install.py
 
 # install db  
 if [ "${installDB}" == "true" ];then

@@ -96,9 +96,7 @@ mkdir -p ${installPath}
 if [ "${installEnvAll}" == "true" ]; then
     # install basic env, and you should have python3 and pip3 environment
     log_info "Install basic env"
-    cmdInstall python3.8
-    cmdInstall python3-pip
-    pip3_define_install  matplotlib pandas
+    install_python ${scriptDir}
 
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="

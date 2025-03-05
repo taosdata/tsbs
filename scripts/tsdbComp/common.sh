@@ -211,3 +211,41 @@ function set_command() {
     fi
     echo "$result"
 }
+
+function install_uv() {
+    # install uv
+    log_info "Installing uv for manage python version and env ..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh 
+    log_info "libuv installed successfully" 
+
+    # Add uv to PATH
+    export PATH=$HOME/.local/bin:$PATH
+    echo -e  '\n# uv env\nexport PATH=$HOME/.local/bin:$PATH\n' >> ~/.bashrc
+    log_info "uv env has been added to PATH"
+}
+
+function install_python() {
+    local work_dir="$1"
+    if uv --version &> /dev/null; then
+        log_info "uv is already installed"
+    else
+        install_uv
+    fi
+    # install python
+    log_info "Installing python3.8 ..."
+    cd $work_dir
+    uv python install  3.8
+    uv venv --python 3.8 tsbsvenv
+    source $work_dir/tsbsvenv/bin/activate 
+    uv pip install pandas matplotlib
+    log_info "Python3.8 installed successfully"
+}
+
+function execute_python_file (){
+    local work_dir="$1"
+    local file="$2"
+    shift 2  # 移除前两个参数
+    source $work_dir/tsbsvenv/bin/activate 
+    python3 --version
+    python3 $file "$@"
+}
