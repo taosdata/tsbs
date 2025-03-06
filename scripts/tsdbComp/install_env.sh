@@ -256,17 +256,21 @@ function install_influxdb3 {
   
   cd ${installPath}
   # if influxdb3 is already installed, no need to reinsall
-  if [[ -z `influxdb3 --help` ]];then
+  help_output=$(timeout 5 ~/.influxdb/influxdb3 --help 2>&1)
+  help_exit_code=$?
+  if [[ $help_exit_code -ne 0 ]]; then
+    log_warning "InfluxDB3 help command failed: ${help_output}"
     curl -O https://www.influxdata.com/d/install_influxdb3.sh && sh install_influxdb3.sh <<EOF
 2
 n
 EOF
   fi
 
-  source  /root/.bashrc
+  export PATH="$PATH:~/.influxdb/"
   # run influxdb3 --version to check if it is installed successfully
-  version_output=$(influxdb3 --version 2>&1)
-  if [[ $? -ne 0 ]]; then
+  version_output=$(timeout 5 ~/.influxdb/influxdb3 --version 2>&1)
+  version_exit_code=$?
+  if [[ $version_exit_code -ne 0 ]]; then
     log_error "Install InfluxDB3 failed: ${version_output}"
     exit 1
   fi
@@ -306,8 +310,6 @@ function install_database {
               yum install -y  curl wget
               install_influx_centos
             elif [ "${osType}" == "ubuntu" ];then
-              sudo apt-get update
-              sudo apt install wget curl  -y
               install_influx_ubuntu 
             else
               log_error "OS type not supported"
@@ -319,8 +321,6 @@ function install_database {
                 yum install -y  curl wget
                 install_timescale_centos
               elif [ "${osType}" == "ubuntu" ];then
-                sudo apt-get update
-                sudo apt install wget curl  -y
                 install_timescale_ubuntu 
               else
                 log_error "OS type not supported"

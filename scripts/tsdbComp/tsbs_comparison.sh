@@ -91,11 +91,12 @@ log_info "==== Now we start to test ===="
 log_info "Start to install env in ${installPath}"
 
 mkdir -p ${installPath}
-if [ "${installEnvAll}" == "true" ]; then
-    # install basic env, and you should have python3 and pip3 environment
-    log_info "Install basic env"
-    install_python ${scriptDir}
+log_info "Install basic env"
+sudo apt-get update
+sudo apt install wget curl net-tools -y
+install_python ${scriptDir}
 
+if [ "${installEnvAll}" == "true" ]; then
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
 

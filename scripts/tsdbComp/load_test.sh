@@ -20,7 +20,7 @@ chmod a+rwx ${BULK_DATA_DIR}
 datadir_space=`du ${BULK_DATA_DIR} -s |awk '{print $1}'  `
 log_debug ${BULK_DATA_DIR} "disk usage is" ${datadir_space}
 if [ ${datadir_space} -lt 30000  ];then
-    log_warning "Data directory space is insufficient! Current available space: ${datadir_space}. Cleaning up data directory: ${BULK_DATA_DIR}"
+    log_debug "Data directory space is insufficient! Current available space: ${datadir_space}. Cleaning up data directory: ${BULK_DATA_DIR}"
     rm -rf ${BULK_DATA_DIR}/*
 else
     log_debug "Data directory has enough space. It starts to load data"
