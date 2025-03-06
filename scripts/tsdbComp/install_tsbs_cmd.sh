@@ -70,7 +70,7 @@ function install_go_env {
   fi    
 
   if [ ! -f "${go_tar}"  ] ;then
-      wget -q https://golang.google.cn/dl/${go_tar} || { echo "Failed to download ${go_tar}"; exit 1; }
+      wget -q https://golang.google.cn/dl/${go_tar} || { log_error "Failed to download ${go_tar}"; exit 1; }
   fi 
 
   # 计算文件的实际 MD5 值
@@ -84,7 +84,7 @@ function install_go_env {
       log_debug "MD5 check successful, MD5 values match."
   fi
 
-  tar -xf "${go_tar}" || { echo "Failed to extract ${go_tar}"; exit 1; }
+  tar -xf "${go_tar}" || { log_error "Failed to extract ${go_tar}"; exit 1; }
 
   log_debug "add go to PATH"
   GO_HOME=${installPath}/go
@@ -104,7 +104,7 @@ function install_go_env {
 
   log_debug "GOPATH: ${GOPATH}"
   if [[ -z "${GOPATH}" ]];then
-      echo "add go path to PATH and set GOPATH"
+      log_info "add go path to PATH and set GOPATH"
       export GOPATH=$(go env GOPATH)
       export PATH=$(go env GOPATH)/bin:$PATH
       gopathPar=$(grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc)
@@ -174,19 +174,19 @@ function install_tsbs {
   fi
 
   for db in "${!db_set[@]}"; do
-      if db == "TDengine"; then
+      if [[ "$db" == "TDengine" ]]; then
           cd ${installPath}/tsbs/cmd/tsbs_load_tdengine/  && go build && cp tsbs_load_tdengine  ${GOPATH}/bin/
           cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-      elif db = "TDengineStmt2"; then
+      elif [[ "$db" == "TDengineStmt2" ]]; then
           cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
           cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-      elif db == "influx"; then
+      elif [[ "$db" == "influx" ]]; then
           cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
           cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
-      elif db == "influx3"; then
+      elif [[ "$db" == "influx3" ]]; then
           cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
           cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
-      elif db == "timescaledb"; then
+      elif [[ "$db" == "timescaledb" ]]; then
           cd ${installPath}/tsbs/cmd/tsbs_load_timescaledb/  &&  go build && cp tsbs_load_timescaledb ${GOPATH}/bin/
           cd ${installPath}/tsbs/cmd/tsbs_run_queries_timescaledb/  &&  go build && cp tsbs_run_queries_timescaledb ${GOPATH}/bin/
       fi
