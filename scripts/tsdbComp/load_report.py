@@ -1,5 +1,6 @@
 import argparse
 import sys
+import os
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -164,9 +165,21 @@ global_args = None
 def main():
     global global_args
     global_args = parse_args()
+
+    # check if input file exists
+    if not os.path.isfile(global_args.input):
+        print(f"Error: Input file {global_args.input} does not exist.")
+        sys.exit(1)
+
     df = load_data(global_args.input)
     if df.empty:
         print("Error: No valid data found in the input file")
+        sys.exit(1)
+        
+    # Check if data from only one database is found
+    db_types = df[0].unique()
+    if global_args.mode == 'ratio' and len(db_types) == 1:
+        print("Only one db data found, ratio chart will not be generated.")
         sys.exit(1)
 
     if global_args.targets == "rows":
