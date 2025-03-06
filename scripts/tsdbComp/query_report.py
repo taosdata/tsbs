@@ -40,6 +40,9 @@ def load_data(file_path):
     # Drop rows with NaN values
     df = df.dropna(subset=['response_time'])
     
+    # Filter out rows with zero response time
+    df = df[df['response_time'] > 0]
+    
     return df
 
 def get_color_map():
@@ -81,14 +84,18 @@ def calculate_ratios(df, baseline_db='TDengine'):
         for db_name, db_group in query_df.groupby('database'):
             if db_name == baseline_db:
                 ratio = 100.0  # Baseline is 100%
+                response_time = baseline_time
             else:
                 # Higher ratio means other DB takes more time than baseline
-                ratio = (db_group['response_time'].values[0] / baseline_time) * 100
+                response_time = db_group['response_time'].values[0]
+                if response_time == 0:
+                    continue  # Skip zero response time values
+                ratio = (response_time / baseline_time) * 100
                 
             result_data.append({
                 'database': db_name,
                 'query_type': query_type,
-                'response_time': db_group['response_time'].values[0],
+                'response_time': response_time,
                 'ratio': ratio,
                 'scale': db_group['scale'].values[0],
                 'workers': db_group['workers'].values[0]
@@ -109,8 +116,8 @@ def create_result_chart(df, x_label_name, query_times, output_file):
     databases = df['database'].unique()
     
     # Define bar properties
-    bar_positions = np.arange(0, len(query_types) * 6, 6)
-    bar_width = 1.5
+    bar_positions = np.arange(0, len(query_types) * (len(databases) + 1) * 4, 4)
+    bar_width = 2.0
     
     # Get color map
     color_map = get_color_map()
@@ -140,7 +147,7 @@ def create_result_chart(df, x_label_name, query_times, output_file):
             query_data = db_data[db_data['query_type'] == query_type]
             if len(query_data) > 0:
                 response_times.append(query_data['response_time'].values[0])
-                positions.append(bar_positions[j] + db_positions[db_name])
+                positions.append(bar_positions[j * (len(databases) + 1)] + db_positions[db_name])
                 query_labels.append(query_type)
         
         # Plot bars with specified colors
@@ -155,7 +162,7 @@ def create_result_chart(df, x_label_name, query_times, output_file):
     
     # Configure chart appearance
     ax.invert_yaxis()
-    ax.set_yticks(bar_positions)
+    ax.set_yticks(bar_positions[::len(databases) + 1])
     ax.set_yticklabels(query_types)
     ax.set_xscale('log')  # Set x-axis to log scale
     ax.set_xlabel("Response time (ms)")
@@ -185,8 +192,8 @@ def create_ratio_chart(df, x_label_name, query_times, output_file):
     databases = df['database'].unique()
     
     # Define bar properties
-    bar_positions = np.arange(0, len(query_types) * 6, 6)
-    bar_width = 1.5
+    bar_positions = np.arange(0, len(query_types) * (len(databases) + 1) * 4, 4)
+    bar_width = 4.0
     
     # Get color map
     color_map = get_color_map()
@@ -215,8 +222,11 @@ def create_ratio_chart(df, x_label_name, query_times, output_file):
         for j, query_type in enumerate(query_types):
             query_data = db_data[db_data['query_type'] == query_type]
             if len(query_data) > 0:
-                ratios.append(query_data['ratio'].values[0])
-                positions.append(bar_positions[j] + db_positions[db_name])
+                ratio = query_data['ratio'].values[0]
+                if ratio == 0:
+                    continue  # Skip zero ratio values
+                ratios.append(ratio)
+                positions.append(bar_positions[j * (len(databases) + 1)] + db_positions[db_name])
                 query_labels.append(query_type)
         
         # Plot bars with specified colors
@@ -231,7 +241,7 @@ def create_ratio_chart(df, x_label_name, query_times, output_file):
     
     # Configure chart appearance
     ax.invert_yaxis()
-    ax.set_yticks(bar_positions)
+    ax.set_yticks(bar_positions[::len(databases) + 1])
     ax.set_yticklabels(query_types)
     ax.axvline(100, color='gray', linewidth=1, linestyle='--')
     ax.set_xscale('log')  # Set x-axis to log scale
