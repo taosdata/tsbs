@@ -34,8 +34,8 @@ if [ ${clientIP} == ${serverIP} ]; then
 fi
 
 # set result directory
-loadResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
-queryResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
+export loadResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
+export queryResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
 log_info "==== All test parameters ===="
 
 log_info "General config"
