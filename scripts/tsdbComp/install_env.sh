@@ -286,7 +286,7 @@ EOF
   influx3_path=${influx3_path}/tsbs_test_data
   mkdir -p ${influx3_path}
   rm -rf ${influx3_path}/*
-  nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_path} --http-bind=0.0.0.0:${influx3_port} >> ${influx3_log} 2>&1 &
+  nohup ~/.influxdb/influxdb3 serve --node-id=local01 --object-store=file --data-dir ${influx3_path} --http-bind=0.0.0.0:${influx3_port} >> ${influx3_log} 2>&1 &
 
   if check_influxdb3_status ${influx3_port}; then
     log_info "InfluxDB3 started successfully on port ${influx3_port}."
