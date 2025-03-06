@@ -39,7 +39,8 @@ function check_go_version {
           log_error "Please uninstall the existing Go version and remove Go environment variables before proceeding."
           exit 1
       else
-          log_info "Installed Go version ($installed_version) meets the requirement. No need to reinstall."
+          log_info "Installed Go version ($installed_version) meets the requirement. No need to reinstall." 
+          return 0
       fi
   fi 
 }
@@ -48,6 +49,10 @@ function check_go_version {
 function install_go_env {
   log_info "============= Installing Go and setting Go environment ============="
   check_go_version
+  if [ $? -eq 0 ]; then
+      log_info "Go environment is already set up. Skipping installation."
+      return 0
+  fi
 
   version="1.17.13"
   go_tar="go${version}.linux-amd64.tar.gz"
@@ -144,23 +149,56 @@ function install_tsbs {
 
   log_debug ${GOPATH}
   log_debug "Installing TSBS dependencies"  
-  go get github.com/timescale/tsbs
-  go mod tidy
-  cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
+
+  # go get github.com/timescale/tsbs
+  # go mod tidy
+  # cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
 
   log_debug "Building TSBS binaries"
   [ -d "${GOPATH}/bin" ] || mkdir ${GOPATH}/bin/
 
   cd ${installPath}/tsbs/cmd/tsbs_generate_data/  &&  go build && cp tsbs_generate_data ${GOPATH}/bin/
   cd ${installPath}/tsbs/cmd/tsbs_generate_queries/  && go build && cp tsbs_generate_queries  ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_tdengine/  && go build && cp tsbs_load_tdengine  ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/ && go build  && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
-  cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
+ 
+  declare -A db_set
+  if [[ "$operation_mode" == "query" || "$operation_mode" == "both" ]]; then
+      for db in $query_formats; do
+          db_set[$db]=1
+      done
+  fi
+
+  if [[ "$operation_mode" == "load" || "$operation_mode" == "both" ]]; then
+      for db in $load_formats; do
+          db_set[$db]=1
+      done
+  fi
+
+  for db in "${!db_set[@]}"; do
+      if db == "TDengine"; then
+          cd ${installPath}/tsbs/cmd/tsbs_load_tdengine/  && go build && cp tsbs_load_tdengine  ${GOPATH}/bin/
+          cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
+      elif db = "TDengineStmt2"; then
+          cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
+          cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
+      elif db == "influx"; then
+          cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
+          cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
+      elif db == "influx3"; then
+          cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
+          cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
+      elif db == "timescaledb"; then
+          cd ${installPath}/tsbs/cmd/tsbs_load_timescaledb/  &&  go build && cp tsbs_load_timescaledb ${GOPATH}/bin/
+          cd ${installPath}/tsbs/cmd/tsbs_run_queries_timescaledb/  &&  go build && cp tsbs_run_queries_timescaledb ${GOPATH}/bin/
+      fi
+  done
+
+ 
+  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/ && go build  && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
+  # cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
+  # cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
+  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
+  # cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
+  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
 
   log_info "TSBS installation complete"
 }
