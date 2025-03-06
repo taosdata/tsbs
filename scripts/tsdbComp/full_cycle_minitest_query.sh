@@ -176,7 +176,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         set -e  # Re-enable exit on error
         log_info "Execution of ${FORMAT} query type ${QUERY_TYPE} finished"
 
-elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+elif [  ${FORMAT} == "TDengine" ] ; then
     EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
     if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
         log_error "tsbs_run_queries_tdengine not available. It is not specified explicitly and not found in \$PATH"
