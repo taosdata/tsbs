@@ -4,6 +4,6 @@
 .idea
 .vscode
 *~
-
+scripts/tsdbComp/log/*
 # High Dynamic Range (HDR) Histogram files
 *.hdr
