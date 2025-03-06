@@ -33,6 +33,9 @@ if [ ${clientIP} == ${serverIP} ]; then
     export serverHost="$(hostname)"
 fi
 
+# set result directory
+loadResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
+queryResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
 log_info "==== All test parameters ===="
 
 log_info "General config"
@@ -47,9 +50,9 @@ log_info "  caseTypes: ${caseTypes}"
 log_info "  case: ${case}"
 log_info "  operation_mode: ${operation_mode}"
 log_info "  loadDataRootDir: ${loadDataRootDir}"
-log_info "  loadResultRootDir: ${loadResultRootDir}"
+log_info "  loadResultRootDir: ${installPath}/tsbs/scripts/tsdbComp/log"
 log_info "  queryDataRootDir: ${queryDataRootDir}"
-log_info "  queryResultRootDir: ${queryResultRootDir}"
+log_info "  queryResultRootDir: ${installPath}/tsbs/scripts/tsdbComp/log"
 log_info "Load config"
 log_info "  load_number_workers: ${load_number_workers}"
 log_info "  load_batch_sizes: ${load_batch_sizes}"
