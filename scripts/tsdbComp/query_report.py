@@ -117,7 +117,7 @@ def create_result_chart(df, x_label_name, query_times, output_file):
     
     # Define bar properties
     bar_positions = np.arange(0, len(query_types) * (len(databases) + 1) * 4, 4)
-    bar_width = 2.0
+    bar_width = 4.0
     
     # Get color map
     color_map = get_color_map()
