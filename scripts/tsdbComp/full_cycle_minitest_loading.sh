@@ -171,13 +171,15 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         InfPath=${influx3_data_dir-"/var/lib/influxdb3/"}
         InfLogPath=${InfPath}/influxdb3.log
         InfPath=$InfPath/tsbs_test_data
+        set -v
         run_command "
-        pkill influxdb3
+        pkill -9 influxdb3 || true
         mkdir -p ${InfPath}
         rm -rf ${InfPath}/*
         nohup ~/.influxdb/influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
         sleep 1
         "
+        set +v
         # check if influxdb3 is running
         if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
             log_error "influxdb3 failed to start"

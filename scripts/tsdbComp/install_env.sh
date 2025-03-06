@@ -284,7 +284,7 @@ EOF
   # if influxdb3 is started, restart it
   if ps -ef | grep influxdb3 | grep -v grep > /dev/null; then
     log_debug "Influxdb3 is already started, restarting it"
-    pkill influxdb3
+    pkill -9 influxdb3 || true
   fi
   influx3_path=${influx3_data_dir:-"/var/lib/influxdb3"}
   influx3_port=${influx3_port:-"8086"}
