@@ -284,9 +284,10 @@ function check_glibc_version() {
 
     if [ "$(printf '%s\n' "$required_version" "$current_version" | sort -V | head -n1)" = "$required_version" ]; then
         log_info "GLIBC version meets the minimum requirement: $required_version"
+        return 0
     else
         log_error "GLIBC version does not meet the minimum requirement: $required_version"
-        exit 1
+        return 1
     fi
     
 }
