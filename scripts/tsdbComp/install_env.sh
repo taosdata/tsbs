@@ -253,6 +253,12 @@ function install_TDengine {
 function install_influxdb3 {
   log_info "=============Installing InfluxDB3 on ubuntu ============="
   check_glibc_version
+  if [ $? -eq 0 ]; then
+    echo "glibc version is supported."
+  else
+    echo  "glibc version is not supported."
+    exit 1
+  fi
   
   cd ${installPath}
   # if influxdb3 is already installed, no need to reinsall
