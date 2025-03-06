@@ -185,7 +185,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         pkill influxdb3
         mkdir -p ${InfPath}
         rm -rf ${InfPath}/*
-        nohup influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
+        nohup ~/.influxdb/influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
         "
         # check if influxdb3 is running
         if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
