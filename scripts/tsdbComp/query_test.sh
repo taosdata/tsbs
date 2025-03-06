@@ -55,9 +55,9 @@ for FORMAT in ${FORMATS}; do
     fi
 
     if [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ];then
-        FORMAT=${FORMAT:-"TDengine"}
+        FORMAT="TDengine"
     fi
-    
+
     for QUERY_TYPE in ${QUERY_TYPES}; do
         for NUM_WORKER in ${NUM_WORKERS}; do
             log_debug " DATABASE_HOST=${DATABASE_HOST} BULK_DATA_QUERY_DIR=${BULK_DATA_QUERY_DIR} BULK_DATA_DIR_RUN_RES=${BULK_DATA_DIR_RUN_RES}  TS_START=${TS_START}  TS_END=${QUERY_TS_END} QUERIES=${QUERIES} FORMAT=${FORMAT} USE_CASE=${USE_CASE} QUERY_TYPE=${QUERY_TYPE} SCALE=${SCALE} FORMATAISA=${FORMATAISA}  NUM_WORKER=${NUM_WORKER} ./full_cycle_minitest_query.sh "
