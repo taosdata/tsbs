@@ -29,6 +29,7 @@ function check_go_version {
   go_version=$(go version 2>/dev/null)
   if [[ -z "$go_version" ]]; then
       log_info "Go is not installed. Proceeding with installation..."
+      return 1
   else
       log_info "Go is already installed. Version: $go_version"
       installed_version=$(echo "$go_version" | awk '{print $3}' | sed 's/go//')
