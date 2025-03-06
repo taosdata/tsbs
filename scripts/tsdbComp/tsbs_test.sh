@@ -63,7 +63,7 @@ case $scenario in
         ;;
     "scenario3")
         echo "scenario3: Quick Test. Load/Query: TDengineStmt2 vs influx3."
-        set_formats_and_caseTypes "TDengineStmt2 influx3" "TDengineStmt2 influx3" "cputest iottest"
+        set_formats_and_caseTypes "TDengineStmt2 influx3 influx timescaledb" "TDengineStmt2 influx3 influx timescaledb" "cputest"
         ;;
     *)
         echo "Unknown scenario: $scenario. Use '-h' to see available scenarios."
