@@ -84,9 +84,9 @@ else
     ioStatusPa=true
 fi
 
-records=$(calculate_data_points ${TS_START} ${TS_END} ${LOG_INTERVAL})
-log_debug "records:${records}"
-RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_record${records}_data.txt"
+records_per_table=$(calculate_data_points ${TS_START} ${TS_END} ${LOG_INTERVAL})
+log_debug "records_per_table:${records_per_table}"
+RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_record${records_per_table}_data.txt"
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
     TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
@@ -156,9 +156,9 @@ if [ "${FORMAT}" == "timescaledb" ];then
     disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
     log_debug "disk usage before load :$disk_usage_before and disk usage after load: ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records}"
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table}"
     log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
@@ -243,9 +243,9 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
     disk_usage=$((disk_usage_after - disk_usage_before))
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records}"
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table}"
     log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     if [  ${FORMAT} == "influx" ]; then
         run_command "rm -rf ${InfPath}/*
         systemctl restart influxd
@@ -322,8 +322,8 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     wal_uasge=`set_command "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
     disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records}"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table}"
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     log_error "The format is not supported"
 fi  
