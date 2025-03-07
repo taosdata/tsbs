@@ -84,7 +84,7 @@ else
     ioStatusPa=true
 fi
 
-records=calculate_data_points ${TS_START} ${TS_END} ${LOG_INTERVAL}
+records=$(calculate_data_points ${TS_START} ${TS_END} ${LOG_INTERVAL})
 log_debug "records:${records}"
 RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_record${records}_data.txt"
 # use different load scripts of db to load data , add supported databases 
