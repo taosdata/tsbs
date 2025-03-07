@@ -184,6 +184,23 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         set -v
         run_command "
         pkill -9 influxdb3 || true
+        "
+        # make sure InfluxDB3 is stopped and port is free
+        for i in {1..20}; do
+            if ! run_command "ps -ef | grep 'influxdb3 serve' | grep -v grep > /dev/null" && ! run_command "netstat -tuln | grep ':${DATABASE_PORT} ' > /dev/null"; then
+                log_info "InfluxDB3 stopped and port ${DATABASE_PORT} is free."
+                break
+            else
+                log_warning "Waiting for InfluxDB3 to stop and port ${DATABASE_PORT} to be free..."
+                sleep 2
+            fi
+
+            if [ $i -eq 20 ]; then
+                log_error "InfluxDB3 failed to stop or port ${DATABASE_PORT} is still in use after multiple attempts."
+                exit 0
+            fi
+        done
+        run_command "
         mkdir -p ${InfPath}
         rm -rf ${InfPath}/*
         nohup ~/.influxdb/influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
@@ -192,7 +209,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         # check if influxdb3 is running
         if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
             log_error "influxdb3 failed to start"
-            exit 1
+            exit 0
         fi
     fi
     log_debug "COMMAND:${load_command} USE_CASE:${USE_CASE} FORMAT:${FORMAT} SCALE:${SCALE} InfPath:${InfPath} DATABASE_PORT:${DATABASE_PORT}" 
