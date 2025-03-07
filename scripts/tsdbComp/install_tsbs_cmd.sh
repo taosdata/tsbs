@@ -10,9 +10,6 @@ source ${scriptDir}/common.sh
 parse_ini ${cfgfile}
 
 log_info "Install path: ${installPath}"
-log_info "Install Go environment: ${installGoEnv}"
-log_info "Install databases: ${installDB}"
-log_info "Install TSBS executable: ${installTsbs}"
 
 function set_go_proxy {
   curl --max-time 10 --silent --head https://proxy.golang.org | grep "HTTP/2 200"
@@ -51,6 +48,7 @@ function check_go_version {
 # install go env
 function install_go_env {
   log_info "============= Installing Go and setting Go environment ============="
+  log_info "Install path: ${installPath}"
   check_go_version
   if [ $? -eq 0 ]; then
       log_info "Go environment is already set up. Skipping installation."
@@ -123,7 +121,7 @@ function install_go_env {
 # compile tsbs 
 function install_tsbs {
   log_info "============= Installing TSBS ============="
-  
+  log_info "Install path: ${installPath}, operation mode: ${operation_mode}, query formats: ${query_formats}, load formats: ${load_formats}"
   GOPATH=$(go env GOPATH)
   if [[ -z ${GOPATH} ]];then
       GOROOT=${installPath}/go
@@ -207,16 +205,5 @@ function install_tsbs {
 
 }
 
-if [ "${installGoEnv}" == "true" ];then
-  install_go_env
-else 
-  log_info "Go environment will not be installed. To install, set installGoEnv to true."
-  export GOPATH=$(go env GOPATH)
-  export PATH=$(go env GOPATH)/bin:$PATH
-fi 
-
-if [ "${installTsbs}" == "true" ];then
-  install_tsbs
-else
-  log_info "TSBS will not be installed or updated. To install, set installTsbs to true."
-fi 
+#install_go_env
+#install_tsbs
