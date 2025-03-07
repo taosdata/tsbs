@@ -202,7 +202,8 @@ function install_tsbs {
   # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
 
   log_info "TSBS installation complete and TSBS binaries are located in ${GOPATH}/bin/"
-  log_info "$(tsbs_run_queries_timescaledb --hep)"
+  log_debug "$(ls ${GOPATH}/bin/)"
+  # log_debug "$(tsbs_run_queries_timescaledb)"
 
 }
 
