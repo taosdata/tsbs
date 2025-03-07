@@ -291,3 +291,33 @@ function check_glibc_version() {
     fi
     
 }
+
+function calculate_data_points() {
+    local ts_start=$1
+    local ts_end=$2
+    local log_interval=$3
+
+    # Convert timestamps to seconds since epoch
+    local start_sec=$(date -d "$ts_start" +%s)
+    local end_sec=$(date -d "$ts_end" +%s)
+
+    # Extract the numeric value and unit from the log interval
+    local interval_value=$(echo $log_interval | grep -o -E '[0-9]+')
+    local interval_unit=$(echo $log_interval | grep -o -E '[a-zA-Z]+')
+
+    # Convert the interval to seconds
+    case $interval_unit in
+        ns) interval_sec=$((interval_value / 1000000000)) ;;
+        us) interval_sec=$((interval_value / 1000000)) ;;
+        ms) interval_sec=$((interval_value / 1000)) ;;
+        s) interval_sec=$interval_value ;;
+        m) interval_sec=$((interval_value * 60)) ;;
+        h) interval_sec=$((interval_value * 3600)) ;;
+        d) interval_sec=$((interval_value * 86400)) ;;
+        *) log_error "Unsupported interval unit: $interval_unit" ;;
+    esac
+
+    # Calculate the number of data points
+    local data_points=$(( (end_sec - start_sec) / interval_sec ))
+    echo $data_points
+}

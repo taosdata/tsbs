@@ -16,7 +16,7 @@ function show_help() {
     echo "Available scenarios:"
     echo "  scenario1  - Load: TDengine vs influx vs timescaledb. Query: TDengine vs influx vs timescaledb, caseTypes: cpu-only and iot."
     echo "  scenario2  - Load: TDengineStmt2 vs influx3 vs influx. Query: TDengineStmt2 vs influx3 vs influx, caseTypes: cpu-only and iot."
-    echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3."
+    echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb."
     echo "  help       - Show this help message."
     echo "By default, scenario3 is used."
     echo "Example: $0 -s scenario1"
@@ -25,7 +25,7 @@ function show_help() {
     echo "         $0"
     echo "         $0 -h"
     echo ""
-    echo "Set test.ini manually for more config, then run tsbs_comparison.sh."
+    echo "Set test.ini manually for more config, then execute the command: bash tsbs_comparison.sh to start the test."
     
 }
 
@@ -62,7 +62,7 @@ case $scenario in
         set_formats_and_caseTypes "TDengineStmt2 influx3 influx" "TDengineStmt2 influx3 influx" "cpu iot"
         ;;
     "scenario3")
-        echo "scenario3: Quick Test. Load/Query: TDengineStmt2 vs influx3."
+        echo "scenario3: Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb."
         set_formats_and_caseTypes "TDengineStmt2 influx3 influx timescaledb" "TDengineStmt2 influx3 influx timescaledb" "cputest"
         ;;
     *)

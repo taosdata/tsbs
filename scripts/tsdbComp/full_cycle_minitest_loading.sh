@@ -9,6 +9,7 @@ source ${scriptDir}/common.sh
 source ${scriptDir}/logger.sh
 
 log_info "Start to load ${USE_CASE} data into ${FORMAT}, with BATCH_SIZE: ${BATCH_SIZE}, NUM_WORKER: ${NUM_WORKER}, SCALE: ${SCALE}"
+log_info "TS_START: ${TS_START}, TS_END: ${TS_END}, CHUNK_TIME: ${CHUNK_TIME}, LOG_INTERVAL: ${LOG_INTERVAL}"
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 # Step to generate data
@@ -83,7 +84,9 @@ else
     ioStatusPa=true
 fi
 
-
+records=calculate_data_points ${TS_START} ${TS_END} ${LOG_INTERVAL}
+log_debug "records:${records}"
+RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_record${records}_data.txt"
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
     TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
@@ -102,7 +105,6 @@ if [ "${FORMAT}" == "timescaledb" ];then
     log_debug "disk usage before load :$disk_usage_before "
     log_info "Starting to load ${USE_CASE} data into ${FORMAT} with scale ${SCALE}, workers ${NUM_WORKER}, and batch size ${BATCH_SIZE}"
 
-    RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     log_debug "Execute commond: cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD} --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | tsbs_load_timescaledb  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME}  --host=${DATABASE_HOST}  --pass=${DATABASE_PWD}  --chunk-time=${CHUNK_TIME} --hash-workers=false > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     if [ "${USE_CASE}" == "cpu-only" ] || [ "${USE_CASE}" == "iot" ];then
@@ -154,7 +156,9 @@ if [ "${FORMAT}" == "timescaledb" ];then
     disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
     log_debug "disk usage before load :$disk_usage_before and disk usage after load: ${disk_usage_after}"
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records}"
+    log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
@@ -174,6 +178,23 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         set -v
         run_command "
         pkill -9 influxdb3 || true
+        "
+        # make sure InfluxDB3 is stopped and port is free
+        for i in {1..20}; do
+            if ! run_command "ps -ef | grep 'influxdb3 serve' | grep -v grep > /dev/null" && ! run_command "netstat -tuln | grep ':${DATABASE_PORT} ' > /dev/null"; then
+                log_info "InfluxDB3 stopped and port ${DATABASE_PORT} is free."
+                break
+            else
+                log_warning "Waiting for InfluxDB3 to stop and port ${DATABASE_PORT} to be free..."
+                sleep 2
+            fi
+
+            if [ $i -eq 20 ]; then
+                log_error "InfluxDB3 failed to stop or port ${DATABASE_PORT} is still in use after multiple attempts."
+                exit 0
+            fi
+        done
+        run_command "
         mkdir -p ${InfPath}
         rm -rf ${InfPath}/*
         nohup ~/.influxdb/influxdb3 serve --node-id=local01 --object-store=file --data-dir ${InfPath} --http-bind=0.0.0.0:${DATABASE_PORT} >> ${InfLogPath} 2>&1 &
@@ -183,7 +204,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         # check if influxdb3 is running
         if ! run_command "check_influxdb3_status ${DATABASE_PORT}"; then
             log_error "influxdb3 failed to start"
-            exit 1
+            exit 0
         fi
     fi
     if [ -d "${InfPath}" ]; then
@@ -193,7 +214,6 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     fi
     load_command="tsbs_load_${FORMAT}"
     log_debug "COMMAND:${load_command} BATCH_SIZE:${BATCH_SIZE} USE_CASE:${USE_CASE} FORMAT:${FORMAT} NUM_WORKER:${NUM_WORKER} SCALE:${SCALE}"
-    RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
@@ -223,9 +243,9 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
     disk_usage=$((disk_usage_after - disk_usage_before))
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0"
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records}"
     log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0 >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     if [  ${FORMAT} == "influx" ]; then
         run_command "rm -rf ${InfPath}/*
         systemctl restart influxd
@@ -260,7 +280,6 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
         disk_usage_before=0
     fi
     log_debug "BATCH_SIZE":${BATCH_SIZE} "USE_CASE":${USE_CASE} "FORMAT":${FORMAT}  "NUM_WORKER":${NUM_WORKER}  "SCALE":${SCALE}
-    RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
     if [ ${SCALE} -ge 100000 ];then
         TRIGGER="8"
         if [ ${SCALE} -ge 1000000 ] ;then
@@ -303,8 +322,8 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     wal_uasge=`set_command "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
     disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
     disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal}"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records}"
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     log_error "The format is not supported"
 fi  
