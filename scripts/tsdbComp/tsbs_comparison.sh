@@ -110,6 +110,7 @@ if [ "${installEnvAll}" == "true" ]; then
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
 
+    cd ${scriptDir}
     if [ "${installDB}" == "true" ]; then
         ./install_env.sh || exit 1
     fi 
@@ -118,6 +119,7 @@ if [ "${installEnvAll}" == "true" ]; then
         install_tsbs
     fi
 
+    cd ${scriptDir}
     # configure sshd 
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
     service sshd restart
