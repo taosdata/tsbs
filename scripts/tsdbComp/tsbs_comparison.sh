@@ -96,7 +96,12 @@ log_info "Start to install env in ${installPath}"
 mkdir -p ${installPath}
 log_info "Install basic env"
 sudo apt-get update
-sudo apt install wget curl net-tools -y
+cmdInstall  wget 
+cmdInstall curl 
+cmdInstall net-tools 
+cmdInstall sshpass
+cmdInstall git
+
 install_python ${scriptDir}
 
 if [ "${installEnvAll}" == "true" ]; then
