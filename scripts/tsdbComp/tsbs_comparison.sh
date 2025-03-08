@@ -131,6 +131,8 @@ if [ "${installEnvAll}" == "true" ]; then
 
         sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
             mkdir -p ${installPath}
+            apt-get update
+            apt-get install net-tools -y
 eeooff
         sshpass -p ${serverPass} scp ${install_env_file} root@$serverHost:${installPath}
         sshpass -p ${serverPass} scp ${cfgfile} root@$serverHost:${installPath}
