@@ -143,7 +143,7 @@ eeooff
         if [ "${installDB}" == "true" ]; then
             sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
                 cd ${installPath}
-                log_info "Install basic env in server ${serverIP}"
+                echo "Install basic env in server ${serverIP}"
                 ./install_env.sh || exit 1
                 source /root/.bashrc
                 sleep 1
