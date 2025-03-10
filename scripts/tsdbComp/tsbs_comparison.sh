@@ -17,7 +17,7 @@ error_install_file="${scriptDir}/log/install_error.log"
 
 source ${scriptDir}/logger.sh
 source ${scriptDir}/common.sh
-
+source ${scriptDir}/install_tsbs_cmd.sh
 
 log_info "Starting TSDB comparison script"
 
@@ -33,6 +33,8 @@ if [ ${clientIP} == ${serverIP} ]; then
     export serverHost="$(hostname)"
 fi
 
+installEnvAll="true"
+installGoEnv="true"
 # set result directory
 export loadResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
 export queryResultRootDir="${installPath}/tsbs/scripts/tsdbComp/log"
@@ -103,23 +105,21 @@ cmdInstall sshpass
 cmdInstall git
 
 install_python ${scriptDir}
-
+install_go_env 
 if [ "${installEnvAll}" == "true" ]; then
     # install client env 
     log_info "========== Install client: ${clientIP} basic environment and tsbs =========="
 
+    cd ${scriptDir}
     if [ "${installDB}" == "true" ]; then
         ./install_env.sh || exit 1
     fi 
 
-    if [ "${installTsbs}" == "true" ] || [ "${installGoEnv}" == "true" ]; then
-        ./install_tsbs_cmd.sh || exit 1
-        GO_HOME=${installPath}/go
-        export PATH=$GO_HOME/bin:$PATH
-        export GOPATH=$(go env GOPATH)
-        export PATH=$GOPATH/bin:$PATH
+    if [ "${installTsbs}" == "true" ]; then
+        install_tsbs
     fi
 
+    cd ${scriptDir}
     # configure sshd 
     sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/g' /etc/ssh/ssh_config
     service sshd restart
@@ -131,6 +131,8 @@ if [ "${installEnvAll}" == "true" ]; then
 
         sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
             mkdir -p ${installPath}
+            apt-get update
+            apt-get install net-tools -y
 eeooff
         sshpass -p ${serverPass} scp ${install_env_file} root@$serverHost:${installPath}
         sshpass -p ${serverPass} scp ${cfgfile} root@$serverHost:${installPath}
@@ -141,7 +143,7 @@ eeooff
         if [ "${installDB}" == "true" ]; then
             sshpass -p ${serverPass} ssh root@$serverHost << eeooff 
                 cd ${installPath}
-                log_info "Install basic env in server ${serverIP}"
+                echo "Install basic env in server ${serverIP}"
                 ./install_env.sh || exit 1
                 source /root/.bashrc
                 sleep 1
@@ -152,9 +154,6 @@ eeooff
     else
         log_info "Client and server are the same machine and no need to install server environment"
     fi
-else
-    export GOPATH=$(go env GOPATH)
-    export PATH=$(go env GOPATH)/bin:$PATH
 fi
 
 for caseType in ${caseTypes}; do
