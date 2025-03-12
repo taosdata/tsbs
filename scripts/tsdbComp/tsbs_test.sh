@@ -23,10 +23,11 @@ function show_help() {
     echo "Example: $0 -s scenario1"
     echo "         $0 -s scenario2"
     echo "         $0 -s scenario3"
+    echo "         $0 -s scenario4"
     echo "         $0"
     echo "         $0 -h"
     echo ""
-    echo "Set test.ini manually for more config, then execute the command to start the test: nohup bash tsbs_comparison.sh > load_iot_20250311_1500_tdengine.log & "
+    echo "Set test.ini manually for more config, then execute the command to start the test: nohup bash tsbs_comparison.sh > testAll_load_iot_20250311_1500_tdengine.log & "
     
 }
 
