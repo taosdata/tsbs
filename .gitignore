@@ -4,6 +4,10 @@
 .idea
 .vscode
 *~
+
+# comparison test log
 scripts/tsdbComp/log/*
+
+
 # High Dynamic Range (HDR) Histogram files
 *.hdr

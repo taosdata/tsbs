@@ -349,6 +349,7 @@ cmdInstall gcc
 cmdInstall cmake 
 cmdInstall build-essential
 cmdInstall libssl-dev
+cmdInstall net-tools
 
 cd ${installPath}
 if [ ! -f "v1.1.0.tar.gz" ] ;then

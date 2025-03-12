@@ -2,15 +2,14 @@
 
 scriptDir=$(dirname $(readlink -f $0))
 cfgfile="test.ini"
+# export DEBUG=true
+
 cd ${scriptDir}
 source ${scriptDir}/logger.sh
 source ${scriptDir}/common.sh
 parse_ini ${cfgfile}
 
 log_info "Install path: ${installPath}"
-log_info "Install Go environment: ${installGoEnv}"
-log_info "Install databases: ${installDB}"
-log_info "Install TSBS executable: ${installTsbs}"
 
 function set_go_proxy {
   curl --max-time 10 --silent --head https://proxy.golang.org | grep "HTTP/2 200"
@@ -49,6 +48,7 @@ function check_go_version {
 # install go env
 function install_go_env {
   log_info "============= Installing Go and setting Go environment ============="
+  log_info "Install path: ${installPath}"
   check_go_version
   if [ $? -eq 0 ]; then
       log_info "Go environment is already set up. Skipping installation."
@@ -88,17 +88,15 @@ function install_go_env {
   tar -xf "${go_tar}" || { log_error "Failed to extract ${go_tar}"; exit 1; }
 
   log_debug "add go to PATH"
-  GO_HOME=${installPath}/go
-  goPar=`grep -w "GO_HOME=${installPath}/go"  /root/.bashrc`
-  export PATH=$GO_HOME/bin:$PATH
+  GOROOT=${installPath}/go
+  goPar=`grep -w "GOROOT=${installPath}/go"  /root/.bashrc`
+  export PATH=$GOROOT/bin:$PATH
   if [[ -z ${goPar} ]];then
-      echo -e  "\n# GO_HOME\nexport GO_HOME=${installPath}/go\n" >> /root/.bashrc
-      echo -e  'export PATH=$GO_HOME/bin:$PATH\n' >> /root/.bashrc
+      echo -e  "\n# GOROOT\nexport GOROOT=${installPath}/go\n" >> /root/.bashrc
+      echo -e  'export PATH=$GOROOT/bin:$PATH\n' >> /root/.bashrc
   else 
-      log_debug "GO_HOME is already added to PATH in /root/.bashrc"      
+      log_debug "GOROOT is already added to PATH in /root/.bashrc"      
   fi 
-  source  /root/.bashrc
-
 
   set_go_proxy
 
@@ -112,32 +110,32 @@ function install_go_env {
       if [[ -z ${gopathPar} ]];then
         echo -e  '\nexport GOPATH=$(go env GOPATH)\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
       fi
-      source  /root/.bashrc
   else
       log_debug "GOPATH is already set"
   fi
 
-  log_debug $PATH
-  log_debug $(go env)
+  log_debug "now GOPATH is $GOPATH and PATH is $PATH"
   log_info "Go environment setup complete"
 }
 
 # compile tsbs 
 function install_tsbs {
   log_info "============= Installing TSBS ============="
-  source  /root/.bashrc
-  goenv=${GOPATH}
-  if [[ -z ${goenv} ]];then
-      GO_HOME=${installPath}/go
-      export PATH=$GO_HOME/bin:$PATH
+  log_info "Install path: ${installPath}, operation mode: ${operation_mode}, query formats: ${query_formats}, load formats: ${load_formats}"
+  GOPATH=$(go env GOPATH)
+  if [[ -z ${GOPATH} ]];then
+      GOROOT=${installPath}/go
+      export PATH=$GOROOT/bin:$PATH
       export GOPATH=$(go env GOPATH)
       export PATH=$GOPATH/bin:$PATH
   else
+      export GOPATH=$(go env GOPATH)
+      export PATH=$GOPATH/bin:$PATH
       log_debug "Go is already installed and GOPATH is set"
   fi
 
+ # add go path to PATH in /root/.bashrc
   gopathPar=$(grep -w "PATH=\$PATH:\$GOPATH/bin"  /root/.bashrc)
-  log_debug "gopathPar is ${gopathPar}"
 
   if [[ -z ${gopathPar} ]];then
     echo -e  '\nexport PATH=$PATH:$GOPATH/bin\n' >> ~/.bashrc
@@ -145,18 +143,18 @@ function install_tsbs {
     log_debug "${GOPATH}/bin is already in PATH"
   fi
 
-  export PATH=$GOPATH/bin:$PATH
+  # set go proxy
   set_go_proxy
 
-  log_debug ${GOPATH}
-  log_debug "Installing TSBS dependencies"  
+  log_debug "now GOPATH is $GOPATH and PATH is $PATH"
+  log_debug "Installing TSBS dependencies"
 
   # go get github.com/timescale/tsbs
   # go mod tidy
   # cd ${GOPATH}/pkg/mod/github.com/timescale/tsbs*/ && make
 
   log_debug "Building TSBS binaries"
-  [ -d "${GOPATH}/bin" ] || mkdir ${GOPATH}/bin/
+  [ -d "${GOPATH}/bin" ] || mkdir -p ${GOPATH}/bin/
 
   cd ${installPath}/tsbs/cmd/tsbs_generate_data/  &&  go build && cp tsbs_generate_data ${GOPATH}/bin/
   cd ${installPath}/tsbs/cmd/tsbs_generate_queries/  && go build && cp tsbs_generate_queries  ${GOPATH}/bin/
@@ -201,22 +199,11 @@ function install_tsbs {
   # cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
   # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
 
-  log_info "TSBS installation complete"
+  log_info "TSBS installation complete and TSBS binaries are located in ${GOPATH}/bin/"
+  log_debug "$(ls ${GOPATH}/bin/)"
+  # log_debug "$(tsbs_run_queries_timescaledb)"
+
 }
 
-cmdInstall sshpass
-cmdInstall git
-
-if [ "${installGoEnv}" == "true" ];then
-  install_go_env
-else 
-  log_info "Go environment will not be installed. To install, set installGoEnv to true."
-  export GOPATH=$(go env GOPATH)
-  export PATH=$(go env GOPATH)/bin:$PATH
-fi 
-
-if [ "${installTsbs}" == "true" ];then
-  install_tsbs
-else
-  log_info "TSBS will not be installed or updated. To install, set installTsbs to true."
-fi 
+#install_go_env
+#install_tsbs
