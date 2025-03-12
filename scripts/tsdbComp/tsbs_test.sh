@@ -16,16 +16,18 @@ function show_help() {
     echo "Available scenarios:"
     echo "  scenario1  - Load: TDengine vs influx vs timescaledb. Query: TDengine vs influx vs timescaledb, caseTypes: cpu-only and iot."
     echo "  scenario2  - Load: TDengineStmt2 vs influx3 vs influx. Query: TDengineStmt2 vs influx3 vs influx, caseTypes: cpu-only and iot."
-    echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb."
+    echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb, caseTypes: cputest."
+    echo "  scenario4  - Quick Test. Load/Query: TDengineStmt2 vs influx vs timescaledb, caseTypes: cputest."
     echo "  help       - Show this help message."
     echo "By default, scenario3 is used."
     echo "Example: $0 -s scenario1"
     echo "         $0 -s scenario2"
     echo "         $0 -s scenario3"
+    echo "         $0 -s scenario4"
     echo "         $0"
     echo "         $0 -h"
     echo ""
-    echo "Set test.ini manually for more config, then execute the command: bash tsbs_comparison.sh to start the test."
+    echo "Set test.ini manually for more config, then execute the command to start the test: nohup bash tsbs_comparison.sh > testAll_2025_0311_1500.log & "
     
 }
 
@@ -64,6 +66,10 @@ case $scenario in
     "scenario3")
         echo "scenario3: Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb."
         set_formats_and_caseTypes "TDengineStmt2 influx3 influx timescaledb" "TDengineStmt2 influx3 influx timescaledb" "cputest"
+        ;;
+    "scenario4")
+        echo "scenario4: Quick Test. Load/Query: TDengineStmt2 vs influx vs timescaledb."
+        set_formats_and_caseTypes "TDengineStmt2 influx timescaledb" "TDengineStmt2 influx timescaledb" "cputest"
         ;;
     *)
         echo "Unknown scenario: $scenario. Use '-h' to see available scenarios."
