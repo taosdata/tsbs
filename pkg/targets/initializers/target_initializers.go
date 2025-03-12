@@ -10,6 +10,7 @@ import (
 	"github.com/taosdata/tsbs/pkg/targets/clickhouse"
 	"github.com/taosdata/tsbs/pkg/targets/constants"
 	"github.com/taosdata/tsbs/pkg/targets/crate"
+	"github.com/taosdata/tsbs/pkg/targets/csv"
 	"github.com/taosdata/tsbs/pkg/targets/influx"
 	"github.com/taosdata/tsbs/pkg/targets/influx3"
 	"github.com/taosdata/tsbs/pkg/targets/mongo"
@@ -58,6 +59,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return tdenginestmt2.NewTarget()
 	case constants.FormatTDengineSML:
 		return tdenginesml.NewTarget()
+	case constants.FormatCsv:
+		return csv.NewTarget()
 	}
 
 	supportedFormatsStr := strings.Join(constants.SupportedFormats(), ",")
