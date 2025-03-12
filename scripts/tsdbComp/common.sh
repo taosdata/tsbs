@@ -214,6 +214,10 @@ function install_uv() {
 
     # Add uv to PATH
     export PATH=$HOME/.local/bin:$PATH
+    if grep -q "export PATH=\$HOME/.local/bin:\$PATH" ~/.bashrc; then
+        log_info "uv env has been added to PATH"
+        return
+    fi
     echo -e  '\n# uv env\nexport PATH=$HOME/.local/bin:$PATH\n' >> ~/.bashrc
     log_info "uv env has been added to PATH"
 }
