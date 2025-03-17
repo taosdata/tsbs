@@ -22,13 +22,14 @@ SEED=${SEED:-"123"}
 mkdir -p ${BULK_DATA_QUERY_DIR}
 chmod a+rwx ${BULK_DATA_QUERY_DIR}
 
-set -eo pipefail
+set -o pipefail
 # Loop over all requested queries types and generate data
 DATA_FILE_NAME="queries_${FORMAT}_${USE_CASE}_${QUERY_TYPE}_queries${QUERIES}_scale${SCALE}_seed${SEED}_${TS_START}_${TS_END}_${USE_CASE}.dat.gz"
 if [ -f "${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}" ]; then
     log_warning "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
 else
     cleanup() {
+        log_error "Error: query generation failed. Removing ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}"
         rm -f ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}
         exit 1
     }
@@ -36,7 +37,7 @@ else
 
     EXE_FILE_NAME_GENERATE_QUE=${EXE_FILE_NAME_GENERATE_QUE:-$(which tsbs_generate_queries)}
     if [[ -z "${EXE_FILE_NAME_GENERATE_QUE}" ]]; then
-        echo "tsbs_generate_queries not available. It is not specified explicitly and not found in \$PATH"
+        echo "tsbs_generate_queries not found in \$PATH"
         exit 1
     fi
     log_debug "Generating ${EXE_FILE_NAME_GENERATE_QUE} \
@@ -111,8 +112,8 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
 
     EXE_FILE_NAME_RUN_TSCD=${EXE_FILE_NAME_RUN_TSCD:-$(which tsbs_run_queries_timescaledb)}
     if [[ -z "$EXE_FILE_NAME_RUN_TSCD" ]]; then
-        log_error "tsbs_run_queries_timescaledb not available. It is not specified explicitly and not found in \$PATH"
-        exit 1
+        log_error "tsbs_run_queries_timescaledb not found in PATH($PATH)"
+        exit 0
     fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
@@ -135,15 +136,13 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
         echo ${FORMATAISA},${USE_CASE},${QUERY_TYPE},${SCALE},${QUERIES},${NUM_WORKER},${wctime},${qps} >> ${BULK_DATA_DIR_RUN_RES}/query_input.csv
         log_info "Execution of ${FORMAT} query type ${QUERY_TYPE} finished"
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
-    EXE_FILE_NAME_RUN_INF=${EXE_FILE_NAME_RUN_INF:-$(which tsbs_run_queries_influx3)}
+    query_command="tsbs_run_queries_${FORMAT}"
+    EXE_FILE_NAME_RUN_INF=$(which ${query_command})
     if [[ -z "$EXE_FILE_NAME_RUN_INF" ]]; then
-        log_error "tsbs_run_queries_influx3 not available. It is not specified explicitly and not found in \$PATH"
-        exit 1
+        log_error "${query_command} not found in PATH($PATH)"
+        exit 0
     fi
 
-    set +e  # Disable exit on error
-
-    query_command="tsbs_run_queries_${FORMAT}"
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
     elif [  ${FORMAT} == "influx3" ]; then
@@ -179,8 +178,8 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
 elif [  ${FORMAT} == "TDengine" ] ; then
     EXE_FILE_NAME_RUN_TD=${EXE_FILE_NAME_RUN_TD:-$(which tsbs_run_queries_tdengine)}
     if [[ -z "$EXE_FILE_NAME_RUN_TD" ]]; then
-        log_error "tsbs_run_queries_tdengine not available. It is not specified explicitly and not found in \$PATH"
-        exit 1
+        log_error "tsbs_run_queries_tdengine not found in PATH($PATH)"
+        exit 0
     fi
     DATABASE_PORT=${tdengine_port:-6030}
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
