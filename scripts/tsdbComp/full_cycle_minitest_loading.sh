@@ -25,7 +25,7 @@ chmod a+rwx ${BULK_DATA_DIR}
 clientHost=`hostname`
 log_debug "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
 
-set -eo pipefail
+set -o pipefail
 # generate data
 # - 1) data  generation
 log_info "===============data generation================="
@@ -35,6 +35,7 @@ if [ -f "${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}" ]; then
     log_warning "WARNING: file ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} already exists, skip generating new data"
 else
     cleanup() {
+        log_error "Error occurred during data generation. Cleaning up ${INSERT_DATA_FILE_NAME}"
         rm -f ${INSERT_DATA_FILE_NAME}
         exit 1
     }
@@ -42,11 +43,15 @@ else
 
     EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
     if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
-        log_error "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+        log_error "tsbs_generate_data not found in PATH($PATH)"
         exit 1
     fi
-    log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} --timestamp-start ${TS_START} --timestamp-end ${TS_END} --seed ${SEED} --log-interval ${LOG_INTERVAL} --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
-
+    log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} \
+     --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} \
+     --timestamp-start ${TS_START} --timestamp-end ${TS_END} \
+     --seed ${SEED} --log-interval ${LOG_INTERVAL} \
+     --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
+    
     ${EXE_FILE_NAME_GENERATE_DATA} \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
@@ -89,6 +94,10 @@ log_debug "records_per_table:${records_per_table}"
 RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_record${records_per_table}_data.txt"
 # use different load scripts of db to load data , add supported databases 
 if [ "${FORMAT}" == "timescaledb" ];then
+    if ! which tsbs_load_timescaledb > /dev/null; then
+        log_error "tsbs_load_timescaledb not found in PATH($PATH)"
+        exit 0
+    fi
     TimePath=${timescaledb_data_dir-"/var/lib/postgresql/14/main/base/"}
     run_command "
     systemctl restart postgresql
@@ -163,6 +172,11 @@ if [ "${FORMAT}" == "timescaledb" ];then
     sleep 60
 elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     log_info "Load data to influxdb"
+    load_command="tsbs_load_${FORMAT}"
+    if ! which ${load_command} > /dev/null; then
+        log_error "${load_command} not found in PATH($PATH)"
+        exit 0
+    fi
     if [  ${FORMAT} == "influx" ]; then
         DATABASE_PORT=${influx_port:-8086}
         InfPath=${influx_data_dir-"/var/lib/influxdb/"}
@@ -212,7 +226,6 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     else
         disk_usage_before=0
     fi
-    load_command="tsbs_load_${FORMAT}"
     log_debug "COMMAND:${load_command} BATCH_SIZE:${BATCH_SIZE} USE_CASE:${USE_CASE} FORMAT:${FORMAT} NUM_WORKER:${NUM_WORKER} SCALE:${SCALE}"
     log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
     cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
@@ -252,6 +265,15 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         sleep 1"
     fi
 elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
+    if [  ${FORMAT} == "TDengine" ]; then
+        load_command="tsbs_load_tdengine"
+    elif [ ${FORMAT} == "TDengineStmt2"  ]; then
+        load_command="tsbs_load_tdenginestmt2"
+    fi
+    if ! which ${load_command} > /dev/null; then
+        log_error "${load_command} not found in PATH($PATH)"
+        exit 0
+    fi
     TDPath=${tdengine_data_dir:-"/var/lib/taos/"}
     DATABASE_PORT=${tdengine_port:-6030}
     DATABASE_TAOS_PWD=${DATABASE_TAOS_PWD:-taosdata}
@@ -269,11 +291,6 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     echo `date +%Y_%m%d_%H%M%S`\":restart successfully\"
     sleep 2"
 
-    if [  ${FORMAT} == "TDengine" ]; then
-        load_commond="tsbs_load_tdengine"
-    elif [ ${FORMAT} == "TDengineStmt2"  ]; then
-        load_commond="tsbs_load_tdenginestmt2"
-    fi
     if [ -d "${TDPath}" ]; then
         disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
     else
@@ -286,8 +303,8 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
             TRIGGER="16"
         fi
     fi
-    log_debug " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  ${load_commond}  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --port=${DATABASE_PORT} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   ${load_commond} \
+    log_debug " cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |  ${load_command}  --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --port=${DATABASE_PORT} --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES} --hash-workers=true --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD}> ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}  | gunzip |   ${load_command} \
     --db-name=${DATABASE_NAME} --host=${DATABASE_HOST}  --workers=${NUM_WORKER}   --batch-size=${BATCH_SIZE} --pass=${DATABASE_TAOS_PWD} --port=${DATABASE_PORT}  --vgroups=${VGROUPS}  --buffer=${BUFFER} --pages=${PAGES}  --hash-workers=true  --stt_trigger=${TRIGGER} --wal_level=${WAL_LEVEL} --wal_fsync_period=${WALFSYNCPERIOD} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
