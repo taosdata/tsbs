@@ -216,7 +216,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         "
         set +v
         # check if influxdb3 is running
-        if ! run_command "source ${scriptDir}/logger.sh && source ${scriptDir}/common.sh && check_influxdb3_status ${DATABASE_PORT}"; then
+        if ! run_command "source ${installPath}/logger.sh && source ${installPath}/common.sh && check_influxdb3_status ${DATABASE_PORT}"; then
             log_error "influxdb3 failed to start"
             exit 0
         fi
