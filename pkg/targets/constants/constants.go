@@ -5,6 +5,7 @@ const (
 	FormatCassandra       = "cassandra"
 	FormatClickhouse      = "clickhouse"
 	FormatInflux          = "influx"
+	FormatInflux3         = "influx3"
 	FormatMongo           = "mongo"
 	FormatSiriDB          = "siridb"
 	FormatTimescaleDB     = "timescaledb"
@@ -15,6 +16,7 @@ const (
 	FormatTimestream      = "timestream"
 	FormatQuestDB         = "questdb"
 	FormatTDengine        = "TDengine"
+	FormatTDengineStmt2   = "TDengineStmt2"
 	FormatTDengineSML     = "TDengineSML"
 	FormatCsv             = "csv"
 )
@@ -24,6 +26,7 @@ func SupportedFormats() []string {
 		FormatCassandra,
 		FormatClickhouse,
 		FormatInflux,
+		FormatInflux3,
 		FormatMongo,
 		FormatSiriDB,
 		FormatTimescaleDB,
@@ -34,6 +37,7 @@ func SupportedFormats() []string {
 		FormatTimestream,
 		FormatQuestDB,
 		FormatTDengine,
+		FormatTDengineStmt2,
 		FormatTDengineSML,
 		FormatCsv,
 	}
