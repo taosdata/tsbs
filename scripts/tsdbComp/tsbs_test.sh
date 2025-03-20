@@ -157,5 +157,4 @@ esac
 # run tsbs_comparison.sh
 echo "nohup bash tsbs_comparison.sh &> log/testAll_${time}.log &"
 echo "please check log/testAll_${time}.log to monitor the test"
-exit 0
 nohup bash tsbs_comparison.sh &> log/testAll_${time}.log &
