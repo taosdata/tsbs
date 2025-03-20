@@ -325,3 +325,26 @@ function calculate_data_points() {
     local data_points=$(( (end_sec - start_sec) / interval_sec ))
     echo $data_points
 }
+
+# Function to get the database set based on operation mode
+function get_db_set() {
+    local operation_mode=$1
+    local query_formats=$2
+    local load_formats=$3
+
+    declare -A db_set
+
+    if [[ "$operation_mode" == "query" || "$operation_mode" == "both" ]]; then
+        for db in $query_formats; do
+            db_set[$db]=1
+        done
+    fi
+
+    if [[ "$operation_mode" == "load" || "$operation_mode" == "both" ]]; then
+        for db in $load_formats; do
+            db_set[$db]=1
+        done
+    fi
+
+    echo "${!db_set[@]}" # Return the keys of the associative array
+}
