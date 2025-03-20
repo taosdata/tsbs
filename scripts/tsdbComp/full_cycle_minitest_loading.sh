@@ -215,8 +215,15 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         sleep 1
         "
         set +v
+        if [ "${clientIP}" != "${serverIP}" ]; then
+            log_debug "Client and server are different machines"
+            dirName="${installPath}" 
+        else
+            log_debug "Client and server are the same machine"
+            dirName="${scriptDir}"
+        fi
         # check if influxdb3 is running
-        if ! run_command "source ${installPath}/logger.sh && source ${installPath}/common.sh && check_influxdb3_status ${DATABASE_PORT}"; then
+        if ! run_command "source ${dirName}/logger.sh && source ${dirName}/common.sh && check_influxdb3_status ${DATABASE_PORT}"; then
             log_error "influxdb3 failed to start"
             exit 0
         fi
