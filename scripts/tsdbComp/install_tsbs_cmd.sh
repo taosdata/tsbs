@@ -159,49 +159,29 @@ function install_tsbs {
   cd ${installPath}/tsbs/cmd/tsbs_generate_data/  &&  go build && cp tsbs_generate_data ${GOPATH}/bin/
   cd ${installPath}/tsbs/cmd/tsbs_generate_queries/  && go build && cp tsbs_generate_queries  ${GOPATH}/bin/
  
-  declare -A db_set
-  if [[ "$operation_mode" == "query" || "$operation_mode" == "both" ]]; then
-      for db in $query_formats; do
-          db_set[$db]=1
-      done
-  fi
-
-  if [[ "$operation_mode" == "load" || "$operation_mode" == "both" ]]; then
-      for db in $load_formats; do
-          db_set[$db]=1
-      done
-  fi
-
-  for db in "${!db_set[@]}"; do
-      if [[ "$db" == "TDengine" ]]; then
-          cd ${installPath}/tsbs/cmd/tsbs_load_tdengine/  && go build && cp tsbs_load_tdengine  ${GOPATH}/bin/
-          cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-      elif [[ "$db" == "TDengineStmt2" ]]; then
-          cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
-          cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-      elif [[ "$db" == "influx" ]]; then
-          cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
-          cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
-      elif [[ "$db" == "influx3" ]]; then
-          cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
-          cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
-      elif [[ "$db" == "timescaledb" ]]; then
-          cd ${installPath}/tsbs/cmd/tsbs_load_timescaledb/  &&  go build && cp tsbs_load_timescaledb ${GOPATH}/bin/
-          cd ${installPath}/tsbs/cmd/tsbs_run_queries_timescaledb/  &&  go build && cp tsbs_run_queries_timescaledb ${GOPATH}/bin/
-      fi
+  db_list=$(get_db_set "${operation_mode}" "${query_formats}" "${load_formats}")
+  for db in $db_list; do
+    log_debug "Building TSBS binaries for $db"
+    if [[ "$db" == "TDengine" ]]; then
+        cd ${installPath}/tsbs/cmd/tsbs_load_tdengine/  && go build && cp tsbs_load_tdengine  ${GOPATH}/bin/
+        cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
+    elif [[ "$db" == "TDengineStmt2" ]]; then
+        cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
+        cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/  && go build && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
+    elif [[ "$db" == "influx" ]]; then
+        cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
+        cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
+    elif [[ "$db" == "influx3" ]]; then
+        cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
+        cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
+    elif [[ "$db" == "timescaledb" ]]; then
+        cd ${installPath}/tsbs/cmd/tsbs_load_timescaledb/  &&  go build && cp tsbs_load_timescaledb ${GOPATH}/bin/
+        cd ${installPath}/tsbs/cmd/tsbs_run_queries_timescaledb/  &&  go build && cp tsbs_run_queries_timescaledb ${GOPATH}/bin/
+    fi
   done
-
- 
-  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_tdengine/ && go build  && cp tsbs_run_queries_tdengine  ${GOPATH}/bin/
-  # cd ${installPath}/tsbs/cmd/tsbs_load_tdenginestmt2/  && go build && cp tsbs_load_tdenginestmt2  ${GOPATH}/bin/
-  # cd ${installPath}/tsbs/cmd/tsbs_load_influx/  &&  go build && cp tsbs_load_influx ${GOPATH}/bin/
-  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx/  &&  go build && cp tsbs_run_queries_influx ${GOPATH}/bin/
-  # cd ${installPath}/tsbs/cmd/tsbs_load_influx3/  &&  go build && cp tsbs_load_influx3 ${GOPATH}/bin/
-  # cd ${installPath}/tsbs/cmd/tsbs_run_queries_influx3/  &&  go build && cp tsbs_run_queries_influx3 ${GOPATH}/bin/
 
   log_info "TSBS installation complete and TSBS binaries are located in ${GOPATH}/bin/"
   log_debug "$(ls ${GOPATH}/bin/)"
-  # log_debug "$(tsbs_run_queries_timescaledb)"
 
 }
 

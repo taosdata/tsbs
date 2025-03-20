@@ -363,21 +363,11 @@ if [ "${installDB}" == "true" ]; then
   log_info "Installing databases. Operation mode: ${operation_mode}"
   log_debug "Operation mode: ${operation_mode}, query formats: ${query_formats}, load formats: ${load_formats}"
 
-  declare -A db_set
-  if [[ "$operation_mode" == "query" || "$operation_mode" == "both" ]]; then
-      for db in $query_formats; do
-          db_set[$db]=1
-      done
-  fi
+  db_list=$(get_db_set "${operation_mode}" "${query_formats}" "${load_formats}")
 
-  if [[ "$operation_mode" == "load" || "$operation_mode" == "both" ]]; then
-      for db in $load_formats; do
-          db_set[$db]=1
-      done
-  fi
-
-  for db in "${!db_set[@]}"; do
-      install_database $db
+  for db in $db_list; do
+    log_debug "Installing database: $db"
+    install_database $db
   done
 else
   log_warning "Databases will not be installed. To install, set installDB to true."
