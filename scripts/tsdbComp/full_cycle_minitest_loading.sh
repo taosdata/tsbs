@@ -242,14 +242,14 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     log_debug "influxdb data is being compressed"
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
 
-    if $ioStatusPa; then
+    if ${ioStatusPa}; then
         retries=10
         for i in $(seq 1 $retries); do 
             set_command "dool -tdc --output /usr/local/src/teststatus.log 5 7"
             sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
             iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
             cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-            log_debug "${iotempstatus},${cputempstatus}"
+            log_debug "iostatus: ${iotempstatus}, cpustatus: ${cputempstatus}"
             if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
                 log_debug "io and cpu are free"
                 break
@@ -323,14 +323,14 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     set_command "systemctl reset-failed taosd.service"
     set_command "systemctl restart taosd " 
     # checkout  that io and cpu are free ,iowrite less than 500kB/s and cpu idl large than 99 when client and server are different
-    if $ioStatusPa; then
+    if ${ioStatusPa}; then
         retries=10
         for i in $(seq 1 $retries); do 
             set_command "dool -tdc --output /usr/local/src/teststatus.log 5 7"
             sshpass -p ${SERVER_PASSWORD}  scp root@$DATABASE_HOST:/usr/local/src/teststatus.log  .
             iotempstatus=` tail -6 teststatus.log|awk -F ',' '{print $3}'  |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
             cputempstatus=` tail -6 teststatus.log|awk -F ',' '{print $6}' |awk '{sum += $1} END {printf "%3.3f\n",sum/NR}'`
-            log_debug "${iotempstatus},${cputempstatus}"
+            log_debug "iostatus: ${iotempstatus}, cpustatus: ${cputempstatus}"
             if [[ `echo "$iotempstatus<500000" |bc` -eq 1 ]] && [[ `echo "$cputempstatus>99" |bc` -eq 1 ]] ; then  
                 log_debug "io and cpu are free"
                 break
