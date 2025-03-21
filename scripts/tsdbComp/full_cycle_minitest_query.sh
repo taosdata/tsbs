@@ -35,12 +35,11 @@ else
     }
     trap cleanup EXIT
 
-    EXE_FILE_NAME_GENERATE_QUE=${EXE_FILE_NAME_GENERATE_QUE:-$(which tsbs_generate_queries)}
-    if [[ -z "${EXE_FILE_NAME_GENERATE_QUE}" ]]; then
-        echo "tsbs_generate_queries not found in \$PATH"
+    if ! which tsbs_generate_queries > /dev/null; then
+        echo "tsbs_generate_queries not found in PATH($PATH)"
         exit 1
     fi
-    log_debug "Generating ${EXE_FILE_NAME_GENERATE_QUE} \
+    log_debug "Generating tsbs_generate_queries \
         --format ${FORMAT} \
         --queries ${QUERIES} \
         --query-type ${QUERY_TYPE} \
@@ -54,7 +53,7 @@ else
         --timescale-use-time-bucket=${USE_TIME_BUCKET} \
         --clickhouse-use-tags=${USE_TAGS} \
     | gzip  > ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}"
-    ${EXE_FILE_NAME_GENERATE_QUE} \
+    tsbs_generate_queries \
         --format ${FORMAT} \
         --queries ${QUERIES} \
         --query-type ${QUERY_TYPE} \

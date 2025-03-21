@@ -259,6 +259,11 @@ function calculate_chunk_time() {
     local interval_seconds=$((end_seconds - start_seconds))
 
     local chunk_time=$((interval_seconds / 180 * chunk_time_base))
+
+    # Ensure chunk_time is at least chunk_time_base
+    if [ $chunk_time -lt $chunk_time_base ]; then
+        chunk_time=$chunk_time_base
+    fi
     echo "${chunk_time}s"
 }
 

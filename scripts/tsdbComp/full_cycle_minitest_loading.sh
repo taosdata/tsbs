@@ -25,7 +25,7 @@ chmod a+rwx ${BULK_DATA_DIR}
 clientHost=`hostname`
 log_debug "clientHost:${clientHost}, DATABASE_HOST:${DATABASE_HOST}"
 
-set -o pipefail
+set -eo pipefail
 # generate data
 # - 1) data  generation
 log_info "===============data generation================="
@@ -37,22 +37,21 @@ else
     cleanup() {
         log_error "Error occurred during data generation. Cleaning up ${INSERT_DATA_FILE_NAME}"
         rm -f ${INSERT_DATA_FILE_NAME}
-        exit 1
+        exit 0
     }
     trap cleanup EXIT
 
-    EXE_FILE_NAME_GENERATE_DATA=$(which tsbs_generate_data)
-    if [[ -z "${EXE_FILE_NAME_GENERATE_DATA}" ]]; then
+    if ! which tsbs_generate_data > /dev/null; then
         log_error "tsbs_generate_data not found in PATH($PATH)"
         exit 1
     fi
-    log_debug "Generating execute commod: ${EXE_FILE_NAME_GENERATE_DATA} \
+    log_debug "Generating execute commod: tsbs_generate_data \
      --format ${FORMAT} --use-case ${USE_CASE} --scale ${SCALE} \
      --timestamp-start ${TS_START} --timestamp-end ${TS_END} \
      --seed ${SEED} --log-interval ${LOG_INTERVAL} \
      --max-data-points ${MAX_DATA_POINTS} | gzip > ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}"
     
-    ${EXE_FILE_NAME_GENERATE_DATA} \
+    tsbs_generate_data \
         --format ${FORMAT} \
         --use-case ${USE_CASE} \
         --scale ${SCALE} \
@@ -137,26 +136,27 @@ if [ "${FORMAT}" == "timescaledb" ];then
         fi
 
         log_info "${FORMAT} ${USE_CASE} data is being compressed,it will print the debug information for the compression process"
+        CHUNK_TIME_SECONDS=$(echo "${CHUNK_TIME}" | sed 's/s$//')
+        timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
+        log_debug "CHUNK_TIME_SECONDS: ${CHUNK_TIME_SECONDS}, timesdiffSec: ${timesdiffSec}"
+        timesHours=`echo "scale=2;${timesdiffSec}/${CHUNK_TIME_SECONDS}"|bc`
+        timesHours=`ceil $timesHours`
+        if [  ${USE_CASE} == "iot" ] || [  ${USE_CASE} == "iottest" ]; then
+            timesHours=$(echo "scale=2; ${timesHours} * 2" | bc)
+        fi
         while true
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             
             disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
-            timesdiffSec=$(( $(date +%s -d ${TS_END}) - $(date +%s -d ${TS_START}) ))
-            if  [[ ${CASE_TYPE} == "userdefined" ]] || [[ ${CASE_TYPE} == "cputest" ]] ;then
-                timesHours=`echo "scale=2;${timesdiffSec}/60/60/12"|bc`
-                timesHours=`ceil $timesHours`
-            elif [[ ${USE_CASE} == "iot" ]];then
-                timesHours="24"
-            else
-                timesHours="12"
-            fi
+
             tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
             log_debug "Compression count: ${tempCompressNum}, disk usage after load: ${disk_usage_after}, expected compressed data Block count :${timesHours}"
             if [ "${tempCompressNum}" -ge "${timesHours}" ];then
                 break
             fi
         done
+        log_debug "complete  compression"
     fi
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
