@@ -42,7 +42,7 @@ function checkout_system {
     fi
 
     # List of supported versions
-    supported_versions=("Ubuntu 18.04" "Ubuntu 20.04" "Ubuntu 22.04")
+    supported_versions=("Ubuntu 20.04" "Ubuntu 22.04")
 
     # Check if the current version is supported
     is_supported=false
@@ -60,6 +60,14 @@ function checkout_system {
     fi
 
     log_info "Detected system version: $OS $VERSION_ID"
+
+    # Detect CPU architecture
+    if grep -q "avx" /proc/cpuinfo; then
+        log_info "AVX instruction set is supported on this machine."
+    else
+        log_error "AVX instruction set is not supported on this machine."
+        exit 1
+    fi
 
     # Detect number of CPU cores
     cpu_cores=$(nproc)

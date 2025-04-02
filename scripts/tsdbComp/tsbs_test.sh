@@ -84,7 +84,7 @@ function show_help() {
     echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb, caseTypes: cputest."
     echo "  scenario4  - Quick Test. Load/Query: TDengineStmt2 vs influx vs timescaledb, caseTypes: cputest."
     echo "  help       - Show this help message."
-    echo "By default, scenario3 is used."
+    echo "By default, scenario4 is used."
     echo "Example: $0 -s scenario1"
     echo "         $0 -s scenario2"
     echo "         $0 -s scenario3"
@@ -96,7 +96,7 @@ function show_help() {
     
 }
 
-scenario="scenario3"
+scenario="scenario4"
 while getopts ":s:h" opt; do
     case ${opt} in
         s)
