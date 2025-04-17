@@ -47,6 +47,9 @@ function load_testcase {
 
         log_info "python3 ${scriptDir}/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png -m ratio"
         execute_python_file ${scriptDir} ${scriptDir}/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png -m ratio
+
+        log_info "python3 ${scriptDir}/load_report.py -i  ${load_resultDir}/load_input.csv -x SCALE -o ${load_resultDir}/test_load.png -m diskusage"
+        execute_python_file ${scriptDir} ${scriptDir}/load_report.py -i  ${load_resultDir}/load_input.csv -o ${load_resultDir}/test_load.png -m diskusage
     fi
 }
 
