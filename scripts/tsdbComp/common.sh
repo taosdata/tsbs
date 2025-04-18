@@ -366,6 +366,11 @@ function get_influxdb3_token() {
     local db_host=$1
     local db_port=$2
     local influxdb3_token
+    if [ -n "$INFLUXDB3_AUTH_TOKEN" ]; then
+        influxdb3_token=$INFLUXDB3_AUTH_TOKEN
+        echo "$influxdb3_token"
+        return 0
+    fi
     # if influxdb3_auth_token in test.ini is set, use it
     if [ -n "$influxdb3_auth_token" ]; then
         influxdb3_token=$influxdb3_auth_token
