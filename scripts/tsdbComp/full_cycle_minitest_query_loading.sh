@@ -226,6 +226,15 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
             log_error "influxdb3 failed to start"
             exit 0
         fi
+        log_debug "influxdb3 started successfully"
+        unset influxdb3_auth_token
+        token=$(get_influxdb3_token ${serverIP} ${DATABASE_PORT})
+        if [ $? -ne 0 ]; then
+            log_error "Failed to get influxdb3 token"
+            exit 0
+        fi
+        export influxdb3_auth_token=${token}
+        log_debug "Get influxdb3 token successfully"
     fi
     log_debug "COMMAND:${load_command} USE_CASE:${USE_CASE} FORMAT:${FORMAT} SCALE:${SCALE} InfPath:${InfPath} DATABASE_PORT:${DATABASE_PORT}" 
     if [ -d "${InfPath}" ]; then
@@ -235,8 +244,11 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     fi
 
     RESULT_NAME="${FORMAT}_${USE_CASE}_scale${SCALE}_worker${NUM_WORKER}_batch${BATCH_SIZE}_data.txt"
-    log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    load_params="--workers=${NUM_WORKER} --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT}"
+    [ "${FORMAT}" == "influx3" ] && load_params+=" --auth-token ${token}"
+    log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | ${load_command} ${load_params}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |   ${load_command} ${load_params}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `

@@ -14,6 +14,7 @@ import (
 )
 
 var bytesSlash = []byte("/") // heap optimization
+var headerAuthorization = "Authorization"
 
 // HTTPClient is a reusable HTTP Client.
 type HTTPClient struct {
@@ -22,6 +23,7 @@ type HTTPClient struct {
 	Host       []byte
 	HostString string
 	uri        []byte
+	authToken  string
 }
 
 // HTTPClientDoOptions wraps options uses when calling `Do`.
@@ -46,12 +48,14 @@ func getHttpClient() *http.Client {
 }
 
 // NewHTTPClient creates a new HTTPClient.
-func NewHTTPClient(host string) *HTTPClient {
+func NewHTTPClient(host string, authToken string) *HTTPClient {
+	token := fmt.Sprintf("Token %s", authToken)
 	return &HTTPClient{
 		client:     getHttpClient(),
 		Host:       []byte(host),
 		HostString: host,
 		uri:        []byte{}, // heap optimization
+		authToken:  token,
 	}
 }
 
@@ -74,6 +78,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	if err != nil {
 		panic(err)
 	}
+	req.Header.Add(headerAuthorization, w.authToken)
 
 	// Perform the request while tracking latency:
 	start := time.Now()

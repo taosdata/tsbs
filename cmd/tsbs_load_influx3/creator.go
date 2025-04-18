@@ -33,7 +33,12 @@ func (d *dbCreator) DBExists(dbName string) bool {
 
 func (d *dbCreator) listDatabases() ([]string, error) {
 	u := fmt.Sprintf("%s/api/v3/configure/database?show_deleted=true&format=csv", d.daemonURL)
-	resp, err := http.Get(u)
+	req, err := http.NewRequest("GET", u, nil)
+	req.Header = http.Header{
+		headerAuthorization: []string{fmt.Sprintf("Token %s", authToken)},
+	}
+	client := http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("listDatabases error: %s", err.Error())
 	}
@@ -72,10 +77,11 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 func (d *dbCreator) RemoveOldDB(dbName string) error {
 	u := fmt.Sprintf("%s/api/v3/configure/database?db=%s", d.daemonURL, dbName)
 	req, err := http.NewRequest("DELETE", u, nil)
-	if err != nil {
-		return fmt.Errorf("drop db error: %s", err.Error())
+	req.Header = http.Header{
+		"Content-Type":      []string{"text/plain"},
+		headerAuthorization: []string{fmt.Sprintf("Token %s", authToken)},
 	}
-	client := &http.Client{}
+	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("drop db error: %s", err.Error())
@@ -100,6 +106,7 @@ func (d *dbCreator) CreateDB(dbName string) error {
 
 	// Set the content type to application/json
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+authToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

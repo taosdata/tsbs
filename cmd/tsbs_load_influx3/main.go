@@ -30,6 +30,7 @@ var (
 	useGzip           bool
 	doAbortOnExist    bool
 	consistency       string
+	authToken string
 )
 
 // Global vars
@@ -73,6 +74,7 @@ func init() {
 	csvDaemonURLs = viper.GetString("urls")
 	replicationFactor = viper.GetInt("replication-factor")
 	consistency = viper.GetString("consistency")
+	authToken = viper.GetString("auth-token")
 	backoff = viper.GetDuration("backoff")
 	useGzip = viper.GetBool("gzip")
 
@@ -80,6 +82,9 @@ func init() {
 		log.Fatalf("invalid consistency settings")
 	}
 
+	if authToken == "" {
+		log.Fatalf("invalid auth token settings")
+	}
 	daemonURLs = strings.Split(csvDaemonURLs, ",")
 	if len(daemonURLs) == 0 {
 		log.Fatal("missing 'urls' flag")

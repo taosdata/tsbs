@@ -361,3 +361,27 @@ function get_db_set() {
 
     echo "${!db_set[@]}" # Return the keys of the associative array
 }
+
+function get_influxdb3_token() {
+    local db_host=$1
+    local db_port=$2
+    local influxdb3_token
+    # if influxdb3_auth_token in test.ini is set, use it
+    if [ -n "$influxdb3_auth_token" ]; then
+        influxdb3_token=$influxdb3_auth_token
+        echo "$influxdb3_token"
+        return 0
+    fi
+    # if influxdb3_auth_token is not set, get it from the server
+    response=$(curl -s -X POST "http://$db_host:$db_port/api/v3/configure/token/admin" \
+        -H "accept: application/json" \
+        -H "Content-Type: application/json")
+    
+    influxdb3_token=$(echo "$response" | grep -o '"token":"[^"]*"' | sed 's/"token":"//;s/"//')
+    if [ -z "$influxdb3_token" ]; then
+        echo "Error: Failed to retrieve token. Response: $response"
+        return 1
+    fi
+
+    echo "$influxdb3_token"
+}
