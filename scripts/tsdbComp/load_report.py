@@ -19,8 +19,8 @@ def parse_args():
                       help='Output PNG file name')
     parser.add_argument('--targets', '-t', default='metrics',
                       help='Targets for the chart (rows or metrics)')
-    parser.add_argument('--mode', '-m', choices=['result', 'ratio'], default='result',
-                      help='Mode: "result" to generate result chart, "ratio" to generate ratio chart')
+    parser.add_argument('--mode', '-m', choices=['result', 'ratio', 'diskusage'], default='result',
+                      help='Mode: "result" to generate result chart, "ratio" to generate ratio chart, "diskusage" to generate diskusage chart')
     return parser.parse_args()
 
 def load_data(file_path):
@@ -160,6 +160,52 @@ def create_ratio_chart(df, x_label_name, targets_number, output_file):
     plt.close()
     print(f"Chart saved to {output_file}")
 
+def create_diskusage_chart(df, output_file):
+    """Create bar chart showing disk space usage comparison"""
+    column_idx = 8  # The column index for disk space usage
+    db_types = df[0].unique()
+    # 提取横坐标对应字段（第3个字段）的唯一值作为类别
+    x_categories = df[2].unique()
+    num_db_types = len(db_types)
+    num_x_categories = len(x_categories)
+
+    width = 0.2  # 柱子宽度
+    ind = np.arange(num_x_categories)  # x轴位置
+
+    fig = figure(figsize=(12, 10), dpi=300, layout='constrained')
+    ax = plt.subplot(1, 1, 1)
+
+    color_map = get_color_map()
+    for i, db_type in enumerate(db_types):
+        db_data = []
+        for cat in x_categories:
+            subset = df[(df[0] == db_type) & (df[2] == cat)]
+            if not subset.empty:
+                db_data.append(int(subset.iloc[0, column_idx] / 1024))
+            else:
+                db_data.append(0)
+        ax.bar(ind + i * width, db_data, width, label=db_type, color=color_map.get(db_type, 'gray'))
+
+    # 添加数据标注
+    for p in ax.patches:
+        height = p.get_height()
+        ax.annotate('{}'.format(height),
+                    xy=(p.get_x() + p.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
+    ax.set_ylabel('(MB)')
+    ax.set_title('Disk Usage Comparison')
+    ax.set_xticks(ind + width * (num_db_types - 1) / 2)
+    new_x_categories = [f"{cat} DEVICES" for cat in x_categories]
+    ax.set_xticklabels(new_x_categories)
+    ax.legend()
+
+    plt.savefig(output_file)
+    plt.close()
+    print(f"Chart saved to {output_file}")
+    
 global_args = None
 
 def main():
@@ -190,6 +236,9 @@ def main():
     if global_args.mode == 'ratio':
         output_file = global_args.output.replace('.png', '_ratio.png')
         create_ratio_chart(df, global_args.xlabel, targets_number, output_file)
+    elif global_args.mode == 'diskusage':
+        output_file = global_args.output.replace('.png', '_diskusage.png')
+        create_diskusage_chart(df, output_file)
     else:
         output_file = global_args.output.replace('.png', '_result.png')
         create_result_chart(df, global_args.xlabel, targets_number, output_file)

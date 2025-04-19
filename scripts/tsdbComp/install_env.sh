@@ -234,10 +234,13 @@ function install_TDengine {
     # Resolved the issue of failure after three restarts within the default time range (600s)
     sed -i '/StartLimitInterval/s/.*/StartLimitInterval=60s/' /etc/systemd/system/taosd.service
     systemctl daemon-reload
+    taos_cfg="/etc/taos/taos.cfg"
     taosPar=$(grep -w "numOfVnodeFetchThreads 4" /etc/taos/taos.cfg)
     if [ -z "${taosPar}" ]; then
-        echo -e "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n" >> /etc/taos/taos.cfg
+        echo -e "numOfVnodeFetchThreads 4\nqueryRspPolicy 1\ncompressMsgSize 28000\nSIMD-builtins 1\n" >> $taos_cfg
     fi
+    sed -i 's/^\s*\(dataDir.*\)/#\1/' "$taos_cfg"
+    echo "dataDir ${tdengine_data_dir}" >> "$taos_cfg"
     fqdnCPar=$(grep -w "${clientIP} ${clientHost}" /etc/hosts)
     if [ -z "${fqdnCPar}" ];then
         echo -e "\n${clientIP} ${clientHost} \n" >> /etc/hosts
@@ -252,14 +255,6 @@ function install_TDengine {
 
 function install_influxdb3 {
   log_info "=============Installing InfluxDB3 on ubuntu ============="
-  check_glibc_version
-  if [ $? -eq 0 ]; then
-    echo "glibc version is supported."
-  else
-    echo  "glibc version is not supported."
-    exit 1
-  fi
-  
   cd ${installPath}
   # if influxdb3 is already installed, no need to reinsall
   help_output=$(timeout 5 ~/.influxdb/influxdb3 --help 2>&1)

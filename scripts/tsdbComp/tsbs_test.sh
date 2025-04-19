@@ -83,12 +83,22 @@ function show_help() {
     echo "                    - CPU: > 24 cores"
     echo "  scenario3  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx vs timescaledb, caseTypes: cputest."
     echo "  scenario4  - Quick Test. Load/Query: TDengineStmt2 vs influx vs timescaledb, caseTypes: cputest."
+    echo "  scenario5  - Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx, caseTypes: cputest."
+    echo "  scenario6  - Load: TDengineStmt2 vs influx3. Query: TDengineStmt2 vs influx3, caseTypes: cpu-only and iot."
+    echo "              Note: This scenario involves large datasets and requires high system resources. Suggested configuration:"
+    echo "                    - Disk: > 500GB"
+    echo "                    - Memory: > 128GB"
+    echo "                    - CPU: > 24 cores"
+    echo "  scenario7  - Quick Test. Load/Query: TDengineStmt2 vs influx3, caseTypes: cputest."
     echo "  help       - Show this help message."
     echo "By default, scenario4 is used."
     echo "Example: $0 -s scenario1"
     echo "         $0 -s scenario2"
     echo "         $0 -s scenario3"
     echo "         $0 -s scenario4"
+    echo "         $0 -s scenario5"
+    echo "         $0 -s scenario6"
+    echo "         $0 -s scenario7"
     echo "         $0"
     echo "         $0 -h"
     echo ""
@@ -147,14 +157,39 @@ case $scenario in
         set_formats_and_caseTypes "TDengineStmt2 influx3 influx timescaledb" "TDengineStmt2 influx3 influx timescaledb" "cputest"
         set_load_scales_and_timeScale "LoadTest" "LoadTestTimeScale" "200" \
             '200="2016-01-01T00:00:00Z 2016-01-01T12:00:00Z 10s"'
-        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "200,10"
+        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "100,100"
         ;;
     "scenario4")
         echo "scenario4: Quick Test. Load/Query: TDengineStmt2 vs influx vs timescaledb."
         set_formats_and_caseTypes "TDengineStmt2 influx timescaledb" "TDengineStmt2 influx timescaledb" "cputest"
         set_load_scales_and_timeScale "LoadTest" "LoadTestTimeScale" "200" \
             '200="2016-01-01T00:00:00Z 2016-01-01T12:00:00Z 10s"'
-        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "200,10"
+        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "100,100"
+        ;;
+    "scenario5")
+        echo "scenario5: Quick Test. Load/Query: TDengineStmt2 vs influx3 vs influx."
+        set_formats_and_caseTypes "TDengineStmt2 influx3 influx" "TDengineStmt2 influx3 influx" "cputest"
+        set_load_scales_and_timeScale "LoadTest" "LoadTestTimeScale" "200" \
+            '200="2016-01-01T00:00:00Z 2016-01-01T12:00:00Z 10s"'
+        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "100,100"
+        ;;
+    "scenario6")
+        echo "scenario6: Load: TDengineStmt2 vs influx3. Query: TDengineStmt2 vs influx3, caseTypes: cpu-only and iot."
+        set_formats_and_caseTypes "TDengineStmt2 influx3" "TDengineStmt2 influx3" "cpu iot"
+        set_load_scales_and_timeScale "Load" "LoadTimeScale" "100 4000 100000 1000000 10000000" \
+            '100="2016-01-01T00:00:00Z 2016-01-03T00:00:00Z 10s"' \
+            '4000="2016-01-01T00:00:00Z 2016-01-03T00:00:00Z 10s"' \
+            '100000="2016-01-01T00:00:00Z 2016-01-01T03:00:00Z 10s"' \
+            '1000000="2016-01-01T00:00:00Z 2016-01-01T00:03:00Z 10s"' \
+            '10000000="2016-01-01T00:00:00Z 2016-01-01T00:03:00Z 10s"' 
+        set_query_section "Query" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "100,4000 4000,4000" "100,10000 4000,500"
+        ;;
+    "scenario7")
+        echo "scenario7: Quick Test. Load/Query: TDengineStmt2 vs influx3."
+        set_formats_and_caseTypes "TDengineStmt2 influx3" "TDengineStmt2 influx3" "cputest"
+        set_load_scales_and_timeScale "LoadTest" "LoadTestTimeScale" "200" \
+            '200="2016-01-01T00:00:00Z 2016-01-01T12:00:00Z 10s"'
+        set_query_section "QueryTest" "2016-01-01T00:00:00Z" "2016-01-02T00:00:00Z" "2016-01-02T00:00:01Z" "100,100"
         ;;
     *)
         echo "Unknown scenario: $scenario. Use '-h' to see available scenarios."

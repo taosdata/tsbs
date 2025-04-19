@@ -47,20 +47,21 @@ for FORMAT in ${FORMATS}; do
         DATABASE_NAME=${DATABASE_NAME} CHUNK_TIME=${CHUNK_TIME} SERVER_PASSWORD=${SERVER_PASSWORD} \
         FORMATAISA=${FORMATAISA} VGROUPS=${VGROUPS}  ./full_cycle_minitest_query_loading.sh "
 
-        DATABASE_HOST=${DATABASE_HOST} \
-        SCALE=${SCALE} \
-        FORMAT=${FORMAT} \
-        USE_CASE=${USE_CASE} \
-        BATCH_SIZE=${BATCH_SIZE}  \
-        NUM_WORKER=${NUM_WORKER_LOAD} \
-        BULK_DATA_DIR=${BULK_DATA_DIR} \
-        TS_END=${LOAD_TS_END} \
-        BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} \
-        DATABASE_NAME=${DATABASE_NAME} \
-        CHUNK_TIME=${CHUNK_TIME} \
-        SERVER_PASSWORD=${SERVER_PASSWORD} \
-        FORMATAISA=${FORMATAISA}  \
-        VGROUPS=${VGROUPS}   ./full_cycle_minitest_query_loading.sh
+        export DATABASE_HOST=${DATABASE_HOST} 
+        export SCALE=${SCALE} 
+        export FORMAT=${FORMAT} 
+        export USE_CASE=${USE_CASE} 
+        export BATCH_SIZE=${BATCH_SIZE}  
+        export NUM_WORKER=${NUM_WORKER_LOAD} 
+        export BULK_DATA_DIR=${BULK_DATA_DIR} 
+        export TS_END=${LOAD_TS_END} 
+        export BULK_DATA_DIR_RES_LOAD=${BULK_DATA_DIR_RES_LOAD} 
+        export DATABASE_NAME=${DATABASE_NAME} 
+        export CHUNK_TIME=${CHUNK_TIME} 
+        export SERVER_PASSWORD=${SERVER_PASSWORD} 
+        export FORMATAISA=${FORMATAISA}  
+        export VGROUPS=${VGROUPS}   
+        source ./full_cycle_minitest_query_loading.sh
         if [ $? -ne 0 ]; then
             log_error "Error: loading data failed. Skip query test."
             continue

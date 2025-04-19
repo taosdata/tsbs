@@ -106,7 +106,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
     DATABASE_PORT=${timescaledb_port:-5432}
     PGPASSWORD=${DATABASE_PWD} psql -U postgres -h $DATABASE_HOST  -d postgres -c "drop database IF EXISTS  ${DATABASE_NAME} "
     if [ -d "${TimePath}" ]; then
-        disk_usage_before=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " )
+        disk_usage_before=$(set_command "du -sk ${TimePath} --exclude="pgsql_tmp" | cut -f 1 " )
     else
         disk_usage_before=0
     fi
@@ -148,7 +148,7 @@ if [ "${FORMAT}" == "timescaledb" ];then
         do   
             tempCompressNum=$(PGPASSWORD=password psql -U postgres -d ${DATABASE_NAME} -h ${DATABASE_HOST} -c "SELECT chunk_name, is_compressed FROM timescaledb_information.chunks WHERE is_compressed = true" |grep row |awk  '{print $1}')
             
-            disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
+            disk_usage_after=$(set_command "du -sk ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
 
             tempCompressNum=`echo ${tempCompressNum} | sed 's/(//g' `
             log_debug "Compression count: ${tempCompressNum}, disk usage after load: ${disk_usage_after}, expected compressed data Block count :${timesHours}"
@@ -162,9 +162,9 @@ if [ "${FORMAT}" == "timescaledb" ];then
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
     log_info  "${FORMAT} ${USE_CASE} data compression has been completed"
-    disk_usage_after=$(set_command "du -s ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
+    disk_usage_after=$(set_command "du -ks ${TimePath} --exclude="pgsql_tmp"| cut -f 1 " )
     log_debug "disk usage before load :$disk_usage_before and disk usage after load: ${disk_usage_after}"
-    disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
+    disk_usage=$((disk_usage_after - disk_usage_before))
     log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table}"
     log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
@@ -227,15 +227,26 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
             log_error "influxdb3 failed to start"
             exit 0
         fi
+        log_debug "influxdb3 started successfully"
+        unset influxdb3_auth_token
+        token=$(get_influxdb3_token ${serverIP} ${DATABASE_PORT})
+        if [ $? -ne 0 ]; then
+            log_error "Failed to get influxdb3 token"
+            exit 0
+        fi
+        export influxdb3_auth_token=${token}
+        log_debug "Get influxdb3 token successfully"
     fi
     if [ -d "${InfPath}" ]; then
-        disk_usage_before=`set_command "du -s ${InfPath} | cut -f 1 " `
+        disk_usage_before=`set_command "du -sk ${InfPath} | cut -f 1 " `
     else
         disk_usage_before=0
     fi
-    log_debug "COMMAND:${load_command} BATCH_SIZE:${BATCH_SIZE} USE_CASE:${USE_CASE} FORMAT:${FORMAT} NUM_WORKER:${NUM_WORKER} SCALE:${SCALE}"
-    log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}"
-    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command}  --workers=${NUM_WORKER}  --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+    load_params="--workers=${NUM_WORKER} --batch-size=${BATCH_SIZE} --db-name=${DATABASE_NAME} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --hash-workers=true"
+    [ "${FORMAT}" == "influx3" ] && load_params+=" --auth-token ${token}"
+    log_debug "cat  ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME}| gunzip | ${load_command} ${load_params}  > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}" 
+    cat ${BULK_DATA_DIR}/${INSERT_DATA_FILE_NAME} | gunzip |  ${load_command} ${load_params} > ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}
+
     speed_metrics=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |head -1  |awk '{print $1}'`
     speeds_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $11" "$12}'| awk  '{print $0"\b \t"}' |tail  -1 |awk '{print $1}' `
     times_rows=`cat  ${BULK_DATA_DIR_RES_LOAD}/${RESULT_NAME}|grep loaded |awk '{print $5}'|head -1  |awk '{print $1}' |sed "s/sec//g" `
@@ -261,7 +272,7 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     fi
     log_debug "influxdb data compression has been completed"
     set_command "rm -rf /usr/local/src/teststatus.log"
-    disk_usage_after=`set_command "du -s ${InfPath} | cut -f 1 " `
+    disk_usage_after=`set_command "du -sk ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
     disk_usage=$((disk_usage_after - disk_usage_before))
     log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table}"
@@ -300,7 +311,7 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     sleep 2"
 
     if [ -d "${TDPath}" ]; then
-        disk_usage_before=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
+        disk_usage_before=`set_command "du -sk ${TDPath}/vnode | cut -f 1 " `
     else
         disk_usage_before=0
     fi
@@ -342,11 +353,11 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     fi
     log_debug "TDengine data writing to disk has been completed "
     set_command "rm -rf /usr/local/src/teststatus.log"
-    disk_usage_after=`set_command "du -s ${TDPath}/vnode | cut -f 1 " `
-    log_debug "${disk_usage_before},${disk_usage_after}"
-    wal_uasge=`set_command "du ${TDPath}/vnode/*/wal/  -cs|tail -1  | cut -f 1  " `
+    disk_usage_after=`set_command "du -ks ${TDPath}/vnode | cut -f 1 " `
+    wal_uasge=`set_command "du ${TDPath}/vnode/*/wal/  -cs -k |tail -1  | cut -f 1  " `
     disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
-    disk_usage=`expr ${disk_usage_after} - ${disk_usage_before}`
+    log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
+    disk_usage=$((disk_usage_after - disk_usage_before))
     log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table}"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else

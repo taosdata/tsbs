@@ -127,8 +127,8 @@ if [[ "${FORMAT}" =~ "timescaledb" ]]; then
             --db-name ${DATABASE_NAME} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
-            --debug=${debugflag}\
-            --print-responses=${printResponse}\
+            --debug=${debugflag} \
+            --print-responses=${printResponse} \
         | tee ${OUT_FULL_FILE_NAME}
         wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g" `
         qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
@@ -146,20 +146,22 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx_port:-8086}
     elif [  ${FORMAT} == "influx3" ]; then
         DATABASE_PORT=${influx3_port:-8181}
+        token=$(get_influxdb3_token ${serverIP} ${DATABASE_PORT})
+        if [ $? -ne 0 ]; then
+            log_error "Failed to get influxdb3 token"
+            exit 0
+        fi
+        log_debug "Get influxdb3 token successfully"
     fi
     RESULT_NAME="${FORMAT}_${USE_CASE}_${QUERY_TYPE}_scale${SCALE}_worker${NUM_WORKER}_data.txt"
     OUT_FULL_FILE_NAME="${BULK_DATA_DIR_RUN_RES}/result_query_${RESULT_NAME}"
     log_info "Start to execute ${FORMAT} query, query type: ${QUERY_TYPE}"
-    log_debug "Execute commond:  ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${query_command}  --max-queries ${MAX_QUERIES} --workers ${NUM_WORKERS} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} | tee ${OUT_FULL_FILE_NAME}"
+    query_params="--db-name ${DATABASE_NAME} --max-queries ${MAX_QUERIES} --workers ${NUM_WORKER} --urls=http://${DATABASE_HOST}:${DATABASE_PORT} --debug=${debugflag} --print-responses=${printResponse}"
+    [ "${FORMAT}" == "influx3" ] && query_params+=" --auth-token ${token}"
+    log_debug "Execute commond:  ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME}  | ${GUNZIP} | ${query_command} ${query_params} | tee ${OUT_FULL_FILE_NAME}"
     cat ${BULK_DATA_QUERY_DIR}/${DATA_FILE_NAME} \
         | ${GUNZIP} \
-        | ${query_command} \
-            --db-name ${DATABASE_NAME} \
-            --max-queries ${MAX_QUERIES} \
-            --workers ${NUM_WORKER} \
-            --urls=http://${DATABASE_HOST}:${DATABASE_PORT} \
-            --debug=${debugflag}\
-            --print-responses=${printResponse}\
+        | ${query_command} ${query_params} \
         | tee ${OUT_FULL_FILE_NAME}
         if [ $? -ne 0 ]; then
             log_error "Error: influx query failed,query type:${QUERY_TYPE},scale:${SCALE},worker:${NUM_WORKER}"
@@ -199,8 +201,8 @@ elif [  ${FORMAT} == "TDengine" ] ; then
             --port ${DATABASE_PORT} \
             --max-queries ${MAX_QUERIES} \
             --workers ${NUM_WORKER} \
-            --debug=${debugflag}\
-            --print-responses=${printResponse}\
+            --debug=${debugflag} \
+            --print-responses=${printResponse} \
         | tee ${OUT_FULL_FILE_NAME}
     wctime=`cat  ${OUT_FULL_FILE_NAME}|grep "mean:"|awk '{print $6}' | head -1  |sed "s/ms,//g"`
     qps=`cat  ${OUT_FULL_FILE_NAME}|grep Run |awk '{print $12}' `
