@@ -195,7 +195,7 @@ def create_diskusage_chart(df, output_file):
                     textcoords="offset points",
                     ha='center', va='bottom')
 
-    ax.set_ylabel('(MB))')
+    ax.set_ylabel('(MB)')
     ax.set_title('Disk Usage Comparison')
     ax.set_xticks(ind + width * (num_db_types - 1) / 2)
     new_x_categories = [f"{cat} DEVICES" for cat in x_categories]
