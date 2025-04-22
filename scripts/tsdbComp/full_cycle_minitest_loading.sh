@@ -358,8 +358,8 @@ elif [  ${FORMAT} == "TDengine" ] || [  ${FORMAT} == "TDengineStmt2" ]; then
     disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_uasge}`
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
     disk_usage=$((disk_usage_after - disk_usage_before))
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table}"
-    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},${disk_usage_nowal},${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage_nowal},${disk_usage},${records_per_table}"
+    echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage_nowal},${disk_usage},${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv    
 else
     log_error "The format is not supported"
 fi  
