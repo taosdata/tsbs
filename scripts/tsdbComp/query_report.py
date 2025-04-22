@@ -151,7 +151,11 @@ def create_result_chart(df, x_label_name, query_times, output_file):
                 query_labels.append(query_type)
         
         # Plot bars with specified colors
-        ax.barh(positions, response_times, height=bar_width, label=f"{db_name}", color=color_map.get(db_name, 'gray'))
+        if db_name == 'influx3':
+            legend_label = 'InfluxDB 3.0'
+        else:
+            legend_label = db_name
+        ax.barh(positions, response_times, height=bar_width, label=f"{legend_label}", color=color_map.get(db_name, 'gray'))
         
         # Add text labels to bars
         for pos, response_time in zip(positions, response_times):
@@ -230,7 +234,11 @@ def create_ratio_chart(df, x_label_name, query_times, output_file):
                 query_labels.append(query_type)
         
         # Plot bars with specified colors
-        ax.barh(positions, ratios, height=bar_width, label=f"{db_name}", color=color_map.get(db_name, 'gray'))
+        if db_name == 'influx3':
+            legend_label = 'InfluxDB 3.0'
+        else:
+            legend_label = db_name
+        ax.barh(positions, ratios, height=bar_width, label=f"{legend_label}", color=color_map.get(db_name, 'gray'))
         
         # Add text labels to bars
         for pos, ratio in zip(positions, ratios):
