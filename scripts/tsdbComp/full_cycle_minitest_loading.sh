@@ -275,7 +275,11 @@ elif [  ${FORMAT} == "influx" ] || [  ${FORMAT} == "influx3" ]; then
     disk_usage_after=`set_command "du -sk ${InfPath} | cut -f 1 " `
     log_debug "disk_usage_before: ${disk_usage_before}, disk_usage_after: ${disk_usage_after}"
     disk_usage=$((disk_usage_after - disk_usage_before))
-    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table}"
+
+    wal_usage=`set_command "du ${InfPath}/*/wal/  -cs -k |tail -1  | cut -f 1  " `
+    log_debug "wal_usage: ${wal_usage}"
+    disk_usage_nowal=`expr ${disk_usage_after} - ${disk_usage_before} - ${wal_usage}`
+    log_debug "${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage_nowal},${disk_usage},${records_per_table}"
     log_debug "target file: ${BULK_DATA_DIR_RES_LOAD}/load_input.csv"
     echo ${FORMAT},${USE_CASE},${SCALE},${BATCH_SIZE},${NUM_WORKER},${speeds_rows},${times_rows},${speed_metrics},${disk_usage},0,${records_per_table} >> ${BULK_DATA_DIR_RES_LOAD}/load_input.csv
     if [  ${FORMAT} == "influx" ]; then
