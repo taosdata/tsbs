@@ -36,7 +36,7 @@ def load_data(file_path):
 def get_color_map():
     """Return the color map for different database types。"""
     return {
-        'TDengine': '#1f77b4',       # Muted blue
+        'TDengine': '#800080',       # Muted purple
         'TDengineStmt2': '#1f77b4',  # Muted blue
         'influx': '#ff7f0e',         # Muted orange
         'influx3': '#2ca02c',        # Muted green
@@ -82,7 +82,15 @@ def create_result_chart(df, x_label_name, targets_number, output_file):
     color_map = get_color_map()
 
     for idx, dbtype in enumerate(sortdbformate):
-        ax.barh(xticks + idx * bar_width, metrics[dbtype], height=bar_width, label=dbtype, color=color_map.get(dbtype, 'gray'))
+        if dbtype == 'TDengineStmt2':
+            legend_label = 'TDengine'
+        elif dbtype == 'TDengine':
+            legend_label = 'TDengine(SQL write)'
+        elif dbtype == 'influx3':
+            legend_label = 'InfluxDB 3.0'
+        else:
+            legend_label = dbtype
+        ax.barh(xticks + idx * bar_width, metrics[dbtype], height=bar_width, label=legend_label, color=color_map.get(dbtype, 'gray'))
 
     for dbtype in sortdbformate:
         for a, b in zip(xticks + bar_width * sortdbformate.tolist().index(dbtype), metrics[dbtype]):
@@ -184,7 +192,15 @@ def create_diskusage_chart(df, output_file):
                 db_data.append(int(subset.iloc[0, column_idx] / 1024))
             else:
                 db_data.append(0)
-        ax.bar(ind + i * width, db_data, width, label=db_type, color=color_map.get(db_type, 'gray'))
+        if db_type == 'TDengineStmt2':
+            legend_label = 'TDengine'
+        elif db_type == 'TDengine':
+            legend_label = 'TDengine(SQL write)'
+        elif db_type == 'influx3':
+            legend_label = 'InfluxDB 3.0'
+        else:
+            legend_label = db_type
+        ax.bar(ind + i * width, db_data, width, label=legend_label, color=color_map.get(db_type, 'gray'))
 
     # 添加数据标注
     for p in ax.patches:
