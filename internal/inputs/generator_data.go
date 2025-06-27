@@ -103,6 +103,12 @@ func (g *DataGenerator) CreateSimulator(config *common.DataGeneratorConfig) (com
 
 func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *common.DataGeneratorConfig) error {
 	defer g.bufOut.Flush()
+	defer func() {
+		closer, ok := serializer.(io.Closer)
+		if ok {
+			closer.Close()
+		}
+	}()
 
 	currGroupID := uint(0)
 	point := data.NewPoint()

@@ -18,6 +18,7 @@ const (
 	FormatTDengine        = "TDengine"
 	FormatTDengineStmt2   = "TDengineStmt2"
 	FormatTDengineSML     = "TDengineSML"
+	FormatCsv             = "csv"
 )
 
 func SupportedFormats() []string {
@@ -38,5 +39,6 @@ func SupportedFormats() []string {
 		FormatTDengine,
 		FormatTDengineStmt2,
 		FormatTDengineSML,
+		FormatCsv,
 	}
 }
