@@ -173,7 +173,7 @@ func TestStationaryTrucks(t *testing.T) {
 			expectedHumanLabel: "Influx stationary trucks",
 			expectedHumanDesc:  "Influx stationary trucks: with low avg velocity in last 10 minutes",
 
-			expectedQuery: "/query?q=SELECT+%22name%22%2C+%22driver%22+%0A%09%09FROM%28" +
+			expectedQuery: "/api/v3/query_influxql?q=SELECT+%22name%22%2C+%22driver%22%2C+%22mean_velocity%22+%0A%09%09FROM%28" +
 				"SELECT+mean%28%22velocity%22%29+as+mean_velocity+%0A%09%09+FROM+%22readings%22+%0A%09%09+" +
 				"WHERE+time+%3E+%271970-01-01T00%3A36%3A22Z%27+AND+time+%3C%3D+%271970-01-01T00%3A46%3A22Z%27+%0A%09%09+" +
 				"GROUP+BY+time%2810m%29%2C%22name%22%2C%22driver%22%2C%22fleet%22++%0A%09%09+" +
@@ -189,7 +189,22 @@ func TestStationaryTrucks(t *testing.T) {
 		rand.Seed(123)
 		g.StationaryTrucks(q)
 
-		verifyQuery(t, q, c.expectedHumanLabel, c.expectedHumanDesc, c.expectedQuery)
+		httpQuery := q.(*query.HTTP)
+		if got := string(httpQuery.HumanLabel); got != c.expectedHumanLabel {
+			t.Errorf("incorrect human label: got %q, want %q", got, c.expectedHumanLabel)
+		}
+		if got := string(httpQuery.HumanDescription); got != c.expectedHumanDesc {
+			t.Errorf("incorrect human description: got %q, want %q", got, c.expectedHumanDesc)
+		}
+		if got := string(httpQuery.Method); got != "GET" {
+			t.Errorf("incorrect method: got %q, want GET", got)
+		}
+		if got := string(httpQuery.Path); got != c.expectedQuery {
+			t.Errorf("incorrect path:\ngot\n%s\nwant\n%s", got, c.expectedQuery)
+		}
+		if httpQuery.Body != nil {
+			t.Errorf("body not nil: %+v", httpQuery.Body)
+		}
 	}
 }
 
