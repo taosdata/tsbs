@@ -21,6 +21,7 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 	target := tdengine.NewTarget()
 	loaderConf := load.BenchmarkRunnerConfig{}
 	loaderConf.AddToFlagSet(pflag.CommandLine)
+	pflag.String("precreate-sql-file", "", "SQL file executed before the ingestion timer; input must contain only insert records")
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 	err := utils.SetupConfigFile()
@@ -33,6 +34,7 @@ func initProgramOptions() (*tdengine.LoadingOptions, load.BenchmarkRunner, *load
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 	opts := tdengine.LoadingOptions{}
+	opts.PrecreateSQLFile = viper.GetString("precreate-sql-file")
 	viper.SetTypeByDefaultValue(true)
 	opts.User = viper.GetString("user")
 	opts.Pass = viper.GetString("pass")

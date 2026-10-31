@@ -194,10 +194,16 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 
 	channels := l.createChannels(numChannels, capacity)
 
+	// Initialize every worker before starting the measured ingestion phase.
+	ready := &sync.WaitGroup{}
+	ready.Add(int(l.Workers))
 	// Launch all worker processes in background
 	for i := uint(0); i < l.Workers; i++ {
-		go l.work(b, wg, channels[i%numChannels], i)
+		go l.work(b, wg, channels[i%numChannels], i, ready)
 	}
+
+	ready.Wait()
+	*start = time.Now()
 
 	// Start scan process - actual data read process
 	scanWithFlowControl(channels, l.BatchSize, l.Limit, b.GetDataSource(), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
@@ -273,11 +279,14 @@ func (l *CommonBenchmarkRunner) createChannels(numChannels, capacity uint) []*du
 }
 
 // work is the processing function for each worker in the loader
-func (l *CommonBenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum uint) {
+func (l *CommonBenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum uint, ready ...*sync.WaitGroup) {
 
 	// Prepare processor
 	proc := b.GetProcessor()
 	proc.Init(int(workerNum), l.DoLoad, l.HashWorkers)
+	if len(ready) > 0 {
+		ready[0].Done()
+	}
 
 	// Process batches coming from duplexChannel.toWorker queue
 	// and send ACKs into duplexChannel.toScanner queue

@@ -143,8 +143,9 @@ func (s *BaseSimulator) Fields() map[string][]string {
 		panic("cannot get fields because no Generators added")
 	}
 
-	toReturn := make(map[string][]string, len(s.generators))
-	for _, sm := range s.generators[0].Measurements() {
+	measurements := s.generators[0].Measurements()
+	toReturn := make(map[string][]string, len(measurements))
+	for _, sm := range measurements {
 		point := data.NewPoint()
 		sm.ToPoint(point)
 		fieldKeys := point.FieldKeys()

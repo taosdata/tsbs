@@ -151,7 +151,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""
-	} else {
+	} else if nHosts != 1 {
+		// The single-host fast path below samples its host once.
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
 	//SELECT ts,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice FROM cpu WHERE usage_user > 90.0 and ts >= 1451777731138 AND ts < 1451820931138 AND tbname IN ('host_35')
