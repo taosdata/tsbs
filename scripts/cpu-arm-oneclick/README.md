@@ -8,6 +8,7 @@ comparison orchestrator. No InfluxDB installation or source build is required.
 ## Prepare a Linux ARM64 host once
 
 Requirements: Python 3.9+, Go (validated with 1.25.6), C compiler, Git, GNU time,
+the system timezone database (`tzdata`),
 at least 40 GiB free disk, and a **TDengine Enterprise Linux ARM64** server
 package. The expected version is configurable (default: 3.4.3.7).
 Keep the host free of other benchmarks; the client and database share this host.
@@ -25,7 +26,7 @@ bash scripts/cpu-arm-oneclick/build.sh --config scripts/cpu-arm-oneclick/config.
 bash scripts/cpu-arm-oneclick/run.sh --config scripts/cpu-arm-oneclick/config.sh
 ```
 
-`setup.sh` downloads the HTTP/HTTPS `.tar.gz` URL from `TSBS_TDENGINE_URL`,
+`setup.sh` downloads the HTTP/HTTPS `.tar.xz` or `.tar.gz` URL from `TSBS_TDENGINE_URL`,
 verifies `TSBS_TDENGINE_SHA256` if configured, extracts the ARM64 server package,
 and runs **`./install.sh -e no` from the package directory**. It uses the package's
 normal installation/update behavior, without adding installation flags or running
@@ -90,7 +91,7 @@ For example, testing 3.4.3.8 uses the same scripts and workload:
 
 ```bash
 # In your private config.sh (replace the example URL with the actual package):
-export TSBS_TDENGINE_URL='https://downloads.example.com/tdengine-enterprise-3.4.3.8-linux-arm64.tar.gz'
+export TSBS_TDENGINE_URL='https://downloads.example.com/tdengine-enterprise-3.4.3.8-linux-arm64.tar.xz'
 export TSBS_EXPECTED_VERSION=3.4.3.8
 export TSBS_TDENGINE_SHA256='' # Prefer the publisher's actual SHA-256.
 export TSBS_TAOSD_BIN=/usr/local/taos/bin/taosd

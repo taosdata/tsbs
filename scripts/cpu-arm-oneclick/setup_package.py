@@ -60,7 +60,7 @@ def download(url, directory, expected=''):
 def extract(archive, destination):
     """Extract regular files first; allow only links whose targets stay inside."""
     root = destination.resolve()
-    with tarfile.open(archive, 'r:gz') as source:
+    with tarfile.open(archive, 'r:*') as source:
         members = source.getmembers()
         for item in members:
             path = root / item.name

@@ -4,7 +4,7 @@ export TSBS_HOST=127.0.0.1
 export TSBS_PORT=6130
 export TSBS_EXPECTED_VERSION=3.4.3.7
 
-# Option A: download and install with setup.sh (HTTP/HTTPS .tar.gz package).
+# Option A: download and install with setup.sh (HTTP/HTTPS .tar.xz or .tar.gz package).
 # Use the complete enterprise server package for Linux ARM64.
 export TSBS_TDENGINE_URL=''
 # Optional but recommended: SHA-256 supplied by your package publisher.

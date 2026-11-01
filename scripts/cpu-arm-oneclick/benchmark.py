@@ -53,6 +53,11 @@ def source_revision():
     except (OSError,subprocess.CalledProcessError):
         return 'unknown (no git metadata)'
 
+def validate_server_version(version,expected):
+    versions=re.findall(r'(?<![\d.])\d+\.\d+\.\d+\.\d+(?!\d|\.\d)',str(version))
+    if expected not in versions or 'enterprise' not in str(version).lower():
+        raise RuntimeError('Unexpected server version: '+str(version))
+
 def prepare_service(root,summary):
     server=Path(os.environ.get('TSBS_TAOSD_BIN',str(B/'source/tdengine-tsdb-enterprise-3.4.3.7/bin/taosd'))).resolve()
     args=[str(server),'-c',str(B/'config')]
@@ -72,8 +77,7 @@ def prepare_service(root,summary):
         time.sleep(1)
     version=td_query('','select server_version()')
     expected=os.environ.get('TSBS_EXPECTED_VERSION','3.4.3.7')
-    if expected not in re.findall(r'(?<![\d.])\d+\.\d+\.\d+\.\d+(?![\d.])',str(version)) or 'enterprise' not in str(version).lower():
-        raise RuntimeError('Unexpected server version: '+str(version))
+    validate_server_version(version,expected)
     summary['environment']=dict(machine=platform.machine(),page_bytes=os.sysconf('SC_PAGE_SIZE'),
         server_version=version,expected_version=expected,server_sha256=sha(server),dnodes=nodes,
         package_preparation=json.loads((B/'package-preparation.json').read_text()) if (B/'package-preparation.json').exists() else None,

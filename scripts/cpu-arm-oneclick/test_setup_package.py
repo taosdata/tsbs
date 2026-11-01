@@ -62,6 +62,16 @@ echo installed > "$TSBS_BENCH_ROOT/installer-called"
 
 
 class SetupTests(unittest.TestCase):
+    def test_actual_enterprise_version_format(self):
+        with patch.dict(os.environ, {'TSBS_BENCH_ROOT': tempfile.gettempdir()}):
+            from benchmark import validate_server_version
+        for version in ['3.4.3.7.enterprise', '3.4.3.7 enterprise']:
+            validate_server_version([{'server_version()': version}], '3.4.3.7')
+        validate_server_version([{'server_version()': '3.4.3.8.enterprise'}], '3.4.3.8')
+        for version in ['3.4.3.8.enterprise', '3.4.3.70.enterprise', '3.4.3.7.1.enterprise', '3.4.3.7 oss']:
+            with self.subTest(version=version), self.assertRaises(RuntimeError):
+                validate_server_version([{'server_version()': version}], '3.4.3.7')
+
     def test_url_install_and_cached_repeat(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
@@ -137,6 +147,15 @@ class SetupTests(unittest.TestCase):
             archive(base / 'outer.tar.gz', {'release/install.sh': b'#!/bin/sh\n',
                                            'release/taos.tar.gz': (base / 'payload.tar.gz').read_bytes()})
             self.assertEqual(setup.unpack(base / 'outer.tar.gz', base / 'unpack').name, 'release')
+
+    def test_xz_official_package(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            package(base / 'package.tar.gz')
+            with tarfile.open(base / 'package.tar.gz') as source, tarfile.open(base / 'package.tar.xz', 'w:xz') as target:
+                for member in source.getmembers():
+                    target.addfile(member, source.extractfile(member))
+            self.assertEqual(setup.unpack(base / 'package.tar.xz', base / 'unpack').name, 'release')
 
     def test_failed_installer_does_not_publish_success(self):
         with tempfile.TemporaryDirectory() as temp:
