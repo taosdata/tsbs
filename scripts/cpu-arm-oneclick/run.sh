@@ -6,6 +6,7 @@ if [[ "${1:-}" == "--config" ]]; then
     shift 2
 fi
 : "${TSBS_BENCH_ROOT:?Set TSBS_BENCH_ROOT or pass --config path/to/config.sh}"
+export TSBS_EXPECTED_VERSION="${TSBS_EXPECTED_VERSION:-3.4.3.7}"
 export TSBS_BENCH_ROOT
 export TSBS_HOST="${TSBS_HOST:-127.0.0.1}"
 export TSBS_PORT="${TSBS_PORT:-6130}"

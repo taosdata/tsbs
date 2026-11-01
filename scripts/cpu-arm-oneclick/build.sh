@@ -7,7 +7,10 @@ fi
 : "${TSBS_BENCH_ROOT:?Set TSBS_BENCH_ROOT or pass --config config.sh}"
 : "${TSBS_TAOSD_BIN:?Set TSBS_TAOSD_BIN to the extracted ARM64 taosd executable}"
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-taos_include=$(cd -- "$(dirname -- "$TSBS_TAOSD_BIN")/../inc" && pwd)
+package_root=$(cd -- "$(dirname -- "$TSBS_TAOSD_BIN")/.." && pwd)
+taos_include="$package_root/inc"
+if [[ ! -d "$taos_include" ]]; then taos_include="$package_root/include"; fi
+[[ -f "$taos_include/taos.h" ]] || { echo "Missing taos.h: $taos_include" >&2; exit 1; }
 export CGO_CFLAGS="${CGO_CFLAGS:-} -I$taos_include"
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$TSBS_BENCH_ROOT/lib"
 export LD_LIBRARY_PATH="$TSBS_BENCH_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

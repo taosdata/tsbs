@@ -71,10 +71,12 @@ def prepare_service(root,summary):
         if time.monotonic()>deadline:raise RuntimeError('dnode readiness timeout')
         time.sleep(1)
     version=td_query('','select server_version()')
-    if '3.4.3.7' not in str(version) or 'enterprise' not in str(version):
+    expected=os.environ.get('TSBS_EXPECTED_VERSION','3.4.3.7')
+    if expected not in re.findall(r'(?<![\d.])\d+\.\d+\.\d+\.\d+(?![\d.])',str(version)) or 'enterprise' not in str(version).lower():
         raise RuntimeError('Unexpected server version: '+str(version))
     summary['environment']=dict(machine=platform.machine(),page_bytes=os.sysconf('SC_PAGE_SIZE'),
-        server_version=version,server_sha256=sha(server),dnodes=nodes,
+        server_version=version,expected_version=expected,server_sha256=sha(server),dnodes=nodes,
+        package_preparation=json.loads((B/'package-preparation.json').read_text()) if (B/'package-preparation.json').exists() else None,
         binary_sha256={name:sha(BIN/name) for name in ['tsbs_generate_data','tsbs_generate_queries','tsbs_load_tdenginestmt2','tsbs_run_queries_tdengine']},
         taos_config=(B/'config/taos.cfg').read_text(),
         handoff_script_sha256={p.name:sha(p) for p in Path(__file__).resolve().parent.iterdir() if p.suffix in {'.py','.sh'}},
@@ -141,9 +143,10 @@ def report(root,summary):
     for q in summary['queries']:
         query_rows.append('<tr><td>'+html.escape(q['type'])+'</td>'+''.join('<td>'+str(q[k])+'</td>' for k in ['count','min_ms','median_ms','mean_ms','max_ms'])+'</tr>')
     rate=statistics.median(x['metrics_per_second'] for x in writes) if writes else 0
+    actual_version=summary.get('environment',{}).get('server_version','未连接服务器')
     page=f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TDengine CPU ARM 实测报告</title>
 <style>body{{margin:0;background:#f3f6fa;color:#19334a;font:16px/1.8 system-ui}}main{{max-width:1100px;margin:auto;padding:24px}}section,header{{padding:24px;background:white;border-radius:12px;margin:20px 0}}header{{background:#17324f;color:white}}.scroll{{overflow:auto}}table{{border-collapse:collapse;width:100%;white-space:nowrap}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:right}}td:first-child,th:first-child{{text-align:left}}pre{{font:12px/1.5 monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto}}summary{{cursor:pointer;overflow-wrap:anywhere}}.big{{font-size:30px;font-weight:bold}}@media(max-width:600px){{main{{padding:12px}}section,header{{padding:16px}}}}</style><main>
-<header><h1>TDengine Enterprise 3.4.3.7 CPU ARM 实测报告</h1><p>{html.escape(root.name)} · 状态：{summary['status']}</p></header>
+<header><h1>TDengine CPU ARM 实测报告</h1><p>实际版本：{html.escape(str(actual_version))}</p><p>{html.escape(root.name)} · 状态：{summary['status']}</p></header>
 <section><div class="big">{rate:,.2f} 指标值/秒</div><p>三轮内部吞吐中位数，{rate/10:,.2f} 行/秒。</p><p>写入：100,000 设备 × 100 点 × 10 指标，每轮 1,000 万行。8 workers / batch 1,000 / vgroups 8 / replica 1 / WAL=2 / fsync=3,000ms。</p><p>内部计时排除启动、worker 初始化、建库建表，包含扫描、组批、传输与响应等待。异步 fsync 成功响应不等于逐条同步落盘。外部总墙钟另列。</p></section>
 <section class="scroll"><h2>写入结果</h2><table><tr><th>轮次</th><th>内部秒</th><th>指标值/秒</th><th>行/秒</th><th>外部秒</th></tr>{''.join(rows)}</table></section>
 <section class="scroll"><h2>查询结果（ms）</h2><p>scale=4,000，共 1,152 万行；15 类各 10 条，1 worker，不预热、不清缓存。10 条为 seed=123 生成的固定查询样本，可能是不同设备/窗口。含执行、完整取回及客户端解码。</p><table><tr><th>场景</th><th>成功条数</th><th>最小</th><th>中位</th><th>平均</th><th>最大</th></tr>{''.join(query_rows)}</table></section>

@@ -8,20 +8,50 @@ comparison orchestrator. No InfluxDB installation or source build is required.
 ## Prepare a Linux ARM64 host once
 
 Requirements: Python 3.9+, Go (validated with 1.25.6), C compiler, Git, GNU time,
-at least 40 GiB free disk, and an already extracted **TDengine Enterprise
-3.4.3.7 ARM64** package. This script neither downloads nor installs the database.
+at least 40 GiB free disk, and a **TDengine Enterprise Linux ARM64** server
+package. The expected version is configurable (default: 3.4.3.7).
 Keep the host free of other benchmarks; the client and database share this host.
 
 Copy `config.example.sh` to an untracked `config.sh` and set the benchmark root,
-server executable, host and port. Commands below are run from the TSBS repository
-root, on the benchmark server:
+package URL, expected version, installed server executable, host and port.
+Commands below are run from the TSBS repository root, on the benchmark server:
 
 ```bash
 cp scripts/cpu-arm-oneclick/config.example.sh scripts/cpu-arm-oneclick/config.sh
-# Edit config.sh for your paths and endpoint.
+# Edit config.sh for your package URL, version, paths and endpoint.
+# Install once, or when intentionally changing the database version:
+bash scripts/cpu-arm-oneclick/setup.sh --config scripts/cpu-arm-oneclick/config.sh
 bash scripts/cpu-arm-oneclick/build.sh --config scripts/cpu-arm-oneclick/config.sh
 bash scripts/cpu-arm-oneclick/run.sh --config scripts/cpu-arm-oneclick/config.sh
 ```
+
+`setup.sh` downloads the HTTP/HTTPS `.tar.gz` URL from `TSBS_TDENGINE_URL`,
+verifies `TSBS_TDENGINE_SHA256` if configured, extracts the ARM64 server package,
+and runs **`./install.sh -e no` from the package directory**. It uses the package's
+normal installation/update behavior, without adding installation flags or running
+its own replacement installer. Run this explicit preparation command as root on
+the designated test host. Installer output is saved to
+`<root>/package-install.log`; a failed installer stops preparation.
+
+Downloads are cached under `<root>/packages/<URL-SHA256>/`. Reusing a URL checks
+the cached archive hash and avoids downloading it again; setup still runs the
+installer each time it is explicitly invoked. If a publisher replaces the content
+at the same URL, preserve and remove that URL's cache before rerunning setup.
+Prefer versioned URLs and a publisher-provided SHA-256. URLs are not printed or
+stored in report metadata because signed links can contain credentials.
+
+After installation, setup checks that `TSBS_TAOSD_BIN` matches the downloaded
+server binary and creates `<root>/lib` links to the **installed** client drivers.
+The default installed executable is `/usr/local/taos/bin/taosd`; if the installer
+uses a previous custom installation path, set `TSBS_TAOSD_BIN` to that path.
+`build.sh` supports both installed `include/` and extracted-package `inc/` headers.
+It rebuilds the TSBS binaries against the selected client library.
+
+The installer can update system installation files and manage existing services.
+Setup refuses to run while this root's recorded benchmark server is alive; it
+never stops that process itself. Stop the verified benchmark PID deliberately
+before upgrading. `run.sh` does **not** install or upgrade anything, so everyday
+reruns only execute the benchmark.
 
 The working root layout must contain:
 
@@ -29,10 +59,11 @@ The working root layout must contain:
 <root>/bin/                 # TSBS binaries built by build.sh
 <root>/lib/                 # libtaos.so and associated driver libraries
 <root>/config/taos.cfg      # isolated server/client config matching host and port
-<root>/source/<package>/    # extracted official ARM64 package (taosd and inc/)
+<root>/packages/            # downloaded archives and cache receipts (URL mode)
 ```
 
-Create `<root>/lib` with links to the extracted package's client drivers, including
+For an already extracted local package, skip `setup.sh`, set `TSBS_TAOSD_BIN`
+to its `bin/taosd`, and create `<root>/lib` with links to its client drivers, including
 `libtaos.so` and `libtaosnative.so` where the release provides them. Configure
 `taos.cfg` with isolated data/log/temp directories, `fqdn`, `firstEp` and
 `serverPort` for this instance. A running server must have a PID file at
@@ -52,6 +83,31 @@ ssh user@benchmark-host 'cd /path/to/tsbs && bash scripts/cpu-arm-oneclick/run.s
 
 Database installation packages, binaries, datasets, host configs and generated
 reports are runtime artifacts; **do not commit them**. `config.sh` is ignored.
+
+### Changing the tested version
+
+For example, testing 3.4.3.8 uses the same scripts and workload:
+
+```bash
+# In your private config.sh (replace the example URL with the actual package):
+export TSBS_TDENGINE_URL='https://downloads.example.com/tdengine-enterprise-3.4.3.8-linux-arm64.tar.gz'
+export TSBS_EXPECTED_VERSION=3.4.3.8
+export TSBS_TDENGINE_SHA256='' # Prefer the publisher's actual SHA-256.
+export TSBS_TAOSD_BIN=/usr/local/taos/bin/taosd
+```
+
+Run `setup.sh`, `build.sh`, then `run.sh` with this config. Setup itself is outside
+all benchmark timing. Existing `config/taos.cfg` and isolated data/log/temp paths
+still need to be prepared as described above; downloading the package does not
+create the benchmark configuration. The version must match `server_version()`
+exactly, and the server must identify as enterprise. Reports show the actual
+connected server version and include package/server hashes.
+
+The installer follows the normal system upgrade path; separate benchmark roots
+do not create parallel system installations. For version comparisons, schedule
+versions sequentially, retain previous evidence, and use equivalent initial data
+and service settings. Reuse the same verified input cache when the goal is to
+change only the server version.
 
 ## Fixed workload
 
