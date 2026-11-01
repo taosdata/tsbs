@@ -453,3 +453,7 @@ Before we accept any contributions, Timescale contributors need to
 sign the [Contributor License Agreement](https://cla-assistant.io/timescale/tsbs) (CLA).
 By signing a CLA, we can ensure that the community is free and confident in its
 ability to use your contributions.
+
+### TDengine CPU ARM one-click run
+
+For a prepared ARM64 host, see [the CPU one-click runner](scripts/cpu-arm-oneclick/README.md). It uses the existing TSBS generator, STMT2 loader and query runner, and produces a self-contained HTML report.

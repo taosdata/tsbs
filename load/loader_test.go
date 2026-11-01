@@ -3,6 +3,8 @@ package load
 import (
 	"bytes"
 	"fmt"
+	"github.com/taosdata/tsbs/pkg/data"
+	"github.com/taosdata/tsbs/pkg/data/usecases/common"
 	"github.com/taosdata/tsbs/pkg/targets"
 	"strings"
 	"sync"
@@ -477,5 +479,68 @@ func TestReport(t *testing.T) {
 	m.Unlock()
 	if end[len(end)-1:len(end)] == "-" {
 		t.Errorf("TestReport: row report ends in -")
+	}
+}
+
+// The scanner must not run until all processors have finished initialization.
+type gatedProcessor struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (p *gatedProcessor) Init(int, bool, bool)                              { p.entered <- struct{}{}; <-p.release }
+func (p *gatedProcessor) ProcessBatch(targets.Batch, bool) (uint64, uint64) { return 1, 1 }
+
+type gatedSource struct {
+	scanned chan struct{}
+	once    sync.Once
+}
+
+func (s *gatedSource) NextItem() data.LoadedPoint {
+	s.once.Do(func() { close(s.scanned) })
+	return data.LoadedPoint{}
+}
+func (*gatedSource) Headers() *common.GeneratedDataHeaders { return nil }
+
+type gatedBenchmark struct {
+	testBenchmark
+	proc   *gatedProcessor
+	source *gatedSource
+}
+
+func (b *gatedBenchmark) GetProcessor() targets.Processor     { return b.proc }
+func (b *gatedBenchmark) GetDataSource() targets.DataSource   { return b.source }
+func (*gatedBenchmark) GetBatchFactory() targets.BatchFactory { return &testFactory{} }
+func TestScannerWaitsForWorkerInitialization(t *testing.T) {
+	for _, noFlow := range []bool{false, true} {
+		t.Run(fmt.Sprint(noFlow), func(t *testing.T) {
+			oldPrint := printFn
+			printFn = func(string, ...interface{}) (int, error) { return 0, nil }
+			defer func() { printFn = oldPrint }()
+			entered, release, scanned := make(chan struct{}, 2), make(chan struct{}), make(chan struct{})
+			b := &gatedBenchmark{proc: &gatedProcessor{entered: entered, release: release}, source: &gatedSource{scanned: scanned}}
+			c := BenchmarkRunnerConfig{Workers: 2, BatchSize: 1, NoFlowControl: noFlow, ReportingPeriod: 0}
+			runner := GetBenchmarkRunner(c)
+			done := make(chan struct{})
+			go func() { runner.RunBenchmark(b); close(done) }()
+			<-entered
+			<-entered
+			select {
+			case <-scanned:
+				t.Error("input scanned while worker initialization was blocked")
+			case <-time.After(20 * time.Millisecond):
+			}
+			close(release)
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				t.Fatal("runner did not complete")
+			}
+			select {
+			case <-scanned:
+			default:
+				t.Fatal("input was never scanned")
+			}
+		})
 	}
 }
